@@ -1,0 +1,5 @@
+{
+  "name": "German Vocabulary Builder AI",
+  "description": "An AI-powered application to help users learn and practice German vocabulary. Users can add their own words, practice writing sentences with AI feedback, and generate stories using their custom vocabulary list.",
+  "requestFramePermissions": []
+}
