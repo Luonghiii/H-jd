@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { VocabularyProvider } from './hooks/useVocabulary';
 import { SettingsProvider } from './hooks/useSettings';
 import Header from './components/Header';
@@ -9,19 +9,30 @@ import StoryGenerator from './components/StoryGenerator';
 import SentenceGenerator from './components/SentenceGenerator';
 import Flashcards from './components/Flashcards';
 import LuckyWheel from './components/LuckyWheel';
-import Login from './components/Login'; // Import Login component
+import Login from './components/Login';
+import ApiKeySetup from './components/ApiKeySetup';
+import SettingsModal from './components/SettingsModal';
 import { View } from './types';
 import { BookOpen, Feather, PenSquare, Sparkles, MessageSquarePlus, Layers, Dices } from 'lucide-react';
 
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    // Check session storage on initial load
     try {
       return sessionStorage.getItem('isAuthenticated') === 'true';
     } catch {
       return false;
     }
   });
+
+  const [apiKey, setApiKey] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem('gemini_api_key');
+    } catch {
+      return null;
+    }
+  });
+
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [currentView, setCurrentView] = useState<View>(View.Practice);
   
   const handleLoginSuccess = () => {
@@ -42,8 +53,32 @@ const App: React.FC = () => {
     setIsAuthenticated(false);
   };
 
+  const handleKeySave = (key: string) => {
+    try {
+        localStorage.setItem('gemini_api_key', key);
+        setApiKey(key);
+    } catch (error) {
+        console.error("Could not save API key to localStorage", error);
+        alert("Error: Could not save API key. Your browser might be in private mode or has storage disabled.");
+    }
+  };
+
+  const handleKeyClear = () => {
+      try {
+          localStorage.removeItem('gemini_api_key');
+          setApiKey(null);
+          setIsSettingsOpen(false);
+      } catch (error) {
+          console.error("Could not clear API key from localStorage", error);
+      }
+  };
+
   if (!isAuthenticated) {
     return <Login onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  if (!apiKey) {
+    return <ApiKeySetup onKeySaved={handleKeySave} />;
   }
 
   const renderView = () => {
@@ -81,7 +116,7 @@ const App: React.FC = () => {
     <SettingsProvider>
       <VocabularyProvider>
         <div className="min-h-screen bg-gradient-to-br from-gray-900 to-slate-800 text-gray-200 font-sans">
-          <Header onLogout={handleLogout} />
+          <Header onLogout={handleLogout} onSettingsClick={() => setIsSettingsOpen(true)} />
           <main className="container mx-auto p-4 md:p-6 lg:p-8">
             <div className="max-w-4xl mx-auto">
               <div className="bg-slate-900/50 backdrop-blur-sm rounded-xl shadow-2xl shadow-slate-900/50 border border-slate-700">
@@ -109,6 +144,13 @@ const App: React.FC = () => {
             </div>
           </main>
         </div>
+        <SettingsModal
+            isOpen={isSettingsOpen}
+            onClose={() => setIsSettingsOpen(false)}
+            onKeySave={handleKeySave}
+            onKeyClear={handleKeyClear}
+            currentApiKey={apiKey}
+        />
       </VocabularyProvider>
     </SettingsProvider>
   );

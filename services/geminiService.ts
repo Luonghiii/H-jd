@@ -1,16 +1,23 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { VocabularyWord, TargetLanguage } from "../types";
 
-const API_KEY = process.env.API_KEY;
+const getAiClient = () => {
+  try {
+    const apiKey = localStorage.getItem('gemini_api_key');
+    if (!apiKey) {
+      throw new Error("API key not found in localStorage. Please set it in the settings.");
+    }
+    return new GoogleGenAI({ apiKey });
+  } catch (error) {
+    console.error("Could not get API key from localStorage", error);
+    throw new Error("API key is not configured. Please set it in the settings.");
+  }
+};
 
-if (!API_KEY) {
-  throw new Error("API_KEY environment variable not set");
-}
-
-const ai = new GoogleGenAI({ apiKey: API_KEY });
 
 export const translateWord = async (word: string, targetLanguage: 'English' | 'Vietnamese'): Promise<string> => {
   try {
+    const ai = getAiClient();
     const prompt = `Translate the following German word to ${targetLanguage}. Respond with ONLY the translated word/phrase itself, without any extra text or quotation marks.\n\nGerman word: "${word}"`;
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
@@ -19,6 +26,9 @@ export const translateWord = async (word: string, targetLanguage: 'English' | 'V
     return response.text.trim();
   } catch (error) {
     console.error("Error translating word:", error);
+    if (error instanceof Error && error.message.includes("API key")) {
+        return "API Key Error. Check settings.";
+    }
     return "Translation failed";
   }
 };
@@ -26,6 +36,7 @@ export const translateWord = async (word: string, targetLanguage: 'English' | 'V
 
 export const checkGermanSentence = async (sentence: string, word: string, targetLanguage: TargetLanguage): Promise<string> => {
   try {
+    const ai = getAiClient();
     const prompt = `
       You are an expert German language teacher assisting a ${targetLanguage}-speaking student.
       The student is learning the German word: "${word}".
@@ -41,7 +52,7 @@ export const checkGermanSentence = async (sentence: string, word: string, target
 
       Respond in a friendly and encouraging tone.
     `;
-i
+
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: prompt,
@@ -50,6 +61,9 @@ i
     return response.text;
   } catch (error) {
     console.error("Error checking sentence:", error);
+    if (error instanceof Error && error.message.includes("API key")) {
+        return "API Key Error. Please configure your key in the settings.";
+    }
     return "Sorry, I couldn't check your sentence right now. Please try again later.";
   }
 };
@@ -57,8 +71,9 @@ i
 export const generateGermanStory = async (words: string[], targetLanguage: TargetLanguage): Promise<string> => {
   if (words.length === 0) {
     return "Please select some words to generate a story.";
-  } ko
+  }
   try {
+    const ai = getAiClient();
     const prompt = `
       You are a creative storyteller. Write a very short and simple story in German, suitable for an A1/A2 level language learner.
       The story must include the following German words: ${words.join(', ')}.
@@ -75,12 +90,16 @@ export const generateGermanStory = async (words: string[], targetLanguage: Targe
     return response.text;
   } catch (error) {
     console.error("Error generating story:", error);
+    if (error instanceof Error && error.message.includes("API key")) {
+        return "API Key Error. Please configure your key in the settings.";
+    }
     return "Sorry, I couldn't generate a story right now. Please try again later.";
   }
 };
 
 export const rewriteGermanSentence = async (sentence: string, word: string, targetLanguage: TargetLanguage): Promise<string> => {
   try {
+    const ai = getAiClient();
     const prompt = `
       You are an expert German language teacher assisting a ${targetLanguage}-speaking student.
       The student is learning the German word: "${word}".
@@ -106,12 +125,16 @@ export const rewriteGermanSentence = async (sentence: string, word: string, targ
     return response.text;
   } catch (error) {
     console.error("Error rewriting sentence:", error);
+    if (error instanceof Error && error.message.includes("API key")) {
+        return "API Key Error. Please configure your key in the settings.";
+    }
     return "Sorry, I couldn't rewrite the sentence right now. Please try again later.";
   }
 };
 
 export const generateGermanSentence = async (word: VocabularyWord, targetLanguage: TargetLanguage): Promise<string> => {
   try {
+    const ai = getAiClient();
     const prompt = `
       You are a helpful German language teacher creating an example for a ${targetLanguage}-speaking student.
       The student is learning the German word: "${word.german}" (which means "${word.translation[targetLanguage]}" in ${targetLanguage}).
@@ -130,6 +153,9 @@ export const generateGermanSentence = async (word: VocabularyWord, targetLanguag
     return response.text;
   } catch (error) {
     console.error("Error generating sentence:", error);
+    if (error instanceof Error && error.message.includes("API key")) {
+        return "API Key Error. Please configure your key in the settings.";
+    }
     return "Sorry, I couldn't generate a sentence right now. Please try again later.";
   }
 };
@@ -138,6 +164,7 @@ export const generateGermanSentence = async (word: VocabularyWord, targetLanguag
 export const generateQuizForWord = async (word: VocabularyWord, targetLanguage: TargetLanguage): Promise<{ question: string; options: string[]; correctAnswer: string } | null> => {
   const correctTranslation = word.translation[targetLanguage];
   try {
+    const ai = getAiClient();
     const prompt = `Create a multiple-choice quiz question for a ${targetLanguage}-speaking student learning German. The German word is "${word.german}". The correct ${targetLanguage} translation is "${correctTranslation}". Generate three plausible but incorrect ${targetLanguage} translations to be used as distractors. Return a JSON object with the question, the four shuffled options, and the correct answer. The question should be in ${targetLanguage}.`;
 
     const response = await ai.models.generateContent({
@@ -163,7 +190,6 @@ export const generateQuizForWord = async (word: VocabularyWord, targetLanguage: 
     
     const quizData = JSON.parse(response.text);
     
-    // Ensure the correct answer is one of the options, Gemini can sometimes forget.
     if (!quizData.options.includes(quizData.correctAnswer)) {
         const randomIndex = Math.floor(Math.random() * 4);
         quizData.options[randomIndex] = quizData.correctAnswer;

@@ -1,5 +1,5 @@
 import React from 'react';
-import { BotMessageSquare, LogOut } from 'lucide-react';
+import { BotMessageSquare, LogOut, Settings } from 'lucide-react';
 import { useSettings } from '../hooks/useSettings';
 import { TargetLanguage } from '../types';
 
@@ -29,7 +29,7 @@ const LanguageSelector: React.FC = () => {
 };
 
 
-const Header: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
+const Header: React.FC<{ onLogout: () => void; onSettingsClick: () => void }> = ({ onLogout, onSettingsClick }) => {
   return (
     <header className="py-4 px-4 sm:px-8">
       <div className="container mx-auto flex items-center justify-between">
@@ -39,8 +39,15 @@ const Header: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
             AI Từ vựng tiếng Đức
           </h1>
         </div>
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-2 sm:space-x-4">
           <LanguageSelector />
+          <button
+            onClick={onSettingsClick}
+            className="p-2 text-gray-300 hover:bg-slate-700/50 hover:text-white rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-indigo-500"
+            aria-label="Cài đặt"
+          >
+            <Settings className="w-5 h-5" />
+          </button>
           <button
             onClick={onLogout}
             className="p-2 text-gray-300 hover:bg-slate-700/50 hover:text-white rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-indigo-500"
