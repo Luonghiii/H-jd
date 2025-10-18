@@ -352,6 +352,36 @@ For German nouns, include the gender ('der', 'die', or 'das').`;
     });
 };
 
+export const generateSpeech = async (word: string, learningLanguage: LearningLanguage): Promise<string> => {
+    return executeWithKeyRotation(async (ai) => {
+        const voiceMap: Record<LearningLanguage, string> = {
+            'german': 'Puck',
+            'english': 'Zephyr',
+            'chinese': 'Kore'
+        };
+
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash-preview-tts",
+            contents: [{ parts: [{ text: word }] }],
+            config: {
+                responseModalities: [Modality.AUDIO],
+                speechConfig: {
+                    voiceConfig: {
+                        prebuiltVoiceConfig: { voiceName: voiceMap[learningLanguage] || 'Zephyr' },
+                    },
+                },
+            },
+        });
+        
+        const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+        if (base64Audio) {
+            return base64Audio;
+        }
+
+        throw new Error("No audio generated");
+    });
+};
+
 export const checkSentence = async (sentence: string, word: string, targetLanguage: TargetLanguage, learningLanguage: LearningLanguage): Promise<string> => {
     return executeWithKeyRotation(async (ai) => {
         const prompt = `The user is learning ${learningLanguage} and wrote a sentence${word ? ` using the word "${word}"` : ''}.

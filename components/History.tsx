@@ -1,8 +1,7 @@
 import React from 'react';
 import { useHistory } from '../hooks/useHistory';
 import { HistoryEntry } from '../types';
-// FIX: Imported BrainCircuit icon for the 'REVIEW_SESSION_COMPLETED' history entry type.
-import { LogIn, PlusSquare, BookOpen, CheckSquare, Award, XCircle, Trash2, Link, Puzzle, Shuffle, BrainCircuit } from 'lucide-react';
+import { LogIn, PlusSquare, BookOpen, CheckSquare, Award, XCircle, Trash2, Link, Puzzle, Shuffle, BrainCircuit, Volume2 } from 'lucide-react';
 
 const ICONS: { [key in HistoryEntry['type']]: React.ElementType } = {
     LOGIN: LogIn,
@@ -16,8 +15,9 @@ const ICONS: { [key in HistoryEntry['type']]: React.ElementType } = {
     WORD_GUESS_LOST: XCircle,
     WORD_LINK_COMPLETED: Link,
     GRAMMAR_CHECK_COMPLETED: CheckSquare,
-    // FIX: Add BrainCircuit icon for review sessions.
     REVIEW_SESSION_COMPLETED: BrainCircuit,
+    // FIX: Add missing SPEECH_GENERATED icon type
+    SPEECH_GENERATED: Volume2,
 };
 
 const formatTimeAgo = (timestamp: number) => {

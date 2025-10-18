@@ -73,25 +73,21 @@ export const createUserDocument = async (user: User): Promise<void> => {
 };
 
 // =====================
-// Update (supports dot notation)
+// Update (supports deep merge)
 // =====================
 /**
- * Cập nhật document user. Hỗ trợ dot-notation như { 'settings.learningLanguage': 'english' }.
- * Nếu doc chưa tồn tại, fallback sang setDoc(..., { merge: true }).
+ * Cập nhật document user. Sử dụng setDoc with merge để hỗ trợ deep merge,
+ * đảm bảo các nested object như `words` và `settings` được cập nhật chính xác
+ * mà không ghi đè lên nhau.
  */
 export const updateUserData = async (uid: string, data: DocumentData): Promise<void> => {
   if (!uid) return;
   const userRef = doc(db, 'users', uid);
 
   try {
-    await updateDoc(userRef, data);
+    await setDoc(userRef, data, { merge: true });
   } catch (err: any) {
-    // Nếu doc chưa tồn tại -> tạo với merge để không ghi đè cấu trúc mặc định
-    if (err?.code === 'not-found') {
-      await setDoc(userRef, data, { merge: true });
-    } else {
-      console.error('Error updating user data:', err);
-    }
+    console.error('Error updating user data:', err);
   }
 };
 
