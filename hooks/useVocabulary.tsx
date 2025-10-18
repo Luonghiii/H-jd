@@ -86,7 +86,7 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
   const persistWords = useCallback(async (newWords: VocabularyWord[]) => {
       if (currentUser?.uid) {
           await updateUserData(currentUser.uid, {
-              [`words.${learningLanguage}`]: newWords
+              words: { [learningLanguage]: newWords }
           });
       }
   }, [currentUser, learningLanguage]);

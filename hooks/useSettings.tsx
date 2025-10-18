@@ -70,41 +70,41 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const setTargetLanguage = useCallback((language: TargetLanguage) => {
     if (!currentUser) return;
-    updateUserData(currentUser.uid, { 'settings.targetLanguage': language });
+    updateUserData(currentUser.uid, { settings: { targetLanguage: language } });
   }, [currentUser]);
   
   const setLearningLanguage = useCallback((language: LearningLanguage) => {
     if (!currentUser) return;
-    updateUserData(currentUser.uid, { 'settings.learningLanguage': language });
+    updateUserData(currentUser.uid, { settings: { learningLanguage: language } });
   }, [currentUser]);
 
   const setBackgroundImage = useCallback((imageDataUrl: string) => {
     if (!currentUser) return;
     const newBg = { type: 'image' as const, value: imageDataUrl };
-    updateUserData(currentUser.uid, { 'settings.backgroundSetting': newBg });
+    updateUserData(currentUser.uid, { settings: { backgroundSetting: newBg } });
   }, [currentUser]);
   
   const setBackgroundGradient = useCallback((cssGradient: string) => {
     if (!currentUser) return;
     const newBg = { type: 'gradient' as const, value: cssGradient };
-    updateUserData(currentUser.uid, { 'settings.backgroundSetting': newBg });
+    updateUserData(currentUser.uid, { settings: { backgroundSetting: newBg } });
   }, [currentUser]);
 
   const clearBackgroundSetting = useCallback(() => {
     if (!currentUser) return;
-    updateUserData(currentUser.uid, { 'settings.backgroundSetting': null });
+    updateUserData(currentUser.uid, { settings: { backgroundSetting: null } });
   }, [currentUser]);
   
   const addCustomGradient = useCallback((gradient: string) => {
     if (!currentUser) return;
     const newGradients = [gradient, ...settings.customGradients];
-    updateUserData(currentUser.uid, { 'settings.customGradients': newGradients });
+    updateUserData(currentUser.uid, { settings: { customGradients: newGradients } });
   }, [currentUser, settings.customGradients]);
   
   const removeCustomGradient = useCallback((gradient: string) => {
     if (!currentUser) return;
     const newGradients = settings.customGradients.filter(g => g !== gradient);
-    updateUserData(currentUser.uid, { 'settings.customGradients': newGradients });
+    updateUserData(currentUser.uid, { settings: { customGradients: newGradients } });
   }, [currentUser, settings.customGradients]);
 
   const addUserApiKey = useCallback((key: string): boolean => {
@@ -117,7 +117,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     try {
         localStorage.setItem('userApiKeys', JSON.stringify(newKeys));
     } catch (e) { console.error("Failed to save API keys to localStorage", e); }
-    updateUserData(currentUser.uid, { 'settings.userApiKeys': newKeys });
+    updateUserData(currentUser.uid, { settings: { userApiKeys: newKeys } });
     return true;
   }, [currentUser, settings.userApiKeys]);
 
@@ -127,7 +127,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     try {
         localStorage.setItem('userApiKeys', JSON.stringify(newKeys));
     } catch (e) { console.error("Failed to save API keys to localStorage", e); }
-    updateUserData(currentUser.uid, { 'settings.userApiKeys': newKeys });
+    updateUserData(currentUser.uid, { settings: { userApiKeys: newKeys } });
   }, [currentUser, settings.userApiKeys]);
 
   const hasApiKey = !!process.env.API_KEY || settings.userApiKeys.length > 0;
