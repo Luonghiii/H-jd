@@ -1,87 +1,131 @@
+// firestoreUser.ts
 import { db } from './firebase';
-import { doc, getDoc, setDoc, onSnapshot, DocumentData, Unsubscribe } from 'firebase/firestore';
+import {
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  onSnapshot,
+  runTransaction,
+  serverTimestamp,
+  DocumentData,
+  Unsubscribe,
+} from 'firebase/firestore';
 import { User } from 'firebase/auth';
 
+// =====================
+// Types
+// =====================
+export interface UserSettings {
+  targetLanguage: string;          // e.g. 'vietnamese'
+  learningLanguage: string;        // e.g. 'german'
+  backgroundSetting: { type: 'image' | 'gradient'; value: string } | null;
+  customGradients: string[];
+  userApiKeys: string[];           // ⚠️ Nếu là key thật, cân nhắc mã hoá/không lưu trực tiếp
+}
+
+export interface UserDoc {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  photoURL: string | null;
+  createdAt: any;                  // Firestore Timestamp (serverTimestamp), hoặc Date khi đã resolve
+  words: Record<string, unknown>;
+  settings: UserSettings;
+  history: unknown[];
+}
+
+// =====================
+// Create user (first-time only) via transaction
+// =====================
 /**
- * Creates a user document in Firestore if it doesn't already exist.
- * This is typically called after a user signs up or signs in for the first time.
- * @param user The user object from Firebase Authentication.
+ * Tạo document user nếu chưa tồn tại (an toàn với race) và chỉ set createdAt lần đầu.
+ * Gọi sau khi user đăng nhập lần đầu.
  */
 export const createUserDocument = async (user: User): Promise<void> => {
-    if (!user) return;
+  if (!user) return;
 
-    const userRef = doc(db, 'users', user.uid);
-    const snapshot = await getDoc(userRef);
+  const userRef = doc(db, 'users', user.uid);
 
-    if (!snapshot.exists()) {
-        const { email, displayName, photoURL } = user;
-        const createdAt = new Date();
-
-        try {
-            // Initialize the user document with default values.
-            await setDoc(userRef, {
-                uid: user.uid,
-                email,
-                displayName,
-                photoURL,
-                createdAt,
-                words: {},
-                settings: {
-                    targetLanguage: 'vietnamese',
-                    learningLanguage: 'german',
-                    backgroundSetting: null,
-                    customGradients: [],
-                    userApiKeys: [],
-                },
-                history: [],
-            });
-        } catch (error) {
-            console.error("Error creating user document:", error);
-        }
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(userRef);
+    if (!snap.exists()) {
+      const { email, displayName, photoURL } = user;
+      const initialData: UserDoc = {
+        uid: user.uid,
+        email: email ?? null,
+        displayName: displayName ?? null,
+        photoURL: photoURL ?? null,
+        createdAt: serverTimestamp(),
+        words: {},
+        settings: {
+          targetLanguage: 'vietnamese',
+          learningLanguage: 'german',
+          backgroundSetting: null,
+          customGradients: [],
+          userApiKeys: [],
+        },
+        history: [],
+      };
+      tx.set(userRef, initialData);
     }
+  });
 };
 
+// =====================
+// Update (supports dot notation)
+// =====================
 /**
- * Updates a user's document in Firestore.
- * This function now uses `setDoc` with `merge: true` to robustly handle updates,
- * creating the document or nested fields if they don't exist.
- * @param uid The user's ID.
- * @param data The data to update, which can use dot notation (e.g., { 'settings.language': 'english' }).
+ * Cập nhật document user. Hỗ trợ dot-notation như { 'settings.learningLanguage': 'english' }.
+ * Nếu doc chưa tồn tại, fallback sang setDoc(..., { merge: true }).
  */
 export const updateUserData = async (uid: string, data: DocumentData): Promise<void> => {
-    if (!uid) return;
-    const userRef = doc(db, 'users', uid);
-    try {
-        await setDoc(userRef, data, { merge: true });
-    } catch (error) {
-        console.error("Error updating user data:", error);
+  if (!uid) return;
+  const userRef = doc(db, 'users', uid);
+
+  try {
+    await updateDoc(userRef, data);
+  } catch (err: any) {
+    // Nếu doc chưa tồn tại -> tạo với merge để không ghi đè cấu trúc mặc định
+    if (err?.code === 'not-found') {
+      await setDoc(userRef, data, { merge: true });
+    } else {
+      console.error('Error updating user data:', err);
     }
+  }
 };
 
-
+// =====================
+// Realtime listener
+// =====================
 /**
- * Listens for real-time updates to a user's document.
- * @param uid The user's ID.
- * @param callback A function to call with the document data when it changes.
- * @returns An unsubscribe function to stop listening for updates.
+ * Lắng nghe realtime thay đổi của document user.
+ * Trả về hàm unsubscribe để dừng lắng nghe.
  */
-export const onUserDataSnapshot = (uid: string, callback: (data: DocumentData | null) => void): Unsubscribe => {
-    if (!uid) {
-        // Return a no-op unsubscribe function if there's no UID.
-        return () => {};
-    }
-    const userRef = doc(db, 'users', uid);
+export const onUserDataSnapshot = (
+  uid: string,
+  callback: (data: UserDoc | null) => void
+): Unsubscribe => {
+  if (!uid) {
+    return () => {};
+  }
+  const userRef = doc(db, 'users', uid);
 
-    const unsubscribe = onSnapshot(userRef, (doc) => {
-        if (doc.exists()) {
-            callback(doc.data());
-        } else {
-            callback(null);
-        }
-    }, (error) => {
-        console.error("Error listening to user data snapshot:", error);
+  const unsubscribe = onSnapshot(
+    userRef,
+    (snapshot) => {
+      if (snapshot.exists()) {
+        // Có thể cast về UserDoc (nếu bạn đảm bảo schema), hoặc để DocumentData
+        callback(snapshot.data() as UserDoc);
+      } else {
         callback(null);
-    });
+      }
+    },
+    (error) => {
+      console.error('Error listening to user data snapshot:', error);
+      callback(null);
+    }
+  );
 
-    return unsubscribe;
+  return unsubscribe;
 };
