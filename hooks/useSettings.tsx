@@ -18,6 +18,11 @@ interface SettingsContextType {
   setBackgroundImage: (imageDataUrl: string) => void;
   setBackgroundGradient: (cssGradient: string) => void;
   clearBackgroundSetting: () => void;
+  theme: 'light' | 'dark';
+  setTheme: (theme: 'light' | 'dark') => void;
+  customGradients: string[];
+  addCustomGradient: (gradient: string) => void;
+  removeCustomGradient: (gradient: string) => void;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -58,6 +63,24 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     } catch (error) {
       console.error("Could not load background setting from localStorage", error);
       return null;
+    }
+  });
+  
+  const [theme, setThemeState] = useState<'light' | 'dark'>(() => {
+    try {
+        const savedTheme = localStorage.getItem('appTheme');
+        return savedTheme === 'light' ? 'light' : 'dark';
+    } catch {
+        return 'dark';
+    }
+  });
+  
+  const [customGradients, setCustomGradients] = useState<string[]>(() => {
+    try {
+        const savedGradients = localStorage.getItem('customGradients');
+        return savedGradients ? JSON.parse(savedGradients) : [];
+    } catch {
+        return [];
     }
   });
 
@@ -106,6 +129,22 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
       console.error("Could not save background setting to localStorage", error);
     }
   }, [backgroundSetting]);
+  
+  useEffect(() => {
+    try {
+        localStorage.setItem('appTheme', theme);
+    } catch (error) {
+        console.error("Could not save theme to localStorage", error);
+    }
+  }, [theme]);
+  
+  useEffect(() => {
+    try {
+        localStorage.setItem('customGradients', JSON.stringify(customGradients));
+    } catch (error) {
+        console.error("Could not save custom gradients to localStorage", error);
+    }
+  }, [customGradients]);
 
   const setLearningLanguage = (language: LearningLanguage) => {
     setLearningLanguageState(language);
@@ -122,9 +161,21 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
   const clearBackgroundSetting = () => {
     setBackgroundSettingState(null);
   };
+  
+  const setTheme = (newTheme: 'light' | 'dark') => {
+      setThemeState(newTheme);
+  };
+
+  const addCustomGradient = (gradient: string) => {
+    setCustomGradients(prev => [gradient, ...prev]);
+  };
+  
+  const removeCustomGradient = (gradient: string) => {
+    setCustomGradients(prev => prev.filter(g => g !== gradient));
+  };
 
   return (
-    <SettingsContext.Provider value={{ apiKey, setApiKey, clearApiKey, targetLanguage, setTargetLanguage, learningLanguage, setLearningLanguage, backgroundSetting, setBackgroundImage, setBackgroundGradient, clearBackgroundSetting }}>
+    <SettingsContext.Provider value={{ apiKey, setApiKey, clearApiKey, targetLanguage, setTargetLanguage, learningLanguage, setLearningLanguage, backgroundSetting, setBackgroundImage, setBackgroundGradient, clearBackgroundSetting, theme, setTheme, customGradients, addCustomGradient, removeCustomGradient }}>
       {children}
     </SettingsContext.Provider>
   );

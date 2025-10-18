@@ -1,10 +1,11 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useVocabulary, themeTranslationMap } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
 import { useInspector } from '../hooks/useInspector';
+import { useHistory } from '../hooks/useHistory';
 import { VocabularyWord } from '../types';
 import { generateQuizForWord } from '../services/geminiService';
-import { Check, X, Loader2, RefreshCw } from 'lucide-react';
+import { Check, X, Loader2, RefreshCw, ArrowLeft } from 'lucide-react';
 
 type QuizQuestion = {
   word: VocabularyWord;
@@ -21,10 +22,15 @@ type UserAnswer = {
 
 type QuizView = 'setup' | 'loading' | 'playing' | 'results';
 
-const Quiz: React.FC = () => {
+interface QuizProps {
+  onBack: () => void;
+}
+
+const Quiz: React.FC<QuizProps> = ({ onBack }) => {
   const { words, getAvailableThemes } = useVocabulary();
   const { targetLanguage, learningLanguage } = useSettings();
   const { openInspector } = useInspector();
+  const { addHistoryEntry } = useHistory();
 
   const [view, setView] = useState<QuizView>('setup');
   const [selectedThemes, setSelectedThemes] = useState<Set<string>>(new Set(['all']));
@@ -71,7 +77,7 @@ const Quiz: React.FC = () => {
     const promises = wordsToQuiz.map(word => 
       generateQuizForWord(word, targetLanguage, learningLanguage).catch(err => {
         console.error(`Failed to generate quiz for "${word.word}":`, err);
-        return null; // Return null on failure
+        return null;
       })
     );
 
@@ -79,7 +85,7 @@ const Quiz: React.FC = () => {
     const successfulQuizzes = results.filter(q => q !== null) as Awaited<ReturnType<typeof generateQuizForWord>>[];
     
     const formattedQuestions: QuizQuestion[] = successfulQuizzes.map((quiz, index) => ({
-        ...quiz,
+        ...quiz!,
         word: wordsToQuiz[index],
     }));
 
@@ -120,29 +126,80 @@ const Quiz: React.FC = () => {
       handleStartQuiz();
   }
   
-  const handleNewQuiz = () => {
-      setView('setup');
-      setQuizQuestions([]);
-      setError(null);
-  }
+  const ResultsScreen = () => {
+    const correctAnswers = userAnswers.filter(a => a.isCorrect).length;
+    const score = quizQuestions.length > 0 ? (correctAnswers / quizQuestions.length) * 100 : 0;
+    const incorrectAnswers = userAnswers.filter(a => !a.isCorrect);
+
+    useEffect(() => {
+        const details = `Hoàn thành bài trắc nghiệm. Điểm: ${correctAnswers}/${quizQuestions.length}.`;
+        addHistoryEntry('QUIZ_COMPLETED', details);
+    }, []);
+
+    return (
+        <div className="space-y-6 text-center animate-fade-in">
+            <h2 className="text-3xl font-bold text-slate-900 dark:text-white">Kết quả</h2>
+            <div className="relative w-40 h-40 mx-auto">
+                <svg className="w-full h-full" viewBox="0 0 36 36">
+                    <path className="text-slate-200 dark:text-slate-700" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3"></path>
+                    <path className="text-indigo-500" strokeDasharray={`${score}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"></path>
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-4xl font-bold text-slate-900 dark:text-white">{correctAnswers}</span>
+                    <span className="text-slate-500 dark:text-gray-400">/{quizQuestions.length}</span>
+                </div>
+            </div>
+            <p className="text-xl text-slate-600 dark:text-gray-300">Bạn đã trả lời đúng {correctAnswers} trên {quizQuestions.length} câu!</p>
+
+            {incorrectAnswers.length > 0 && (
+                <div className="text-left space-y-3 pt-4">
+                    <h3 className="font-semibold text-slate-900 dark:text-white">Xem lại các câu sai:</h3>
+                    <div className="max-h-40 overflow-y-auto space-y-2 pr-2">
+                        {incorrectAnswers.map(({ question, answer }, index) => (
+                            <div key={index} className="p-3 bg-slate-100 dark:bg-slate-800/50 rounded-xl flex items-center justify-between">
+                                <div>
+                                    <p className="font-semibold text-slate-800 dark:text-white cursor-pointer hover:underline" onClick={() => openInspector(question.word)}>{question.word.word}</p>
+                                    <p className="text-sm"><span className="text-red-500 dark:text-red-400">Bạn chọn: {answer}</span> • <span className="text-green-600 dark:text-green-400">Đáp án: {question.correctAnswer}</span></p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+            
+            <div className="flex flex-col sm:flex-row gap-3 pt-4">
+                <button onClick={onBack} className="flex-1 px-4 py-3 bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-white font-semibold rounded-xl">Quay lại</button>
+                <button onClick={handleRestartQuiz} className="flex-1 flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl">
+                    <RefreshCw className="w-5 h-5 mr-2" /> Làm lại
+                </button>
+            </div>
+        </div>
+    );
+  };
 
   const renderSetup = () => (
-    <div className="space-y-6">
-      <div className="text-center">
-        <h2 className="text-2xl font-bold text-white">Kiểm tra trắc nghiệm</h2>
-        <p className="text-gray-400 mt-1">Chọn chủ đề và số lượng câu hỏi để bắt đầu.</p>
+    <div className="space-y-6 animate-fade-in">
+       <div className="flex items-center justify-between">
+        <div className="text-center sm:text-left">
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Kiểm tra trắc nghiệm</h2>
+          <p className="text-slate-500 dark:text-gray-400 mt-1">Chọn chủ đề và số lượng câu hỏi.</p>
+        </div>
+        <button onClick={onBack} className="flex-shrink-0 flex items-center gap-2 px-3 py-2 text-sm bg-slate-200/80 dark:bg-slate-700/50 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-gray-200 font-semibold rounded-xl transition-colors">
+          <ArrowLeft className="w-4 h-4" />
+          <span>Quay lại</span>
+        </button>
       </div>
       
-      {error && <p className="text-center text-red-400 bg-red-500/10 p-3 rounded-xl">{error}</p>}
+      {error && <p className="text-center text-red-500 dark:text-red-400 bg-red-500/10 p-3 rounded-xl">{error}</p>}
 
       <div>
-        <h3 className="font-semibold text-white mb-2">1. Chọn chủ đề</h3>
-        <div className="flex flex-wrap gap-2 p-3 bg-slate-800/50 border border-slate-700 rounded-2xl">
-          <button onClick={() => handleThemeToggle('all')} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has('all') ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 hover:bg-slate-600'}`}>
+        <h3 className="font-semibold text-slate-800 dark:text-white mb-2">1. Chọn chủ đề</h3>
+        <div className="flex flex-wrap gap-2 p-3 bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl">
+          <button onClick={() => handleThemeToggle('all')} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has('all') ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600'}`}>
             Tất cả ({words.length})
           </button>
           {availableThemes.map(theme => (
-            <button key={theme} onClick={() => handleThemeToggle(theme)} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has(theme) ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 hover:bg-slate-600'}`}>
+            <button key={theme} onClick={() => handleThemeToggle(theme)} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has(theme) ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600'}`}>
               {targetLanguage === 'english' ? (themeTranslationMap[theme] || theme) : theme} ({words.filter(w => w.theme === theme).length})
             </button>
           ))}
@@ -150,12 +207,12 @@ const Quiz: React.FC = () => {
       </div>
       
       <div>
-        <h3 className="font-semibold text-white mb-2">2. Chọn số câu hỏi</h3>
+        <h3 className="font-semibold text-slate-800 dark:text-white mb-2">2. Chọn số câu hỏi</h3>
         <div className="flex justify-center gap-2">
           {[5, 10, 20].map(n => (
-            <button key={n} onClick={() => setNumQuestions(n)} className={`px-4 py-2 text-sm rounded-xl transition-colors ${numQuestions === n ? 'bg-indigo-600 text-white' : 'bg-slate-700 hover:bg-slate-600'}`}>{n} câu</button>
+            <button key={n} onClick={() => setNumQuestions(n)} className={`px-4 py-2 text-sm rounded-xl transition-colors ${numQuestions === n ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600'}`}>{n} câu</button>
           ))}
-          <button onClick={() => setNumQuestions(wordsForQuiz.length)} className={`px-4 py-2 text-sm rounded-xl transition-colors ${numQuestions === wordsForQuiz.length ? 'bg-indigo-600 text-white' : 'bg-slate-700 hover:bg-slate-600'}`}>Tất cả ({wordsForQuiz.length})</button>
+          <button onClick={() => setNumQuestions(wordsForQuiz.length)} className={`px-4 py-2 text-sm rounded-xl transition-colors ${numQuestions === wordsForQuiz.length ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600'}`}>Tất cả ({wordsForQuiz.length})</button>
         </div>
       </div>
 
@@ -167,9 +224,9 @@ const Quiz: React.FC = () => {
 
   const renderLoading = () => (
       <div className="text-center py-10 space-y-4">
-        <Loader2 className="w-10 h-10 mx-auto animate-spin text-indigo-400" />
-        <h2 className="text-xl font-bold text-white">Đang chuẩn bị câu hỏi...</h2>
-        <p className="text-gray-400">Việc này có thể mất một vài giây.</p>
+        <Loader2 className="w-10 h-10 mx-auto animate-spin text-indigo-500 dark:text-indigo-400" />
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white">Đang chuẩn bị câu hỏi...</h2>
+        <p className="text-slate-500 dark:text-gray-400">Việc này có thể mất một vài giây.</p>
       </div>
   );
 
@@ -178,30 +235,30 @@ const Quiz: React.FC = () => {
     if (!currentQuestion) return renderSetup();
     
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 animate-fade-in">
         <div>
           <div className="flex justify-between items-center mb-2">
-            <h2 className="text-lg font-bold text-white">Câu hỏi {currentQuestionIndex + 1} / {quizQuestions.length}</h2>
-            <button onClick={() => setView('setup')} className="text-sm text-indigo-400 hover:underline">Thoát</button>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">Câu hỏi {currentQuestionIndex + 1} / {quizQuestions.length}</h2>
+            <button onClick={onBack} className="text-sm text-indigo-500 dark:text-indigo-400 hover:underline">Thoát</button>
           </div>
-          <div className="w-full bg-slate-700 rounded-full h-2.5">
+          <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2.5">
             <div className="bg-indigo-500 h-2.5 rounded-full transition-all duration-300" style={{ width: `${((currentQuestionIndex + 1) / quizQuestions.length) * 100}%` }}></div>
           </div>
         </div>
         
-        <div className="text-center p-6 bg-slate-800/50 rounded-2xl">
-          <p className="text-xl text-gray-300">{currentQuestion.question}</p>
+        <div className="text-center p-6 bg-slate-100 dark:bg-slate-800/50 rounded-2xl">
+          <p className="text-xl text-slate-800 dark:text-gray-300">{currentQuestion.question}</p>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {currentQuestion.options.map((option, index) => {
             const isCorrect = option === currentQuestion.correctAnswer;
             const isSelected = option === selectedAnswer;
-            let buttonClass = 'bg-slate-700/80 hover:bg-slate-700 hover:scale-105';
+            let buttonClass = 'bg-white dark:bg-slate-700/80 hover:bg-slate-200 dark:hover:bg-slate-700 hover:scale-[1.02] text-slate-800 dark:text-white';
             if (selectedAnswer) {
-              if (isCorrect) buttonClass = 'bg-green-600 ring-2 ring-green-400 text-white scale-105';
-              else if (isSelected && !isCorrect) buttonClass = 'bg-red-600 ring-2 ring-red-400 text-white';
-              else buttonClass = 'bg-slate-700/50 opacity-60';
+              if (isCorrect) buttonClass = 'bg-green-500 ring-2 ring-green-400 text-white scale-105';
+              else if (isSelected && !isCorrect) buttonClass = 'bg-red-500 ring-2 ring-red-400 text-white';
+              else buttonClass = 'bg-slate-200 dark:bg-slate-700/50 opacity-60';
             }
             return (
               <button key={index} onClick={() => handleAnswerSelect(option)} disabled={!!selectedAnswer} className={`w-full text-center py-3 px-4 rounded-2xl font-semibold text-lg transition-all duration-300 ${buttonClass}`}>
@@ -212,7 +269,7 @@ const Quiz: React.FC = () => {
         </div>
 
         {selectedAnswer && (
-          <button onClick={handleNextQuestion} className="w-full flex items-center justify-center px-4 py-3 bg-slate-600 hover:bg-slate-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98]">
+          <button onClick={handleNextQuestion} className="w-full flex items-center justify-center px-4 py-3 bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98]">
             {currentQuestionIndex < quizQuestions.length - 1 ? 'Câu tiếp theo' : 'Xem kết quả'}
           </button>
         )}
@@ -220,72 +277,23 @@ const Quiz: React.FC = () => {
     );
   };
   
-  const renderResults = () => {
-    const correctAnswers = userAnswers.filter(a => a.isCorrect).length;
-    const score = quizQuestions.length > 0 ? (correctAnswers / quizQuestions.length) * 100 : 0;
-    const incorrectAnswers = userAnswers.filter(a => !a.isCorrect);
-
-    return (
-        <div className="space-y-6 text-center">
-            <h2 className="text-3xl font-bold text-white">Kết quả</h2>
-            <div className="relative w-40 h-40 mx-auto">
-                <svg className="w-full h-full" viewBox="0 0 36 36">
-                    <path className="text-slate-700" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3"></path>
-                    <path className="text-indigo-500" strokeDasharray={`${score}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"></path>
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-4xl font-bold text-white">{correctAnswers}</span>
-                    <span className="text-gray-400">/{quizQuestions.length}</span>
-                </div>
-            </div>
-            <p className="text-xl text-gray-300">Bạn đã trả lời đúng {correctAnswers} trên {quizQuestions.length} câu!</p>
-
-            {incorrectAnswers.length > 0 && (
-                <div className="text-left space-y-3 pt-4">
-                    <h3 className="font-semibold text-white">Xem lại các câu sai:</h3>
-                    <div className="max-h-40 overflow-y-auto space-y-2 pr-2">
-                        {incorrectAnswers.map(({ question, answer }, index) => (
-                            <div key={index} className="p-3 bg-slate-800/50 rounded-xl flex items-center justify-between">
-                                <div>
-                                    <p className="font-semibold text-white cursor-pointer hover:underline" onClick={() => openInspector(question.word)}>{question.word.word}</p>
-                                    <p className="text-sm"><span className="text-red-400">Bạn chọn: {answer}</span> • <span className="text-green-400">Đáp án: {question.correctAnswer}</span></p>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-            
-            <div className="flex flex-col sm:flex-row gap-3 pt-4">
-                <button onClick={handleNewQuiz} className="flex-1 px-4 py-3 bg-slate-600 hover:bg-slate-700 text-white font-semibold rounded-xl">Tạo bài mới</button>
-                <button onClick={handleRestartQuiz} className="flex-1 flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl">
-                    <RefreshCw className="w-5 h-5 mr-2" /> Làm lại
-                </button>
-            </div>
-        </div>
-    );
-  };
-  
+  // FIX: Added renderContent function to switch between different quiz views.
   const renderContent = () => {
-    switch(view) {
-        case 'setup': return renderSetup();
-        case 'loading': return renderLoading();
-        case 'playing': return renderPlaying();
-        case 'results': return renderResults();
-        default: return renderSetup();
+    switch (view) {
+      case 'setup':
+        return renderSetup();
+      case 'loading':
+        return renderLoading();
+      case 'playing':
+        return renderPlaying();
+      case 'results':
+        return <ResultsScreen />;
+      default:
+        return renderSetup();
     }
-  }
+  };
 
-  if (words.length === 0) {
-    return (
-      <div className="text-center py-10">
-        <h2 className="text-2xl font-bold text-white">Kiểm tra trắc nghiệm</h2>
-        <p className="text-gray-400 mt-2">Thêm vài từ vào danh sách của bạn để bắt đầu.</p>
-      </div>
-    );
-  }
-
-  return <div>{renderContent()}</div>;
+  return <div className="animate-fade-in">{renderContent()}</div>;
 };
 
 export default Quiz;

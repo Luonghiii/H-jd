@@ -1,12 +1,9 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { VocabularyWord, TargetLanguage, ChatMessage, LearningLanguage, WordInfo, GeneratedWord } from "../types";
 
+// FIX: API key must be obtained exclusively from process.env.API_KEY per coding guidelines.
 const getAiClient = () => {
-  const apiKey = localStorage.getItem('geminiApiKey');
-  if (!apiKey) {
-    throw new Error("Khóa API Google Gemini chưa được đặt. Vui lòng vào cài đặt để thêm khóa.");
-  }
-  return new GoogleGenAI({ apiKey });
+  return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
 
 const languageMap: Record<LearningLanguage, string> = {

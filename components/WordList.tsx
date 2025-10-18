@@ -60,19 +60,19 @@ const WordList: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <h2 className="text-2xl font-bold text-white">Danh sách từ của bạn</h2>
-        <p className="text-gray-400 mt-1">Bạn đã lưu {words.length} từ.</p>
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Danh sách từ của bạn</h2>
+        <p className="text-slate-500 dark:text-gray-400 mt-1">Bạn đã lưu {words.length} từ.</p>
       </div>
       
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-grow">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 dark:text-gray-500" />
           <input
             type="text"
             placeholder="Tìm kiếm từ..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-slate-600 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full pl-12 pr-4 py-3 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
         </div>
         <button
@@ -87,9 +87,9 @@ const WordList: React.FC = () => {
       </div>
 
       {isBatchGenerating && (
-        <div className="text-center text-gray-300">
+        <div className="text-center text-slate-600 dark:text-gray-300">
             <p>Đang tạo ảnh... ({batchProgress.current} / {batchProgress.total})</p>
-            <div className="w-full bg-slate-700 rounded-full h-2.5 mt-2 overflow-hidden">
+            <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2.5 mt-2 overflow-hidden">
                 <div 
                     className="bg-indigo-500 h-2.5 rounded-full transition-all duration-500" 
                     style={{ width: `${batchProgress.total > 0 ? (batchProgress.current / batchProgress.total) * 100 : 0}%` }}
@@ -102,14 +102,14 @@ const WordList: React.FC = () => {
         {filteredWords.length > 0 ? (
           <ul className="space-y-3">
             {filteredWords.map(word => (
-              <li key={word.id} className={`flex items-center bg-slate-800/50 p-3 rounded-2xl border transition-all duration-200 hover:border-slate-600 hover:scale-[1.02] ${word.isStarred ? 'border-yellow-500/50' : 'border-slate-700'}`}>
+              <li key={word.id} className={`flex items-center bg-white dark:bg-slate-800/50 p-3 rounded-2xl border transition-all duration-200 hover:border-slate-300 dark:hover:border-slate-600 hover:scale-[1.02] ${word.isStarred ? 'border-yellow-500/50' : 'border-slate-200 dark:border-slate-700'}`}>
                 <div 
                   className="flex items-center gap-4 flex-grow cursor-pointer"
                   onClick={() => openInspector(word)}
                 >
                   <button 
                     onClick={(e) => { e.stopPropagation(); setEditingWord(word); }}
-                    className="w-16 h-16 flex-shrink-0 bg-slate-700/50 rounded-xl flex items-center justify-center text-gray-500 hover:bg-slate-700 transition-colors"
+                    className="w-16 h-16 flex-shrink-0 bg-slate-100 dark:bg-slate-700/50 rounded-xl flex items-center justify-center text-slate-400 dark:text-gray-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
                     aria-label={`Edit image for ${word.word}`}
                   >
                     {word.imageUrl ? (
@@ -119,10 +119,10 @@ const WordList: React.FC = () => {
                     )}
                   </button>
                   <div>
-                    <p className="font-semibold text-white">{word.word}</p>
-                    <p className="text-sm text-gray-400">{word.translation[targetLanguage]}</p>
+                    <p className="font-semibold text-slate-800 dark:text-white">{word.word}</p>
+                    <p className="text-sm text-slate-500 dark:text-gray-400">{word.translation[targetLanguage]}</p>
                     {word.theme && (
-                      <span className="mt-1 inline-block px-2 py-0.5 text-xs bg-cyan-800/70 text-cyan-200 rounded-full font-medium">
+                      <span className="mt-1 inline-block px-2 py-0.5 text-xs bg-cyan-100 text-cyan-800 dark:bg-cyan-800/70 dark:text-cyan-200 rounded-full font-medium">
                         {targetLanguage === 'english' ? (themeTranslationMap[word.theme] || word.theme) : word.theme}
                       </span>
                     )}
@@ -131,7 +131,7 @@ const WordList: React.FC = () => {
                 <div className="flex items-center flex-shrink-0 ml-2">
                     <button
                       onClick={(e) => { e.stopPropagation(); toggleWordStar(word.id); }}
-                      className={`p-2 rounded-full transition duration-300 ${word.isStarred ? 'text-yellow-400 hover:bg-yellow-500/10' : 'text-gray-400 hover:text-yellow-400 hover:bg-yellow-500/10'}`}
+                      className={`p-2 rounded-full transition duration-300 ${word.isStarred ? 'text-yellow-400 hover:bg-yellow-400/10' : 'text-slate-400 dark:text-gray-400 hover:text-yellow-400 hover:bg-yellow-400/10'}`}
                       aria-label={`Star ${word.word}`}
                     >
                       <Star className="w-5 h-5" fill={word.isStarred ? 'currentColor' : 'none'} />
@@ -141,7 +141,7 @@ const WordList: React.FC = () => {
                         e.stopPropagation();
                         deleteWord(word.id);
                       }}
-                      className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-full transition duration-300 flex-shrink-0"
+                      className="p-2 text-slate-400 dark:text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-full transition duration-300 flex-shrink-0"
                       aria-label={`Delete ${word.word}`}
                     >
                       <Trash2 className="w-5 h-5" />
@@ -151,7 +151,7 @@ const WordList: React.FC = () => {
             ))}
           </ul>
         ) : (
-          <p className="text-center text-gray-400 py-8">
+          <p className="text-center text-slate-500 dark:text-gray-400 py-8">
             {words.length === 0 ? "Danh sách từ của bạn trống. Hãy thêm từ để bắt đầu!" : "Không có từ nào khớp với tìm kiếm của bạn."}
           </p>
         )}

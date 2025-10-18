@@ -49,7 +49,7 @@ const HighlightableText: React.FC<HighlightableTextProps> = ({ text, words }) =>
           return (
             <span
               key={index}
-              className="font-bold text-cyan-300 cursor-pointer hover:underline"
+              className="font-bold text-cyan-600 dark:text-cyan-300 cursor-pointer hover:underline"
               onClick={() => openInspector(word)}
             >
               {part}

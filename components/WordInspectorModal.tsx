@@ -1,187 +1,186 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { VocabularyWord, WordInfo, ChatMessage } from '../types';
-import { getWordInfo, getChatResponseForWord } from '../services/geminiService';
 import { useSettings } from '../hooks/useSettings';
-import { useVocabulary } from '../hooks/useVocabulary';
-import { X, Bot, User, Send, Loader2, BookCopy, Languages, Tag } from 'lucide-react';
+import { getWordInfo, generateSentence, checkSentence, rewriteSentence, getChatResponseForWord } from '../services/geminiService';
+import { X, Info, MessageSquare, BookOpen, Send, RefreshCw } from 'lucide-react';
 
 interface WordInspectorModalProps {
-  word: VocabularyWord;
   isOpen: boolean;
+  word: VocabularyWord;
   onClose: () => void;
 }
 
-const WordInspectorModal: React.FC<WordInspectorModalProps> = ({ word, isOpen, onClose }) => {
+type Tab = 'info' | 'examples' | 'chat';
+
+const WordInspectorModal: React.FC<WordInspectorModalProps> = ({ isOpen, word, onClose }) => {
   const { targetLanguage, learningLanguage } = useSettings();
-  const { updateWord, getAvailableThemes } = useVocabulary();
-  const [info, setInfo] = useState<WordInfo | null>(null);
-  const [isInfoLoading, setIsInfoLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<Tab>('info');
+  
+  // Info Tab State
+  const [wordInfo, setWordInfo] = useState<WordInfo | null>(null);
+  const [isInfoLoading, setIsInfoLoading] = useState(false);
+  
+  // Examples Tab State
+  const [exampleSentence, setExampleSentence] = useState('');
+  const [exampleTranslation, setExampleTranslation] = useState('');
+  const [isExampleLoading, setIsExampleLoading] = useState(false);
+  const [userSentence, setUserSentence] = useState('');
+  const [sentenceFeedback, setSentenceFeedback] = useState('');
+  const [isCheckingSentence, setIsCheckingSentence] = useState(false);
+  const [rewrittenSentence, setRewrittenSentence] = useState('');
+  const [isRewriting, setIsRewriting] = useState(false);
+
+  // Chat Tab State
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
-  const [userInput, setUserInput] = useState('');
+  const [userQuestion, setUserQuestion] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [editingTheme, setEditingTheme] = useState(word.theme || '');
-  const chatBodyRef = useRef<HTMLDivElement>(null);
-  const availableThemes = getAvailableThemes();
+  const chatContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!isOpen) return;
-    setEditingTheme(word.theme || '');
-    const fetchWordInfo = async () => {
-      if (!word) return;
-      setIsInfoLoading(true);
-      setError('');
+    if (isOpen) {
+      // Reset state when modal opens or word changes
+      setActiveTab('info');
+      setWordInfo(null);
+      setExampleSentence('');
+      setExampleTranslation('');
       setChatHistory([]);
-      try {
-        const wordInfo = await getWordInfo(word.word, targetLanguage, learningLanguage);
-        setInfo(wordInfo);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to load word info.');
-      } finally {
-        setIsInfoLoading(false);
-      }
-    };
-    fetchWordInfo();
-  }, [word, targetLanguage, learningLanguage, isOpen]);
-  
+    }
+  }, [isOpen, word]);
+
   useEffect(() => {
-    if (chatBodyRef.current) {
-        chatBodyRef.current.scrollTop = chatBodyRef.current.scrollHeight;
+    if (isOpen && activeTab === 'info' && !wordInfo) {
+      const fetchInfo = async () => {
+        setIsInfoLoading(true);
+        try {
+          const info = await getWordInfo(word.word, targetLanguage, learningLanguage);
+          setWordInfo(info);
+        } catch (error) { console.error(error); }
+        setIsInfoLoading(false);
+      };
+      fetchInfo();
     }
-  }, [chatHistory, isChatLoading]);
-  
-  const handleThemeBlur = () => {
-    if (editingTheme !== (word.theme || '')) {
-      updateWord(word.id, { theme: editingTheme.trim() || undefined });
+  }, [isOpen, activeTab, wordInfo, word, targetLanguage, learningLanguage]);
+
+  useEffect(() => {
+    if (chatContainerRef.current) {
+        chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
+  }, [chatHistory]);
+
+  const handleGenerateExample = async () => {
+    setIsExampleLoading(true);
+    const result = await generateSentence(word, targetLanguage, learningLanguage);
+    const parts = result.split('---Translation---');
+    setExampleSentence(parts[0].trim());
+    setExampleTranslation(parts.length > 1 ? parts[1].trim() : '');
+    setIsExampleLoading(false);
   };
 
+  const handleCheckSentence = async () => {
+    if (!userSentence.trim()) return;
+    setIsCheckingSentence(true);
+    const feedback = await checkSentence(userSentence, word.word, targetLanguage, learningLanguage);
+    setSentenceFeedback(feedback);
+    setIsCheckingSentence(false);
+  };
+  
+  const handleRewriteSentence = async () => {
+    if (!userSentence.trim()) return;
+    setIsRewriting(true);
+    const result = await rewriteSentence(userSentence, word.word, targetLanguage, learningLanguage);
+    setRewrittenSentence(result);
+    setIsRewriting(false);
+  };
+  
   const handleChatSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userInput.trim() || isChatLoading) return;
-
-    const newUserMessage: ChatMessage = { role: 'user', text: userInput };
-    setChatHistory(prev => [...prev, newUserMessage]);
-    setUserInput('');
+    if (!userQuestion.trim() || isChatLoading) return;
+    
+    const newHistory: ChatMessage[] = [...chatHistory, { role: 'user', text: userQuestion }];
+    setChatHistory(newHistory);
+    setUserQuestion('');
     setIsChatLoading(true);
 
-    try {
-      const responseText = await getChatResponseForWord(word, userInput, chatHistory, targetLanguage, learningLanguage);
-      const newModelMessage: ChatMessage = { role: 'model', text: responseText };
-      setChatHistory(prev => [...prev, newModelMessage]);
-    } catch (e) {
-      const errorMessage: ChatMessage = { role: 'model', text: 'Sorry, I encountered an error.' };
-      setChatHistory(prev => [...prev, errorMessage]);
-    } finally {
-      setIsChatLoading(false);
-    }
-  };
+    const response = await getChatResponseForWord(word, userQuestion, newHistory, targetLanguage, learningLanguage);
+    setChatHistory(prev => [...prev, { role: 'model', text: response }]);
+    setIsChatLoading(false);
+  }
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-slate-800 border border-slate-700 rounded-3xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
-        <div className="p-4 border-b border-slate-600 flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-white">Phân tích từ: <span className="text-cyan-300">{word.word}</span></h2>
-            <button onClick={onClose} className="p-2 text-gray-400 hover:bg-slate-700 rounded-full">
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-        
-        <div className="p-4 space-y-3 bg-slate-800/50 flex-shrink-0">
-            {isInfoLoading ? (
-                <div className="flex items-center justify-center h-20">
-                    <Loader2 className="w-6 h-6 animate-spin text-indigo-400" />
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="p-4 sm:p-6 flex-shrink-0 border-b border-slate-200 dark:border-slate-600">
+            <div className="flex items-start justify-between">
+                <div>
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{word.word}</h2>
+                    <p className="text-slate-500 dark:text-gray-400">{word.translation[targetLanguage]}</p>
                 </div>
-            ) : error ? (
-                <p className="text-red-400 text-center">{error}</p>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="flex items-start gap-3">
-                      <Languages className="w-5 h-5 mt-1 text-gray-400 flex-shrink-0"/>
-                      <div>
-                          <p className="text-sm text-gray-400">Nghĩa</p>
-                          <p className="font-semibold text-white">{word.translation[targetLanguage]}</p>
-                      </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                      <BookCopy className="w-5 h-5 mt-1 text-gray-400 flex-shrink-0"/>
-                      <div>
-                          <p className="text-sm text-gray-400">Loại từ</p>
-                          <p className="font-semibold text-white">
-                            {info?.partOfSpeech} {info?.gender && `(${info.gender})`}
-                          </p>
-                      </div>
-                  </div>
-                  <div className="flex items-start gap-3 md:col-span-2">
-                      <Tag className="w-5 h-5 mt-1 text-gray-400 flex-shrink-0"/>
-                      <div className="w-full">
-                          <p className="text-sm text-gray-400">Chủ đề</p>
-                          <input
-                            type="text"
-                            list="inspector-themes"
-                            value={editingTheme}
-                            onChange={(e) => setEditingTheme(e.target.value)}
-                            onBlur={handleThemeBlur}
-                            placeholder="Thêm chủ đề"
-                            className="w-full bg-transparent border-b border-slate-600 focus:border-indigo-500 text-white font-semibold focus:outline-none"
-                           />
-                           <datalist id="inspector-themes">
-                                {availableThemes.map(t => <option key={t} value={t} />)}
-                           </datalist>
-                      </div>
-                  </div>
+                <button onClick={onClose} className="p-2 text-slate-500 dark:text-gray-400 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full">
+                    <X className="w-5 h-5" />
+                </button>
+            </div>
+            <div className="mt-4 flex border-b border-slate-200 dark:border-slate-700">
+                <button onClick={() => setActiveTab('info')} className={`px-4 py-2 text-sm font-medium border-b-2 ${activeTab === 'info' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-gray-200'}`}><Info className="w-4 h-4 inline mr-1"/> Thông tin</button>
+                <button onClick={() => setActiveTab('examples')} className={`px-4 py-2 text-sm font-medium border-b-2 ${activeTab === 'examples' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-gray-200'}`}><BookOpen className="w-4 h-4 inline mr-1"/> Ví dụ</button>
+                <button onClick={() => setActiveTab('chat')} className={`px-4 py-2 text-sm font-medium border-b-2 ${activeTab === 'chat' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-gray-200'}`}><MessageSquare className="w-4 h-4 inline mr-1"/> Hỏi đáp</button>
+            </div>
+        </div>
+        <div className="p-4 sm:p-6 overflow-y-auto">
+            {activeTab === 'info' && (
+                <div className="space-y-4">
+                    {isInfoLoading ? <p>Đang tải thông tin...</p> : wordInfo ? (
+                        <>
+                           {word.imageUrl && <img src={word.imageUrl} alt={word.word} className="w-full h-48 object-contain rounded-xl bg-slate-100 dark:bg-slate-700/50 p-2"/>}
+                           <p><strong>Loại từ:</strong> {wordInfo.partOfSpeech}</p>
+                           {wordInfo.gender && <p><strong>Giống:</strong> {wordInfo.gender}</p>}
+                           <p><strong>Định nghĩa:</strong> {wordInfo.definition}</p>
+                        </>
+                    ) : <p>Không thể tải thông tin.</p>}
                 </div>
             )}
-        </div>
-
-        <div className="flex-grow overflow-y-auto p-4 space-y-4" ref={chatBodyRef}>
-            {chatHistory.length === 0 && !isChatLoading && (
-                <div className="text-center text-gray-500 pt-8">
-                    <p>Hỏi AI bất cứ điều gì về từ này!</p>
-                    <p className="text-sm">Ví dụ: "Give me another example sentence."</p>
-                </div>
-            )}
-            {chatHistory.map((msg, index) => (
-                <div key={index} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    {msg.role === 'model' && <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center flex-shrink-0"><Bot className="w-5 h-5 text-white"/></div>}
-                    <div className={`max-w-xs md:max-w-md p-3 rounded-xl text-white ${msg.role === 'user' ? 'bg-slate-600' : 'bg-slate-700'}`}>
-                        <p className="whitespace-pre-wrap">{msg.text}</p>
+            {activeTab === 'examples' && (
+                <div className="space-y-6">
+                    <div>
+                        <button onClick={handleGenerateExample} disabled={isExampleLoading} className="text-sm font-semibold text-indigo-600 dark:text-indigo-400 hover:underline disabled:opacity-50 flex items-center">
+                            {isExampleLoading && <RefreshCw className="w-4 h-4 mr-2 animate-spin"/>} Tạo câu ví dụ
+                        </button>
+                        {exampleSentence && <div className="mt-2 p-3 bg-slate-100 dark:bg-slate-700/50 rounded-lg">
+                            <p className="font-semibold">{exampleSentence}</p>
+                            <p className="text-sm text-slate-500 dark:text-gray-400">{exampleTranslation}</p>
+                        </div>}
                     </div>
-                    {msg.role === 'user' && <div className="w-8 h-8 rounded-full bg-slate-600 flex items-center justify-center flex-shrink-0"><User className="w-5 h-5 text-white"/></div>}
-                </div>
-            ))}
-            {isChatLoading && (
-                 <div className="flex gap-3 justify-start">
-                    <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center flex-shrink-0"><Bot className="w-5 h-5 text-white"/></div>
-                    <div className="max-w-xs md:max-w-md p-3 rounded-xl text-white bg-slate-700">
-                        <Loader2 className="w-5 h-5 animate-spin" />
+                     <div className="space-y-4">
+                        <textarea value={userSentence} onChange={e => setUserSentence(e.target.value)} placeholder={`Viết câu của bạn với từ "${word.word}"`} className="w-full p-2 border rounded-lg bg-transparent border-slate-300 dark:border-slate-600" rows={2}></textarea>
+                        <div className="flex gap-2">
+                            <button onClick={handleCheckSentence} disabled={!userSentence.trim() || isCheckingSentence} className="text-sm flex-1 font-semibold text-indigo-600 dark:text-indigo-400 p-2 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 disabled:opacity-50">Kiểm tra câu</button>
+                            <button onClick={handleRewriteSentence} disabled={!userSentence.trim() || isRewriting} className="text-sm flex-1 font-semibold text-purple-600 dark:text-purple-400 p-2 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 disabled:opacity-50">Viết lại câu</button>
+                        </div>
+                        {isCheckingSentence && <p>Đang kiểm tra...</p>}
+                        {sentenceFeedback && <div className="mt-2 p-3 bg-slate-100 dark:bg-slate-700/50 rounded-lg whitespace-pre-wrap">{sentenceFeedback}</div>}
+                        {isRewriting && <p>Đang viết lại...</p>}
+                        {rewrittenSentence && <div className="mt-2 p-3 bg-slate-100 dark:bg-slate-700/50 rounded-lg whitespace-pre-wrap">{rewrittenSentence}</div>}
                     </div>
                 </div>
             )}
-        </div>
-
-        <div className="p-4 border-t border-slate-600 flex-shrink-0">
-          <form onSubmit={handleChatSubmit} className="flex items-center gap-3">
-            <input
-              type="text"
-              value={userInput}
-              onChange={(e) => setUserInput(e.target.value)}
-              placeholder="Hỏi thêm về từ này..."
-              className="flex-grow w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-full text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              disabled={isInfoLoading}
-            />
-            <button
-              type="submit"
-              disabled={!userInput.trim() || isChatLoading}
-              className="p-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-full transition-transform duration-200 active:scale-90 disabled:bg-indigo-400 disabled:cursor-not-allowed"
-            >
-              <Send className="w-5 h-5" />
-            </button>
-          </form>
+            {activeTab === 'chat' && (
+                <div className="flex flex-col h-full max-h-[60vh]">
+                   <div ref={chatContainerRef} className="flex-grow space-y-4 overflow-y-auto pr-2">
+                        {chatHistory.map((msg, i) => (
+                            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                <div className={`max-w-xs md:max-w-md p-3 rounded-2xl ${msg.role === 'user' ? 'bg-indigo-500 text-white rounded-br-none' : 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-white rounded-bl-none'}`}>{msg.text}</div>
+                            </div>
+                        ))}
+                        {isChatLoading && <div className="flex justify-start"><div className="p-3 rounded-2xl bg-slate-200 dark:bg-slate-700 rounded-bl-none">...</div></div>}
+                   </div>
+                   <form onSubmit={handleChatSubmit} className="mt-4 flex gap-2 pt-4 border-t border-slate-200 dark:border-slate-600">
+                        <input type="text" value={userQuestion} onChange={e => setUserQuestion(e.target.value)} placeholder="Hỏi AI về từ này..." className="flex-grow p-2 border rounded-lg bg-transparent border-slate-300 dark:border-slate-600" />
+                        <button type="submit" disabled={!userQuestion.trim() || isChatLoading} className="p-2 bg-indigo-500 text-white rounded-lg disabled:bg-indigo-400"><Send className="w-5 h-5"/></button>
+                   </form>
+                </div>
+            )}
         </div>
       </div>
     </div>

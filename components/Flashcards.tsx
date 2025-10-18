@@ -1,274 +1,133 @@
+
 import React, { useState, useMemo, useCallback } from 'react';
 import { useVocabulary, themeTranslationMap } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
-import { VocabularyWord } from '../types';
-import { ArrowLeft, ArrowRight } from 'lucide-react';
-import { useInspector } from '../hooks/useInspector';
+import { ArrowLeft, ArrowRight, Shuffle, RotateCcw } from 'lucide-react';
+
+type FlashcardView = 'setup' | 'playing';
 
 const Flashcards: React.FC = () => {
-    const { words, getAvailableThemes } = useVocabulary();
-    const { targetLanguage, learningLanguage } = useSettings();
-    const { openInspector } = useInspector();
-    
-    const [selectedThemes, setSelectedThemes] = useState<Set<string>>(new Set(['all']));
-    const availableThemes = getAvailableThemes();
+  const { words, getAvailableThemes } = useVocabulary();
+  const { targetLanguage } = useSettings();
+  
+  const [view, setView] = useState<FlashcardView>('setup');
+  const [selectedThemes, setSelectedThemes] = useState<Set<string>>(new Set(['all']));
+  const [cardWords, setCardWords] = useState(words);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isFlipped, setIsFlipped] = useState(false);
+  
+  const availableThemes = getAvailableThemes();
+  
+  const wordsForFlashcards = useMemo(() => {
+    if (selectedThemes.has('all')) return words;
+    return words.filter(w => w.theme && selectedThemes.has(w.theme));
+  }, [words, selectedThemes]);
+  
+  const handleThemeToggle = (theme: string) => {
+    setSelectedThemes(prev => {
+        const newSet = new Set(prev);
+        if (theme === 'all') return new Set(['all']);
+        newSet.delete('all');
+        if (newSet.has(theme)) newSet.delete(theme);
+        else newSet.add(theme);
+        if (newSet.size === 0) return new Set(['all']);
+        return newSet;
+    });
+  };
 
-    const filteredWords = useMemo(() => {
-        if (selectedThemes.has('all')) return words;
-        return words.filter(w => w.theme && selectedThemes.has(w.theme));
-    }, [words, selectedThemes]);
+  const handleStart = () => {
+    const shuffled = [...wordsForFlashcards].sort(() => 0.5 - Math.random());
+    setCardWords(shuffled);
+    setCurrentIndex(0);
+    setIsFlipped(false);
+    setView('playing');
+  };
+  
+  const handleShuffle = () => {
+      const shuffled = [...cardWords].sort(() => 0.5 - Math.random());
+      setCardWords(shuffled);
+      setCurrentIndex(0);
+      setIsFlipped(false);
+  }
 
-    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(filteredWords.map(w => w.id)));
-    const [deck, setDeck] = useState<VocabularyWord[]>([]);
-    const [currentIndex, setCurrentIndex] = useState(0);
-    const [isFlipped, setIsFlipped] = useState(false);
-    const [direction, setDirection] = useState<'de_to_trans' | 'trans_to_de'>('de_to_trans');
-    const [sessionActive, setSessionActive] = useState(false);
-    const [isRandomMode, setIsRandomMode] = useState(false);
-    
-    // Resync selections when filter changes
-    React.useEffect(() => {
-      setSelectedIds(new Set(filteredWords.map(w => w.id)));
-    }, [filteredWords]);
-    
-    const handleThemeToggle = (theme: string) => {
-        setSelectedThemes(prev => {
-            const newSet = new Set(prev);
-            if (theme === 'all') {
-                return new Set(['all']);
-            }
-    
-            newSet.delete('all');
-    
-            if (newSet.has(theme)) {
-                newSet.delete(theme);
-            } else {
-                newSet.add(theme);
-            }
-    
-            if (newSet.size === 0) {
-                return new Set(['all']);
-            }
-            
-            return newSet;
-        });
-      };
+  const handleNext = () => {
+    setIsFlipped(false);
+    setTimeout(() => setCurrentIndex(prev => (prev + 1) % cardWords.length), 150);
+  };
+  
+  const handlePrev = () => {
+    setIsFlipped(false);
+    setTimeout(() => setCurrentIndex(prev => (prev - 1 + cardWords.length) % cardWords.length), 150);
+  };
 
-    const handleToggleWord = (id: string) => {
-        setSelectedIds(prev => {
-            const newSet = new Set(prev);
-            if (newSet.has(id)) {
-                newSet.delete(id);
-            } else {
-                newSet.add(id);
-            }
-            return newSet;
-        });
-    };
-
-    const handleSelectAll = () => setSelectedIds(new Set(filteredWords.map(w => w.id)));
-    const handleDeselectAll = () => setSelectedIds(new Set());
-
-    const startSession = useCallback(() => {
-        const selectedWords = words.filter(w => selectedIds.has(w.id));
-        if (selectedWords.length === 0) return;
-        
-        const starredWords = selectedWords.filter(w => w.isStarred);
-        const weightedDeck = [...selectedWords, ...starredWords]; // Starred words appear twice
-        
-        const shuffled = weightedDeck.sort(() => 0.5 - Math.random());
-        setDeck(shuffled);
-        setCurrentIndex(0);
-        setIsFlipped(false);
-        setSessionActive(true);
-    }, [selectedIds, words]);
-
-    const handleNext = () => {
-        setIsFlipped(false);
-        setTimeout(() => {
-            if (isRandomMode) {
-                if (deck.length <= 1) return;
-                let newIndex;
-                do {
-                    newIndex = Math.floor(Math.random() * deck.length);
-                } while (newIndex === currentIndex);
-                setCurrentIndex(newIndex);
-            } else {
-                setCurrentIndex(p => Math.min(deck.length - 1, p + 1));
-            }
-        }, 150);
-    };
-
-    const handlePrev = () => {
-        setIsFlipped(false);
-        setTimeout(() => {
-            if (!isRandomMode) {
-                 setCurrentIndex(p => Math.max(0, p - 1));
-            }
-        }, 150);
-    };
-
-    const handleCardTextClick = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        if (currentCard) {
-            openInspector(currentCard);
-        }
-    }
-
-
-    const currentCard = sessionActive ? deck[currentIndex] : null;
-    
-    const languageNameMap = {
-      german: 'tiếng Đức',
-      english: 'tiếng Anh',
-      chinese: 'tiếng Trung'
-    };
-
-    if (words.length === 0) {
-        return (
-            <div className="text-center py-10">
-                <h2 className="text-2xl font-bold text-white">Thẻ ghi nhớ</h2>
-                <p className="text-gray-400 mt-2">Thêm vài từ vào danh sách để bắt đầu luyện tập với thẻ ghi nhớ.</p>
-            </div>
-        );
-    }
-    
-    if (sessionActive && currentCard) {
-        const frontText = direction === 'de_to_trans' ? currentCard.word : currentCard.translation[targetLanguage];
-        const backText = direction === 'de_to_trans' ? currentCard.translation[targetLanguage] : currentCard.word;
-
-        return (
-            <div className="space-y-6 flex flex-col items-center">
-                 <div className="flex items-center gap-4">
-                    <h2 className="text-2xl font-bold text-white">Buổi học với thẻ ghi nhớ</h2>
-                 </div>
-                 {!isRandomMode && <p className="text-gray-400 -mt-4">Thẻ {currentIndex + 1} trên {deck.length}</p>}
-
-                <div className="w-full max-w-md h-80 [perspective:1000px] group">
-                    <div 
-                        className={`relative w-full h-full [transform-style:preserve-3d] transition-transform duration-500 cursor-pointer ${isFlipped ? '[transform:rotateY(180deg)]' : ''} group-hover:scale-105 group-hover:-translate-y-2`}
-                        onClick={() => setIsFlipped(!isFlipped)}
-                    >
-                        {/* Front of card */}
-                        <div className="absolute w-full h-full [backface-visibility:hidden] flex flex-col items-center justify-center p-4 text-center bg-slate-800 rounded-2xl border border-slate-600">
-                             {currentCard.imageUrl && <img src={currentCard.imageUrl} alt="" className="max-h-36 mb-4 rounded-lg object-contain" />}
-                            <p className="text-3xl font-bold text-cyan-300 hover:underline" onClick={handleCardTextClick}>{frontText}</p>
-                        </div>
-                        {/* Back of card */}
-                        <div className="absolute w-full h-full [backface-visibility:hidden] [transform:rotateY(180deg)] flex flex-col items-center justify-center p-4 text-center bg-indigo-800 rounded-2xl border border-indigo-600">
-                             {currentCard.imageUrl && <img src={currentCard.imageUrl} alt="" className="max-h-36 mb-4 rounded-lg object-contain" />}
-                             <p className="text-3xl font-bold text-white hover:underline" onClick={handleCardTextClick}>{backText}</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="flex items-center justify-center gap-4 w-full max-w-md">
-                    <button 
-                        onClick={handlePrev}
-                        disabled={isRandomMode || currentIndex === 0}
-                        className="p-4 bg-slate-700/50 rounded-full hover:bg-slate-600/50 disabled:opacity-50 transition-transform duration-200 active:scale-90"
-                        aria-label="Previous card"
-                    >
-                        <ArrowLeft className="w-6 h-6 text-white"/>
-                    </button>
-                    <button 
-                        onClick={handleNext}
-                        disabled={!isRandomMode && currentIndex === deck.length - 1}
-                        className="p-4 bg-slate-700/50 rounded-full hover:bg-slate-600/50 disabled:opacity-50 transition-transform duration-200 active:scale-90"
-                        aria-label="Next card"
-                    >
-                        <ArrowRight className="w-6 h-6 text-white"/>
-                    </button>
-                </div>
-
-                <button onClick={() => setSessionActive(false)} className="mt-4 text-sm text-indigo-400 hover:underline">
-                    Kết thúc & Chọn từ mới
-                </button>
-            </div>
-        );
-    }
-
+  if (view === 'setup') {
     return (
-        <div className="space-y-6">
-            <div className="text-center">
-                <h2 className="text-2xl font-bold text-white">Thẻ ghi nhớ</h2>
-                <p className="text-gray-400 mt-1">Chọn từ và cài đặt cho buổi luyện tập của bạn.</p>
-            </div>
-            
-            <div>
-                <h3 className="font-semibold text-white mb-2">1. Chọn chủ đề</h3>
-                <div className="flex flex-wrap gap-2 p-3 bg-slate-800/50 border border-slate-700 rounded-2xl">
-                    <button
-                        onClick={() => handleThemeToggle('all')}
-                        className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has('all') ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 hover:bg-slate-600'}`}
-                    >
-                        Tất cả ({words.length})
-                    </button>
-                    {availableThemes.map(theme => (
-                        <button
-                            key={theme}
-                            onClick={() => handleThemeToggle(theme)}
-                            className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has(theme) ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 hover:bg-slate-600'}`}
-                        >
-                            {targetLanguage === 'english' ? (themeTranslationMap[theme] || theme) : theme} ({words.filter(w => w.theme === theme).length})
-                        </button>
-                    ))}
-                </div>
-            </div>
-            
-            <div>
-                <h3 className="font-semibold text-white mb-2">2. Chọn từ ({selectedIds.size} / {filteredWords.length} đã chọn)</h3>
-                <div className="flex gap-2 mb-2">
-                    <button onClick={handleSelectAll} className="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded-lg">Chọn tất cả</button>
-                    <button onClick={handleDeselectAll} className="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded-lg">Bỏ chọn tất cả</button>
-                </div>
-                <div className="max-h-[30vh] overflow-y-auto pr-2 bg-slate-800/50 border border-slate-700 rounded-2xl p-3 space-y-2">
-                    {filteredWords.map(word => (
-                        <div key={word.id} onClick={() => handleToggleWord(word.id)} className="flex items-center p-2 rounded-xl hover:bg-slate-700/50 cursor-pointer">
-                            <input type="checkbox" checked={selectedIds.has(word.id)} readOnly className="w-5 h-5 mr-3 bg-slate-900 border-slate-600 text-indigo-500 focus:ring-indigo-600 rounded-md pointer-events-none" />
-                            <div>
-                                <p className="font-medium text-white">{word.word}</p>
-                                <p className="text-sm text-gray-400">{word.translation[targetLanguage]}</p>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            <div>
-                <h3 className="font-semibold text-white mb-2">3. Chiều luyện tập</h3>
-                <div className="flex gap-2">
-                     <button onClick={() => setDirection('de_to_trans')} className={`flex-1 p-3 text-sm rounded-xl transition-colors ${direction === 'de_to_trans' ? 'bg-indigo-600 text-white' : 'bg-slate-700 hover:bg-slate-600'}`}>{languageNameMap[learningLanguage]} {'->'} Bản dịch</button>
-                     <button onClick={() => setDirection('trans_to_de')} className={`flex-1 p-3 text-sm rounded-xl transition-colors ${direction === 'trans_to_de' ? 'bg-indigo-600 text-white' : 'bg-slate-700 hover:bg-slate-600'}`}>Bản dịch {'->'} {languageNameMap[learningLanguage]}</button>
-                </div>
-            </div>
-
-            <div>
-                <h3 className="font-semibold text-white mb-2">4. Chế độ luyện tập</h3>
-                <div className="flex items-center justify-center gap-3 text-sm text-gray-300 bg-slate-800/50 border border-slate-700 rounded-xl p-3">
-                    <span>Tuần tự</span>
-                    <button
-                        onClick={() => setIsRandomMode(!isRandomMode)}
-                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-900 ${
-                        isRandomMode ? 'bg-indigo-600' : 'bg-slate-600'
-                        }`}
-                    >
-                        <span
-                        aria-hidden="true"
-                        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                            isRandomMode ? 'translate-x-5' : 'translate-x-0'
-                        }`}
-                        />
-                    </button>
-                    <span>Ngẫu nhiên</span>
-                </div>
-            </div>
-
-            <button onClick={startSession} disabled={selectedIds.size === 0} className="w-full flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98] disabled:bg-indigo-400 disabled:cursor-not-allowed">
-                Bắt đầu buổi học
-            </button>
+      <div className="space-y-6 animate-fade-in">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Thẻ ghi nhớ</h2>
+          <p className="text-slate-500 dark:text-gray-400 mt-1">Chọn chủ đề để bắt đầu ôn tập.</p>
         </div>
+        <div>
+          <h3 className="font-semibold text-slate-800 dark:text-white mb-2">Chọn chủ đề</h3>
+          <div className="flex flex-wrap gap-2 p-3 bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl">
+            <button onClick={() => handleThemeToggle('all')} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has('all') ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600'}`}>
+              Tất cả ({words.length})
+            </button>
+            {availableThemes.map(theme => (
+              <button key={theme} onClick={() => handleThemeToggle(theme)} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has(theme) ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600'}`}>
+                {targetLanguage === 'english' ? (themeTranslationMap[theme] || theme) : theme} ({words.filter(w => w.theme === theme).length})
+              </button>
+            ))}
+          </div>
+        </div>
+        <button onClick={handleStart} disabled={wordsForFlashcards.length === 0} className="w-full flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98] disabled:bg-indigo-400 disabled:cursor-not-allowed">
+            Bắt đầu ôn tập ({wordsForFlashcards.length} từ)
+        </button>
+      </div>
     );
+  }
+
+  const currentWord = cardWords[currentIndex];
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex justify-between items-center">
+        <h2 className="text-lg font-bold text-slate-900 dark:text-white">Thẻ {currentIndex + 1} / {cardWords.length}</h2>
+        <button onClick={() => setView('setup')} className="text-sm text-indigo-500 dark:text-indigo-400 hover:underline">Thay đổi lựa chọn</button>
+      </div>
+      
+      <div className="[perspective:1000px]" onClick={() => setIsFlipped(!isFlipped)}>
+        <div 
+          className="relative w-full h-64 rounded-2xl shadow-xl [transform-style:preserve-3d] transition-transform duration-500 cursor-pointer"
+          style={{ transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'}}
+        >
+          <div className="absolute w-full h-full [backface-visibility:hidden] flex items-center justify-center p-4 bg-white dark:bg-slate-700 rounded-2xl border border-slate-200 dark:border-slate-600">
+            <p className="text-3xl font-bold text-slate-800 dark:text-white text-center">{currentWord.word}</p>
+          </div>
+          <div className="absolute w-full h-full [backface-visibility:hidden] [transform:rotateY(180deg)] flex items-center justify-center p-4 bg-indigo-500 rounded-2xl">
+            <p className="text-3xl font-bold text-white text-center">{currentWord.translation[targetLanguage]}</p>
+          </div>
+        </div>
+      </div>
+      
+      <p className="text-center text-sm text-slate-500 dark:text-gray-400">Nhấn vào thẻ để lật.</p>
+      
+      <div className="flex justify-center items-center gap-4">
+        <button onClick={handlePrev} className="p-4 bg-slate-200 dark:bg-slate-700/80 hover:bg-slate-300 dark:hover:bg-slate-700 rounded-full text-slate-800 dark:text-white">
+          <ArrowLeft className="w-6 h-6"/>
+        </button>
+        <button onClick={handleShuffle} className="p-3 bg-slate-200 dark:bg-slate-700/80 hover:bg-slate-300 dark:hover:bg-slate-700 rounded-full text-slate-800 dark:text-white">
+          <Shuffle className="w-5 h-5"/>
+        </button>
+        <button onClick={() => setIsFlipped(!isFlipped)} className="p-3 bg-slate-200 dark:bg-slate-700/80 hover:bg-slate-300 dark:hover:bg-slate-700 rounded-full text-slate-800 dark:text-white">
+          <RotateCcw className="w-5 h-5"/>
+        </button>
+        <button onClick={handleNext} className="p-4 bg-slate-200 dark:bg-slate-700/80 hover:bg-slate-300 dark:hover:bg-slate-700 rounded-full text-slate-800 dark:text-white">
+          <ArrowRight className="w-6 h-6"/>
+        </button>
+      </div>
+    </div>
+  );
 };
 
 export default Flashcards;

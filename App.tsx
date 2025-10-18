@@ -1,28 +1,28 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { VocabularyProvider } from './hooks/useVocabulary';
 import { SettingsProvider, useSettings } from './hooks/useSettings';
 import { InspectorProvider, useInspector } from './hooks/useInspector';
+import { HistoryProvider, useHistory } from './hooks/useHistory';
 import WordInspectorModal from './components/WordInspectorModal';
 import Header from './components/Header';
 import AddWord from './components/AddWord';
 import WordList from './components/WordList';
 import Practice from './components/Practice';
-import StoryGenerator from './components/StoryGenerator';
-import SentenceGenerator from './components/SentenceGenerator';
 import Flashcards from './components/Flashcards';
-import LuckyWheel from './components/LuckyWheel';
-import Quiz from './components/Quiz';
 import Login from './components/Login';
 import Home from './components/Home';
 import BackgroundCustomizer from './components/BackgroundCustomizer';
 import Footer from './components/Footer';
 import PrivacyPolicyModal from './components/PrivacyPolicyModal';
 import TermsOfServiceModal from './components/TermsOfServiceModal';
+import History from './components/History';
 import { View } from './types';
-import { Home as HomeIcon, BookOpen, Feather, PenSquare, Sparkles, MessageSquarePlus, Layers, Dices, FileQuestion, Gamepad2 } from 'lucide-react';
+import { Home as HomeIcon, BookOpen, Feather, PenSquare, Sparkles, Layers, Gamepad2, History as HistoryIcon } from 'lucide-react';
 import ApiKeySetup from './components/ApiKeySetup';
 import SettingsModal from './components/SettingsModal';
-import Minigames from './components/Minigames';
+import Games from './components/Games';
+import AiTools from './components/AiTools';
 
 const AppLayout: React.FC<{ onLogout: () => void; onOpenSettings: () => void; }> = ({ onLogout, onOpenSettings }) => {
   const [currentView, setCurrentView] = useState<View>(View.Home);
@@ -43,16 +43,12 @@ const AppLayout: React.FC<{ onLogout: () => void; onOpenSettings: () => void; }>
         return <Practice />;
       case View.Flashcards:
         return <Flashcards />;
-      case View.LuckyWheel:
-        return <LuckyWheel />;
-      case View.Quiz:
-        return <Quiz />;
-      case View.Minigames:
-        return <Minigames />;
-      case View.Story:
-        return <StoryGenerator />;
-      case View.Sentence:
-        return <SentenceGenerator />;
+      case View.Games:
+        return <Games />;
+      case View.AiTools:
+        return <AiTools />;
+      case View.History:
+        return <History />;
       default:
         return <Home setCurrentView={setCurrentView} />;
     }
@@ -62,20 +58,18 @@ const AppLayout: React.FC<{ onLogout: () => void; onOpenSettings: () => void; }>
     { view: View.Home, label: 'Trang chủ', icon: HomeIcon },
     { view: View.Practice, label: 'Luyện tập', icon: PenSquare },
     { view: View.Flashcards, label: 'Thẻ ghi nhớ', icon: Layers },
-    { view: View.LuckyWheel, label: 'Vòng quay', icon: Dices },
-    { view: View.Quiz, label: 'Đố vui', icon: FileQuestion },
-    { view: View.Minigames, label: 'Minigame', icon: Gamepad2 },
-    { view: View.Sentence, label: 'Câu AI', icon: MessageSquarePlus },
-    { view: View.Story, label: 'Truyện AI', icon: Sparkles },
+    { view: View.Games, label: 'Trò chơi', icon: Gamepad2 },
+    { view: View.AiTools, label: 'Công cụ AI', icon: Sparkles },
     { view: View.Add, label: 'Thêm từ', icon: Feather },
     { view: View.List, label: 'Danh sách từ', icon: BookOpen },
+    { view: View.History, label: 'Lịch sử', icon: HistoryIcon },
   ];
   
   let backgroundStyle: React.CSSProperties = {};
-  let backgroundClasses = 'bg-gradient-to-br from-gray-900 via-slate-900 to-indigo-900';
+  let backgroundClasses = 'dark:bg-gradient-to-br dark:from-gray-900 dark:via-slate-900 dark:to-indigo-900 bg-slate-50';
   const contentContainerClasses = backgroundSetting?.type === 'image'
     ? 'bg-black/40 backdrop-blur-xl'
-    : 'bg-slate-900/60 backdrop-blur-lg';
+    : 'bg-white/60 dark:bg-slate-900/60 backdrop-blur-lg';
 
   if (backgroundSetting) {
     if (backgroundSetting.type === 'image') {
@@ -90,24 +84,24 @@ const AppLayout: React.FC<{ onLogout: () => void; onOpenSettings: () => void; }>
   return (
     <>
       <div 
-        className={`min-h-screen text-gray-200 font-sans flex flex-col ${backgroundClasses}`}
+        className={`min-h-screen text-slate-800 dark:text-gray-200 font-sans flex flex-col ${backgroundClasses}`}
         style={backgroundStyle}
       >
         <Header onLogout={onLogout} onOpenSettings={onOpenSettings} />
         <main className="container mx-auto p-4 md:p-6 lg:p-8 flex-grow">
           <div className="max-w-5xl mx-auto">
-            <div className={`${contentContainerClasses} rounded-3xl shadow-2xl shadow-slate-900/50 border border-slate-700/60`}>
-              <nav className="p-2 border-b border-slate-700/80 flex justify-center">
-                <div className="bg-slate-800/60 p-1 rounded-full overflow-x-auto">
+            <div className={`${contentContainerClasses} rounded-3xl shadow-2xl shadow-slate-900/20 dark:shadow-slate-900/50 border border-slate-200 dark:border-slate-700/60`}>
+              <nav className="p-2 border-b border-slate-200 dark:border-slate-700/80 flex justify-center">
+                <div className="bg-slate-100/80 dark:bg-slate-800/60 p-1 rounded-full overflow-x-auto">
                   <ul className="flex items-center justify-start space-x-1">
                     {navItems.map((item) => (
                       <li key={item.view}>
                         <button
                           onClick={() => setCurrentView(item.view)}
-                          className={`flex-shrink-0 flex items-center space-x-2 px-3 py-1.5 text-sm sm:px-4 sm:text-base rounded-full font-medium transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-indigo-500 ${
+                          className={`flex-shrink-0 flex items-center space-x-2 px-3 py-1.5 text-sm sm:px-4 sm:text-base rounded-full font-medium transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-100 dark:focus:ring-offset-slate-900 focus:ring-indigo-500 ${
                             currentView === item.view
                               ? 'bg-indigo-600 text-white shadow-lg'
-                              : 'text-gray-300 hover:bg-slate-700/50 hover:text-white'
+                              : 'text-slate-600 dark:text-gray-300 hover:bg-slate-200/80 dark:hover:bg-slate-700/50 hover:text-slate-900 dark:hover:text-white'
                           }`}
                         >
                           <item.icon className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -139,7 +133,8 @@ const AppLayout: React.FC<{ onLogout: () => void; onOpenSettings: () => void; }>
 };
 
 const AppContent: React.FC = () => {
-  const { apiKey, setApiKey, clearApiKey } = useSettings();
+  const { apiKey, setApiKey, clearApiKey, theme } = useSettings();
+  const { addHistoryEntry } = useHistory();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     try {
@@ -148,6 +143,12 @@ const AppContent: React.FC = () => {
       return false;
     }
   });
+
+  useEffect(() => {
+    const root = window.document.documentElement;
+    root.classList.remove('light', 'dark');
+    root.classList.add(theme);
+  }, [theme]);
   
   const handleLoginSuccess = () => {
     try {
@@ -155,6 +156,7 @@ const AppContent: React.FC = () => {
     } catch (error) {
       console.error("Could not save auth state to sessionStorage", error);
     }
+    addHistoryEntry('LOGIN', 'Đăng nhập vào hệ thống');
     setIsAuthenticated(true);
   };
   
@@ -194,7 +196,9 @@ const AppContent: React.FC = () => {
 const App: React.FC = () => {
   return (
     <SettingsProvider>
-      <AppContent />
+      <HistoryProvider>
+        <AppContent />
+      </HistoryProvider>
     </SettingsProvider>
   );
 };
