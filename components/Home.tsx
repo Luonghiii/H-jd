@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { useVocabulary } from '../hooks/useVocabulary';
 import { View } from '../types';
-import { PenSquare, Layers, Dices, ArrowRight, Book, Star } from 'lucide-react';
+import { PenSquare, Layers, Dices, ArrowRight, Book, Star, FileQuestion } from 'lucide-react';
 
 interface HomeProps {
   setCurrentView: (view: View) => void;
@@ -34,10 +34,17 @@ const Home: React.FC<HomeProps> = ({ setCurrentView }) => {
       color: 'from-purple-500 to-purple-400',
     },
     {
+      view: View.Quiz,
+      icon: FileQuestion,
+      title: 'Đố vui Trắc nghiệm',
+      description: 'Thử thách kiến thức của bạn với các câu hỏi do AI tạo ra.',
+      color: 'from-green-500 to-green-400',
+    },
+    {
       view: View.LuckyWheel,
       icon: Dices,
       title: 'Vòng Quay May Mắn',
-      description: 'Kiểm tra kiến thức của bạn một cách vui nhộn và nhận điểm thưởng.',
+      description: 'Kiểm tra kiến thức một cách vui nhộn và nhận điểm thưởng.',
       color: 'from-teal-500 to-teal-400',
     }
   ];
@@ -49,7 +56,7 @@ const Home: React.FC<HomeProps> = ({ setCurrentView }) => {
           Chào mừng trở lại!
         </h1>
         <p className="mt-2 text-lg text-gray-400 max-w-2xl mx-auto">
-          Sẵn sàng để chinh phục thêm nhiều từ vựng tiếng Đức hôm nay chưa?
+          Sẵn sàng để chinh phục thêm nhiều từ vựng mới hôm nay chưa?
         </p>
       </div>
 
@@ -76,7 +83,7 @@ const Home: React.FC<HomeProps> = ({ setCurrentView }) => {
 
       <div>
         <h2 className="text-2xl font-bold text-white mb-4">Bắt đầu học</h2>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {featureCards.map((card) => (
             <div
               key={card.view}
@@ -91,7 +98,7 @@ const Home: React.FC<HomeProps> = ({ setCurrentView }) => {
               </div>
               <div className="mt-4 flex-grow">
                 <h3 className="text-xl font-bold text-white">{card.title}</h3>
-                <p className="mt-1 text-gray-400">{card.description}</p>
+                <p className="mt-1 text-gray-400 text-sm">{card.description}</p>
               </div>
             </div>
           ))}

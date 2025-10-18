@@ -29,6 +29,7 @@ export enum View {
   Practice = 'PRACTICE',
   Flashcards = 'FLASHCARDS',
   LuckyWheel = 'LUCKY_WHEEL',
+  Quiz = 'QUIZ',
   Add = 'ADD',
   List = 'LIST',
   Story = 'STORY',

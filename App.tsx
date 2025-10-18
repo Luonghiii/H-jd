@@ -11,6 +11,7 @@ import StoryGenerator from './components/StoryGenerator';
 import SentenceGenerator from './components/SentenceGenerator';
 import Flashcards from './components/Flashcards';
 import LuckyWheel from './components/LuckyWheel';
+import Quiz from './components/Quiz';
 import Login from './components/Login';
 import Home from './components/Home';
 import BackgroundCustomizer from './components/BackgroundCustomizer';
@@ -18,7 +19,7 @@ import Footer from './components/Footer';
 import PrivacyPolicyModal from './components/PrivacyPolicyModal';
 import TermsOfServiceModal from './components/TermsOfServiceModal';
 import { View } from './types';
-import { Home as HomeIcon, BookOpen, Feather, PenSquare, Sparkles, MessageSquarePlus, Layers, Dices } from 'lucide-react';
+import { Home as HomeIcon, BookOpen, Feather, PenSquare, Sparkles, MessageSquarePlus, Layers, Dices, FileQuestion } from 'lucide-react';
 import ApiKeySetup from './components/ApiKeySetup';
 import SettingsModal from './components/SettingsModal';
 
@@ -43,6 +44,8 @@ const AppLayout: React.FC<{ onLogout: () => void; onOpenSettings: () => void; }>
         return <Flashcards />;
       case View.LuckyWheel:
         return <LuckyWheel />;
+      case View.Quiz:
+        return <Quiz />;
       case View.Story:
         return <StoryGenerator />;
       case View.Sentence:
@@ -57,6 +60,7 @@ const AppLayout: React.FC<{ onLogout: () => void; onOpenSettings: () => void; }>
     { view: View.Practice, label: 'Luyện tập', icon: PenSquare },
     { view: View.Flashcards, label: 'Thẻ ghi nhớ', icon: Layers },
     { view: View.LuckyWheel, label: 'Vòng quay', icon: Dices },
+    { view: View.Quiz, label: 'Đố vui', icon: FileQuestion },
     { view: View.Sentence, label: 'Câu AI', icon: MessageSquarePlus },
     { view: View.Story, label: 'Truyện AI', icon: Sparkles },
     { view: View.Add, label: 'Thêm từ', icon: Feather },
