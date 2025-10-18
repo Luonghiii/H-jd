@@ -39,11 +39,16 @@ const defaultSettings = {
 };
 
 export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { currentUser } = useAuth();
+  const { currentUser, isLoading: isAuthLoading } = useAuth();
   const [settings, setSettings] = useState(defaultSettings);
 
   // Effect to listen for Firestore updates
   useEffect(() => {
+    // Wait for authentication to resolve before doing anything.
+    if (isAuthLoading) {
+      return;
+    }
+
     if (currentUser?.uid) {
       const unsubscribe = onUserDataSnapshot(currentUser.uid, (data) => {
         if (data?.settings) {
@@ -60,13 +65,13 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
       });
       return () => unsubscribe();
     } else {
-      // Reset to defaults on logout
+      // Reset to defaults only when auth is resolved and there's definitely no user.
       setSettings(defaultSettings);
       try {
         localStorage.removeItem('userApiKeys');
       } catch (e) { console.error("Failed to clear API keys from localStorage", e); }
     }
-  }, [currentUser]);
+  }, [currentUser, isAuthLoading]);
 
   const setTargetLanguage = useCallback((language: TargetLanguage) => {
     if (!currentUser) return;

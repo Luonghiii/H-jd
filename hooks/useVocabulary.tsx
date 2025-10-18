@@ -63,7 +63,7 @@ const MINUTE_IN_MS = 60 * 1000;
 
 export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { learningLanguage } = useSettings();
-  const { currentUser } = useAuth();
+  const { currentUser, isLoading: isAuthLoading } = useAuth();
   const [words, setWords] = useState<VocabularyWord[]>([]);
   
   const [lastDeletedWord, setLastDeletedWord] = useState<{ word: VocabularyWord; index: number } | null>(null);
@@ -71,6 +71,11 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
   
   // Effect to listen for Firestore updates. This is the single source of truth.
   useEffect(() => {
+    // Wait for authentication to resolve before doing anything.
+    if (isAuthLoading) {
+      return;
+    }
+
     if (currentUser?.uid) {
       const unsubscribe = onUserDataSnapshot(currentUser.uid, (data) => {
         const wordsByLang = data?.words?.[learningLanguage] || [];
@@ -78,10 +83,10 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
       });
       return () => unsubscribe();
     } else {
-      // Clear words on logout
+      // Clear words only when auth is resolved and there's definitely no user.
       setWords([]);
     }
-  }, [currentUser, learningLanguage]);
+  }, [currentUser, isAuthLoading, learningLanguage]);
 
   const persistWords = useCallback(async (newWords: VocabularyWord[]) => {
       if (currentUser?.uid) {
