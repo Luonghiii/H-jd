@@ -5,17 +5,21 @@ import { onUserDataSnapshot, updateUserData } from '../services/firestoreService
 
 interface HistoryContextType {
   history: HistoryEntry[];
-  addHistoryEntry: (type: HistoryEntry['type'], details: string, payload?: HistoryEntry['payload']) => void;
-  clearHistory: () => void;
+  addHistoryEntry: (type: HistoryEntry['type'], details: string, payload?: HistoryEntry['payload']) => Promise<void>;
+  clearHistory: () => Promise<void>;
 }
 
 const HistoryContext = createContext<HistoryContextType | undefined>(undefined);
 
 export const HistoryProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { currentUser } = useAuth();
+  const { currentUser, isLoading: isAuthLoading } = useAuth();
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   
   useEffect(() => {
+    if (isAuthLoading) {
+      return;
+    }
+
     if(currentUser?.uid) {
         const unsubscribe = onUserDataSnapshot(currentUser.uid, (data) => {
             if (data?.history) {
@@ -25,10 +29,12 @@ export const HistoryProvider: React.FC<{ children: ReactNode }> = ({ children })
             }
         });
         return () => unsubscribe();
+    } else {
+        setHistory([]);
     }
-  }, [currentUser]);
+  }, [currentUser, isAuthLoading]);
 
-  const addHistoryEntry = (type: HistoryEntry['type'], details: string, payload?: HistoryEntry['payload']) => {
+  const addHistoryEntry = async (type: HistoryEntry['type'], details: string, payload?: HistoryEntry['payload']) => {
     if (!currentUser) return;
     
     const newEntry: HistoryEntry = {
@@ -39,13 +45,15 @@ export const HistoryProvider: React.FC<{ children: ReactNode }> = ({ children })
       payload,
     };
     
-    const newHistory = [newEntry, ...history].slice(0, 100);
-    updateUserData(currentUser.uid, { history: newHistory });
+    // Read the latest history from state to avoid race conditions if called multiple times quickly
+    const currentHistory = history;
+    const newHistory = [newEntry, ...currentHistory].slice(0, 100);
+    await updateUserData(currentUser.uid, { history: newHistory });
   };
   
-  const clearHistory = () => {
+  const clearHistory = async () => {
       if(currentUser && window.confirm("Bạn có chắc muốn xóa toàn bộ lịch sử học tập không? Hành động này không thể hoàn tác.")) {
-          updateUserData(currentUser.uid, { history: [] });
+          await updateUserData(currentUser.uid, { history: [] });
       }
   }
 

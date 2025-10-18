@@ -81,7 +81,8 @@ const AddWord: React.FC = () => {
       try {
         const existingWords = words.map(w => w.word);
         const generatedWords = await generateWordsFromPrompt(aiPrompt.trim(), existingWords, learningLanguage);
-        const count = addMultipleWords(generatedWords);
+        // FIX: Await the result of addMultipleWords, as it is an async function.
+        const count = await addMultipleWords(generatedWords);
         if (count > 0) {
             addHistoryEntry('WORDS_ADDED', `Đã thêm ${count} từ mới bằng AI`, { wordCount: count });
         }
@@ -131,7 +132,8 @@ const AddWord: React.FC = () => {
                 generatedWords = await getWordsFromFile(base64, mimeType, existingWords, learningLanguage);
             }
 
-            const count = addMultipleWords(generatedWords);
+            // FIX: Await the result of addMultipleWords, as it is an async function.
+            const count = await addMultipleWords(generatedWords);
             if (count > 0) {
               addHistoryEntry('WORDS_ADDED', `Đã thêm ${count} từ mới từ ${sourceText}`, { wordCount: count });
             }

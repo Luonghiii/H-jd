@@ -93,9 +93,10 @@ const InteractiveImage: React.FC<{onBack: () => void;}> = ({onBack}) => {
         setIsLoading(false);
     };
 
-    const handleAddWord = () => {
+    const handleAddWord = async () => {
         if (!lastResult) return;
-        const count = addMultipleWords([lastResult]);
+        // FIX: Make the function async and await addMultipleWords.
+        const count = await addMultipleWords([lastResult]);
         if (count > 0) {
             setFeedback(`Đã thêm "${lastResult.word}" vào danh sách!`);
             setLastResult(null);

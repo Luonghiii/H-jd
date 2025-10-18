@@ -13,25 +13,25 @@ const MAX_API_KEYS = 10;
 
 interface SettingsContextType {
   targetLanguage: TargetLanguage;
-  setTargetLanguage: (language: TargetLanguage) => void;
+  setTargetLanguage: (language: TargetLanguage) => Promise<void>;
   learningLanguage: LearningLanguage;
-  setLearningLanguage: (language: LearningLanguage) => void;
+  setLearningLanguage: (language: LearningLanguage) => Promise<void>;
   backgroundSetting: BackgroundSetting;
-  setBackgroundImage: (imageDataUrl: string) => void;
-  setBackgroundGradient: (cssGradient: string) => void;
-  clearBackgroundSetting: () => void;
+  setBackgroundImage: (imageDataUrl: string) => Promise<void>;
+  setBackgroundGradient: (cssGradient: string) => Promise<void>;
+  clearBackgroundSetting: () => Promise<void>;
   customGradients: string[];
-  addCustomGradient: (gradient: string) => void;
-  removeCustomGradient: (gradient: string) => void;
+  addCustomGradient: (gradient: string) => Promise<void>;
+  removeCustomGradient: (gradient: string) => Promise<void>;
   userApiKeys: string[];
-  addUserApiKey: (key: string) => boolean;
-  removeUserApiKey: (keyToRemove: string) => void;
+  addUserApiKey: (key: string) => Promise<boolean>;
+  removeUserApiKey: (keyToRemove: string) => Promise<void>;
   hasApiKey: boolean;
   stats: { luckyWheelBestStreak: number };
-  updateBestStreak: (streak: number) => void;
+  updateBestStreak: (streak: number) => Promise<void>;
   aiTutorHistory: ConversationSession[];
-  saveTutorSession: (session: ConversationSession) => void;
-  clearTutorHistory: () => void;
+  saveTutorSession: (session: ConversationSession) => Promise<void>;
+  clearTutorHistory: () => Promise<void>;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -70,6 +70,11 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
           };
           setAppState(combinedState);
           setApiKeys(combinedState.userApiKeys);
+        } else {
+            // This case might happen if the document is deleted or doesn't exist yet.
+            // Resetting to default is safe.
+            setAppState(defaultState);
+            setApiKeys([]);
         }
       });
       return () => unsubscribe();
@@ -79,76 +84,76 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
   }, [currentUser, isAuthLoading]);
 
-  const setTargetLanguage = useCallback((language: TargetLanguage) => {
+  const setTargetLanguage = useCallback(async (language: TargetLanguage) => {
     if (!currentUser) return;
-    updateUserData(currentUser.uid, { settings: { targetLanguage: language } });
+    await updateUserData(currentUser.uid, { settings: { targetLanguage: language } });
   }, [currentUser]);
   
-  const setLearningLanguage = useCallback((language: LearningLanguage) => {
+  const setLearningLanguage = useCallback(async (language: LearningLanguage) => {
     if (!currentUser) return;
-    updateUserData(currentUser.uid, { settings: { learningLanguage: language } });
+    await updateUserData(currentUser.uid, { settings: { learningLanguage: language } });
   }, [currentUser]);
 
-  const setBackgroundImage = useCallback((imageDataUrl: string) => {
+  const setBackgroundImage = useCallback(async (imageDataUrl: string) => {
     if (!currentUser) return;
     const newBg = { type: 'image' as const, value: imageDataUrl };
-    updateUserData(currentUser.uid, { settings: { backgroundSetting: newBg } });
+    await updateUserData(currentUser.uid, { settings: { backgroundSetting: newBg } });
   }, [currentUser]);
   
-  const setBackgroundGradient = useCallback((cssGradient: string) => {
+  const setBackgroundGradient = useCallback(async (cssGradient: string) => {
     if (!currentUser) return;
     const newBg = { type: 'gradient' as const, value: cssGradient };
-    updateUserData(currentUser.uid, { settings: { backgroundSetting: newBg } });
+    await updateUserData(currentUser.uid, { settings: { backgroundSetting: newBg } });
   }, [currentUser]);
 
-  const clearBackgroundSetting = useCallback(() => {
+  const clearBackgroundSetting = useCallback(async () => {
     if (!currentUser) return;
-    updateUserData(currentUser.uid, { settings: { backgroundSetting: null } });
+    await updateUserData(currentUser.uid, { settings: { backgroundSetting: null } });
   }, [currentUser]);
   
-  const addCustomGradient = useCallback((gradient: string) => {
+  const addCustomGradient = useCallback(async (gradient: string) => {
     if (!currentUser) return;
     const newGradients = [gradient, ...appState.customGradients];
-    updateUserData(currentUser.uid, { settings: { customGradients: newGradients } });
+    await updateUserData(currentUser.uid, { settings: { customGradients: newGradients } });
   }, [currentUser, appState.customGradients]);
   
-  const removeCustomGradient = useCallback((gradient: string) => {
+  const removeCustomGradient = useCallback(async (gradient: string) => {
     if (!currentUser) return;
     const newGradients = appState.customGradients.filter(g => g !== gradient);
-    updateUserData(currentUser.uid, { settings: { customGradients: newGradients } });
+    await updateUserData(currentUser.uid, { settings: { customGradients: newGradients } });
   }, [currentUser, appState.customGradients]);
 
-  const addUserApiKey = useCallback((key: string): boolean => {
+  const addUserApiKey = useCallback(async (key: string): Promise<boolean> => {
     if (!currentUser) return false;
     const trimmedKey = key.trim();
     if (appState.userApiKeys.length >= MAX_API_KEYS || appState.userApiKeys.includes(trimmedKey)) {
         return false;
     }
     const newKeys = [...appState.userApiKeys, trimmedKey];
-    updateUserData(currentUser.uid, { settings: { userApiKeys: newKeys } });
+    await updateUserData(currentUser.uid, { settings: { userApiKeys: newKeys } });
     return true;
   }, [currentUser, appState.userApiKeys]);
 
-  const removeUserApiKey = useCallback((keyToRemove: string) => {
+  const removeUserApiKey = useCallback(async (keyToRemove: string) => {
     if (!currentUser) return;
     const newKeys = appState.userApiKeys.filter(k => k !== keyToRemove);
-    updateUserData(currentUser.uid, { settings: { userApiKeys: newKeys } });
+    await updateUserData(currentUser.uid, { settings: { userApiKeys: newKeys } });
   }, [currentUser, appState.userApiKeys]);
 
-  const updateBestStreak = useCallback((streak: number) => {
+  const updateBestStreak = useCallback(async (streak: number) => {
     if (!currentUser) return;
-    updateUserData(currentUser.uid, { stats: { luckyWheelBestStreak: streak } });
+    await updateUserData(currentUser.uid, { stats: { luckyWheelBestStreak: streak } });
   }, [currentUser]);
 
-  const saveTutorSession = useCallback((session: ConversationSession) => {
+  const saveTutorSession = useCallback(async (session: ConversationSession) => {
     if (!currentUser) return;
     const newHistory = [session, ...appState.aiTutorHistory].slice(0, 50); // Limit history size
-    updateUserData(currentUser.uid, { aiTutorHistory: newHistory });
+    await updateUserData(currentUser.uid, { aiTutorHistory: newHistory });
   }, [currentUser, appState.aiTutorHistory]);
 
-  const clearTutorHistory = useCallback(() => {
+  const clearTutorHistory = useCallback(async () => {
     if (!currentUser) return;
-    updateUserData(currentUser.uid, { aiTutorHistory: [] });
+    await updateUserData(currentUser.uid, { aiTutorHistory: [] });
   }, [currentUser]);
 
 
