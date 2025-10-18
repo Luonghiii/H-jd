@@ -9,8 +9,8 @@ interface HomeProps {
 }
 
 const Home: React.FC<HomeProps> = ({ setCurrentView }) => {
-  const { words } = useVocabulary();
-  const { stats } = useSettings();
+  const { words, isWordsLoading } = useVocabulary();
+  const { stats, isSettingsLoading } = useSettings();
 
   const featureCards = [
     {
@@ -60,7 +60,11 @@ const Home: React.FC<HomeProps> = ({ setCurrentView }) => {
                 <Book className="w-7 h-7 text-indigo-400" />
             </div>
             <div>
-                <div className="text-3xl font-bold">{words.length}</div>
+                {isWordsLoading ? (
+                    <div className="h-8 w-16 bg-slate-700 rounded-md animate-pulse"></div>
+                ) : (
+                    <div className="text-3xl font-bold">{words.length}</div>
+                )}
                 <div className="text-sm text-gray-400">Từ đã lưu</div>
             </div>
         </div>
@@ -69,7 +73,11 @@ const Home: React.FC<HomeProps> = ({ setCurrentView }) => {
                 <Star className="w-7 h-7 text-yellow-400" />
             </div>
             <div>
-                <div className="text-3xl font-bold">{stats.luckyWheelBestStreak}</div>
+                {isSettingsLoading ? (
+                    <div className="h-8 w-8 bg-slate-700 rounded-md animate-pulse"></div>
+                ) : (
+                    <div className="text-3xl font-bold">{stats.luckyWheelBestStreak}</div>
+                )}
                 <div className="text-sm text-gray-400">Chuỗi thắng dài nhất</div>
             </div>
         </div>

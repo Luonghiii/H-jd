@@ -7,6 +7,7 @@ import { onUserDataSnapshot, updateUserData } from '../services/firestoreService
 
 interface VocabularyContextType {
   words: VocabularyWord[];
+  isWordsLoading: boolean;
   addWord: (word: string, translation: string, language: TargetLanguage, theme?: string) => Promise<void>;
   addMultipleWords: (newWords: GeneratedWord[]) => Promise<number>;
   deleteWord: (id: string) => Promise<void>;
@@ -65,26 +66,33 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
   const { learningLanguage } = useSettings();
   const { currentUser, isLoading: isAuthLoading } = useAuth();
   const [words, setWords] = useState<VocabularyWord[]>([]);
+  const [isWordsLoading, setIsWordsLoading] = useState(true);
+  const initialLoadDoneRef = useRef(false);
   
   const [lastDeletedWord, setLastDeletedWord] = useState<{ word: VocabularyWord; index: number } | null>(null);
   const undoTimerRef = useRef<number | null>(null);
   
-  // Effect to listen for Firestore updates. This is the single source of truth.
   useEffect(() => {
-    // Wait for authentication to resolve before doing anything.
     if (isAuthLoading) {
       return;
     }
+
+    setIsWordsLoading(true);
+    initialLoadDoneRef.current = false;
 
     if (currentUser?.uid) {
       const unsubscribe = onUserDataSnapshot(currentUser.uid, (data) => {
         const wordsByLang = data?.words?.[learningLanguage] || [];
         setWords(wordsByLang);
+        if (!initialLoadDoneRef.current) {
+            setIsWordsLoading(false);
+            initialLoadDoneRef.current = true;
+        }
       });
       return () => unsubscribe();
     } else {
-      // Clear words only when auth is resolved and there's definitely no user.
       setWords([]);
+      setIsWordsLoading(false);
     }
   }, [currentUser, isAuthLoading, learningLanguage]);
 
@@ -236,7 +244,7 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
   }, [words]);
 
   return (
-    <VocabularyContext.Provider value={{ words, addWord, addMultipleWords, deleteWord, updateWord, updateWordImage, updateWordSrs, getWordsForStory, getAvailableThemes, toggleWordStar, lastDeletedWord, undoDelete }}>
+    <VocabularyContext.Provider value={{ words, isWordsLoading, addWord, addMultipleWords, deleteWord, updateWord, updateWordImage, updateWordSrs, getWordsForStory, getAvailableThemes, toggleWordStar, lastDeletedWord, undoDelete }}>
       {children}
     </VocabularyContext.Provider>
   );

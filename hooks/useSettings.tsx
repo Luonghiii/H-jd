@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { TargetLanguage, LearningLanguage, ConversationSession } from '../types';
 import { useAuth } from './useAuth';
 import { onUserDataSnapshot, updateUserData } from '../services/firestoreService';
@@ -27,6 +27,7 @@ interface SettingsContextType {
   addUserApiKey: (key: string) => Promise<boolean>;
   removeUserApiKey: (keyToRemove: string) => Promise<void>;
   hasApiKey: boolean;
+  isSettingsLoading: boolean;
   stats: { luckyWheelBestStreak: number };
   updateBestStreak: (streak: number) => Promise<void>;
   aiTutorHistory: ConversationSession[];
@@ -49,12 +50,16 @@ const defaultState = {
 export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { currentUser, isLoading: isAuthLoading } = useAuth();
   const [appState, setAppState] = useState(defaultState);
+  const [isSettingsLoading, setIsSettingsLoading] = useState(true);
+  const initialLoadDoneRef = useRef(false);
 
-  // Effect to listen for Firestore updates
   useEffect(() => {
     if (isAuthLoading) {
       return;
     }
+
+    setIsSettingsLoading(true);
+    initialLoadDoneRef.current = false;
 
     if (currentUser?.uid) {
       const unsubscribe = onUserDataSnapshot(currentUser.uid, (data) => {
@@ -71,16 +76,19 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
           setAppState(combinedState);
           setApiKeys(combinedState.userApiKeys);
         } else {
-            // This case might happen if the document is deleted or doesn't exist yet.
-            // Resetting to default is safe.
             setAppState(defaultState);
             setApiKeys([]);
+        }
+        if (!initialLoadDoneRef.current) {
+            setIsSettingsLoading(false);
+            initialLoadDoneRef.current = true;
         }
       });
       return () => unsubscribe();
     } else {
       setAppState(defaultState);
       setApiKeys([]);
+      setIsSettingsLoading(false);
     }
   }, [currentUser, isAuthLoading]);
 
@@ -175,6 +183,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     addUserApiKey,
     removeUserApiKey,
     hasApiKey,
+    isSettingsLoading,
     stats: appState.stats,
     updateBestStreak,
     aiTutorHistory: appState.aiTutorHistory,
