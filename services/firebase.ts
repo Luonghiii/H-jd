@@ -2,15 +2,15 @@ import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, signInWithPopup, sendPasswordResetEmail } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
-// Firebase configuration from your screenshot
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  apiKey: "AIzaSyBL9IUKH7bfn_59bs_dDy-6E7VNzvzgy8o",
-  authDomain: "language-34dc1.firebaseapp.com",
-  projectId: "language-34dc1",
-  storageBucket: "language-34dc1.firebasestorage.app",
-  messagingSenderId: "707363063359",
-  appId: "1:707363063359:web:9bb01154f0dda220f45a8a",
-  measurementId: "G-TET8LZ50G2"
+  apiKey: "AIzaSyBuWZHoPmd883frgOXoLzoLDPluipr0ydI",
+  authDomain: "lbwl-e99a9.firebaseapp.com",
+  projectId: "lbwl-e99a9",
+  storageBucket: "lbwl-e99a9.firebasestorage.app",
+  messagingSenderId: "929355975453",
+  appId: "1:929355975453:web:b84cb18ab87562263eaff4",
+  measurementId: "G-0VW19QL8TC"
 };
 
 
