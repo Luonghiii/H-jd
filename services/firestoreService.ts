@@ -96,10 +96,6 @@ export const updateUserData = async (uid: string, data: DocumentData): Promise<v
 
   try {
     await setDoc(userRef, data, { merge: true });
-    // Bỏ qua thông báo cho các cập nhật nhỏ như stats để tránh làm phiền
-    if (!data.stats) {
-       eventBus.dispatch('notification', { type: 'success', message: 'Dữ liệu đã được đồng bộ.' });
-    }
   } catch (err: any) {
     console.error('Error updating user data:', err);
     let errorMessage = 'Không thể lưu dữ liệu.';

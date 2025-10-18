@@ -161,10 +161,6 @@ const AppContent: React.FC = () => {
   if (!currentUser) {
     return <Login />;
   }
-  
-  if (!hasApiKey) {
-    return <ApiKeySetup />;
-  }
 
   return (
     <VocabularyProvider>
