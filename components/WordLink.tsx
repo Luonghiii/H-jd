@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useCallback } from 'react';
-import { useVocabulary } from '../hooks/useVocabulary';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { useVocabulary, themeTranslationMap } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
 import { useHistory } from '../hooks/useHistory';
 import { ArrowLeft, RefreshCw } from 'lucide-react';
@@ -14,75 +14,145 @@ type Item = { id: string; content: string; type: 'word' | 'translation' };
 const PAIR_COUNTS = [5, 8, 10];
 
 const WordLink: React.FC<WordLinkProps> = ({ onBack }) => {
-    const { words } = useVocabulary();
+    const { words, getAvailableThemes } = useVocabulary();
     const { targetLanguage } = useSettings();
     const { addHistoryEntry } = useHistory();
     
     const [gameState, setGameState] = useState<GameState>('setup');
     const [pairCount, setPairCount] = useState(8);
+
+    const [selectedThemes, setSelectedThemes] = useState<Set<string>>(new Set(['all']));
+    const availableThemes = useMemo(() => getAvailableThemes(), [getAvailableThemes]);
+    const themeFilteredWords = useMemo(() => {
+        if (selectedThemes.has('all')) return words;
+        return words.filter(w => w.theme && selectedThemes.has(w.theme));
+    }, [words, selectedThemes]);
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(themeFilteredWords.map(w => w.id)));
+     useEffect(() => {
+        setSelectedIds(new Set(themeFilteredWords.map(w => w.id)));
+    }, [themeFilteredWords]);
+    const wordsForGame = useMemo(() => themeFilteredWords.filter(w => selectedIds.has(w.id)), [themeFilteredWords, selectedIds]);
+
     const [wordItems, setWordItems] = useState<Item[]>([]);
     const [translationItems, setTranslationItems] = useState<Item[]>([]);
     const [selectedWord, setSelectedWord] = useState<Item | null>(null);
     const [correctPairs, setCorrectPairs] = useState<string[]>([]);
-    const [incorrectPair, setIncorrectPair] = useState<[string, string] | null>(null);
     const [score, setScore] = useState(0);
+    const [lastGameItems, setLastGameItems] = useState<{words: Item[], translations: Item[]} | null>(null);
 
-    const startGame = useCallback(() => {
-        const shuffledWords = [...words].sort(() => 0.5 - Math.random());
-        const selected = shuffledWords.slice(0, Math.min(pairCount, words.length));
-        
-        const wordsCol = selected.map(w => ({ id: w.id, content: w.word, type: 'word' as const }));
-        const translationsCol = selected.map(w => ({ id: w.id, content: w.translation[targetLanguage], type: 'translation' as const }));
+    const startGame = useCallback((options?: { replay?: boolean }) => {
+        if (options?.replay && lastGameItems) {
+            setWordItems(lastGameItems.words);
+            setTranslationItems(lastGameItems.translations);
+        } else {
+            const shuffledWords = [...wordsForGame].sort(() => 0.5 - Math.random());
+            const selected = shuffledWords.slice(0, Math.min(pairCount, wordsForGame.length));
+            
+            const wordsCol = selected.map(w => ({ id: w.id, content: w.word, type: 'word' as const }));
+            const translationsCol = selected.map(w => ({ id: w.id, content: w.translation[targetLanguage], type: 'translation' as const }));
+    
+            const newWordItems = wordsCol.sort(() => Math.random() - 0.5);
+            const newTranslationItems = translationsCol.sort(() => Math.random() - 0.5);
 
-        setWordItems(wordsCol.sort(() => Math.random() - 0.5));
-        setTranslationItems(translationsCol.sort(() => Math.random() - 0.5));
+            setWordItems(newWordItems);
+            setTranslationItems(newTranslationItems);
+            setLastGameItems({ words: newWordItems, translations: newTranslationItems });
+        }
         
         setCorrectPairs([]);
         setSelectedWord(null);
-        setIncorrectPair(null);
         setScore(0);
         setGameState('playing');
-    }, [words, pairCount, targetLanguage]);
+    }, [wordsForGame, pairCount, targetLanguage, lastGameItems]);
     
     const handleItemClick = (item: Item) => {
         if (correctPairs.includes(item.id)) return;
         
         if (item.type === 'word') {
             setSelectedWord(item);
-            setIncorrectPair(null);
         } else if (item.type === 'translation' && selectedWord) {
             if (item.id === selectedWord.id) {
                 // Correct match
                 setCorrectPairs(prev => [...prev, item.id]);
                 setScore(prev => prev + 1);
                 setSelectedWord(null);
-                setIncorrectPair(null);
             } else {
-                // Incorrect match
-                setIncorrectPair([selectedWord.id, item.id]);
+                // Incorrect match - deselect
                 setSelectedWord(null);
             }
         }
     };
+    
+    const handleThemeToggle = (theme: string) => {
+        setSelectedThemes(prev => {
+          const newSet = new Set(prev);
+          if (theme === 'all') return new Set(['all']);
+          newSet.delete('all');
+          if (newSet.has(theme)) newSet.delete(theme);
+          else newSet.add(theme);
+          if (newSet.size === 0) return new Set(['all']);
+          return newSet;
+        });
+    };
 
-    if (correctPairs.length === wordItems.length && wordItems.length > 0 && gameState === 'playing') {
-        addHistoryEntry('WORD_LINK_COMPLETED', `Hoàn thành game Nối từ với ${score} điểm.`);
-        setGameState('results');
-    }
+    const handleToggleWord = (id: string) => {
+        setSelectedIds(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(id)) newSet.delete(id); else newSet.add(id);
+            return newSet;
+        });
+    };
+    const handleSelectAll = () => setSelectedIds(new Set(themeFilteredWords.map(w => w.id)));
+    const handleDeselectAll = () => setSelectedIds(new Set());
+
+    useEffect(() => {
+        if (gameState === 'playing' && wordItems.length > 0 && correctPairs.length === wordItems.length) {
+            addHistoryEntry('WORD_LINK_COMPLETED', `Hoàn thành game Nối từ với ${score} điểm.`);
+            setGameState('results');
+        }
+    }, [correctPairs, wordItems.length, gameState, score, addHistoryEntry]);
 
     if (gameState === 'setup') {
+        const isStartDisabled = wordsForGame.length < pairCount;
         return (
-            <div className="space-y-6 animate-fade-in text-center">
-                <div className="flex items-center justify-between">
-                    <h2 className="text-2xl font-bold text-white">Nối từ</h2>
+            <div className="space-y-6 animate-fade-in">
+                 <div className="flex items-center justify-between">
+                    <div className="text-center sm:text-left">
+                        <h2 className="text-2xl font-bold text-white">Trò chơi Nối từ</h2>
+                        <p className="text-gray-400 mt-1">Nối từ với nghĩa đúng của chúng.</p>
+                    </div>
                     <button onClick={onBack} className="flex-shrink-0 flex items-center gap-2 px-3 py-2 text-sm bg-slate-700/50 hover:bg-slate-700 text-gray-200 font-semibold rounded-xl transition-colors">
                         <ArrowLeft className="w-4 h-4" />
                         <span>Quay lại</span>
                     </button>
                 </div>
-                <p className="text-gray-400">Nối từ với nghĩa đúng của chúng. Chọn một từ rồi chọn nghĩa tương ứng.</p>
                 <div>
-                    <h3 className="font-semibold text-white mb-2">Số cặp từ</h3>
+                    <h3 className="font-semibold text-white mb-2">1. Chọn chủ đề</h3>
+                    <div className="flex flex-wrap gap-2 p-3 bg-slate-800/50 border border-slate-700 rounded-2xl">
+                        <button onClick={() => handleThemeToggle('all')} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has('all') ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 hover:bg-slate-600'}`}>Tất cả ({words.length})</button>
+                        {availableThemes.map(theme => <button key={theme} onClick={() => handleThemeToggle(theme)} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has(theme) ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 hover:bg-slate-600'}`}>{targetLanguage === 'english' ? (themeTranslationMap[theme] || theme) : theme} ({words.filter(w => w.theme === theme).length})</button>)}
+                    </div>
+                </div>
+                <div>
+                    <h3 className="font-semibold text-white mb-2">2. Chọn từ ({selectedIds.size} / {themeFilteredWords.length} đã chọn)</h3>
+                    <div className="flex gap-2 mb-2">
+                        <button onClick={handleSelectAll} className="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded-lg">Chọn tất cả</button>
+                        <button onClick={handleDeselectAll} className="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded-lg">Bỏ chọn tất cả</button>
+                    </div>
+                    <div className="max-h-[20vh] overflow-y-auto pr-2 bg-slate-800/50 border border-slate-700 rounded-2xl p-3 space-y-2">
+                        {themeFilteredWords.map(word => (
+                            <div key={word.id} onClick={() => handleToggleWord(word.id)} className="flex items-center p-2 rounded-xl hover:bg-slate-700/50 cursor-pointer">
+                                <input type="checkbox" checked={selectedIds.has(word.id)} readOnly className="w-5 h-5 mr-3 bg-slate-900 border-slate-600 text-indigo-500 focus:ring-indigo-600 rounded-md pointer-events-none" />
+                                <div>
+                                    <p className="font-medium text-white">{word.word}</p>
+                                    <p className="text-sm text-gray-400">{word.translation[targetLanguage]}</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                <div>
+                    <h3 className="font-semibold text-white mb-2">3. Số cặp từ</h3>
                     <div className="flex justify-center gap-2">
                         {PAIR_COUNTS.map(n => (
                             <button key={n} onClick={() => setPairCount(n)} className={`px-4 py-2 text-sm rounded-xl transition-colors ${pairCount === n ? 'bg-indigo-600 text-white' : 'bg-slate-700 hover:bg-slate-600'}`}>
@@ -91,10 +161,10 @@ const WordLink: React.FC<WordLinkProps> = ({ onBack }) => {
                         ))}
                     </div>
                 </div>
-                <button onClick={startGame} disabled={words.length < pairCount} className="w-full max-w-xs mx-auto flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98] disabled:bg-indigo-400 disabled:cursor-not-allowed">
+                <button onClick={() => startGame()} disabled={isStartDisabled} className="w-full flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98] disabled:bg-indigo-400 disabled:cursor-not-allowed">
                     Bắt đầu
                 </button>
-                {words.length < pairCount && <p className="text-center text-sm text-amber-400">Không đủ từ. Cần ít nhất {pairCount} từ.</p>}
+                {isStartDisabled && <p className="text-center text-sm text-amber-400">Không đủ từ. Cần ít nhất {pairCount} từ.</p>}
             </div>
         );
     }
@@ -104,12 +174,18 @@ const WordLink: React.FC<WordLinkProps> = ({ onBack }) => {
             <div className="text-center py-10 space-y-4 flex flex-col items-center animate-fade-in">
                 <h2 className="text-3xl font-bold text-white">Hoàn thành!</h2>
                 <p className="text-gray-400">Bạn đã nối đúng tất cả {score} cặp từ.</p>
-                <div className="flex gap-4 pt-4">
-                    <button onClick={onBack} className="px-6 py-3 bg-slate-600 hover:bg-slate-700 text-white font-semibold rounded-xl">Chơi game khác</button>
-                    <button onClick={startGame} className="flex items-center justify-center px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl">
-                        <RefreshCw className="w-5 h-5 mr-2" /> Chơi lại
+                <div className="flex flex-col sm:flex-row gap-4 pt-4 w-full max-w-md">
+                    <button onClick={() => startGame({ replay: true })} className="flex-1 px-6 py-3 bg-slate-600 hover:bg-slate-700 text-white font-semibold rounded-xl">
+                        Chơi lại
+                    </button>
+                    <button onClick={() => startGame()} className="flex-1 flex items-center justify-center px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl">
+                        <RefreshCw className="w-5 h-5 mr-2" />
+                        Tiếp tục
                     </button>
                 </div>
+                <button onClick={onBack} className="mt-4 text-sm text-indigo-400 hover:underline">
+                    Chơi game khác
+                </button>
             </div>
         );
     }
@@ -118,11 +194,8 @@ const WordLink: React.FC<WordLinkProps> = ({ onBack }) => {
         if (correctPairs.includes(item.id)) {
             return 'bg-green-500/20 border-green-500 text-green-300 cursor-default';
         }
-        if (selectedWord?.id === item.id) {
+        if (selectedWord === item) {
             return 'bg-indigo-500/30 border-indigo-500 text-white ring-2 ring-indigo-400';
-        }
-        if (incorrectPair?.includes(item.id)) {
-            return 'bg-red-500/20 border-red-500 text-red-300 animate-shake';
         }
         return 'bg-slate-800 border-slate-600 hover:bg-slate-700 hover:border-slate-500';
     };

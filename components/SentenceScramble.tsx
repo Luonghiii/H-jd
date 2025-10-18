@@ -1,9 +1,12 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useVocabulary } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
 import { useHistory } from '../hooks/useHistory';
 import { generateScrambledSentence } from '../services/geminiService';
 import { ArrowLeft, CheckCircle, RefreshCw, Wand2 } from 'lucide-react';
+import { VocabularyWord } from '../types';
+import { useInspector } from '../hooks/useInspector';
 
 interface SentenceScrambleProps {
   onBack: () => void;
@@ -15,17 +18,20 @@ const SentenceScramble: React.FC<SentenceScrambleProps> = ({ onBack }) => {
     const { words } = useVocabulary();
     const { learningLanguage } = useSettings();
     const { addHistoryEntry } = useHistory();
+    const { openInspector } = useInspector();
     const [gameState, setGameState] = useState<GameState>('setup');
     const [originalSentence, setOriginalSentence] = useState('');
     const [scrambledWords, setScrambledWords] = useState<string[]>([]);
     const [userSentence, setUserSentence] = useState<string[]>([]);
     const [selectedTheme, setSelectedTheme] = useState('all');
+    const [triggerWord, setTriggerWord] = useState<VocabularyWord | null>(null);
     
     const generateNewSentence = useCallback(async () => {
         setGameState('loading');
         setUserSentence([]);
         setScrambledWords([]);
         setOriginalSentence('');
+        setTriggerWord(null);
 
         const wordsInTheme = selectedTheme === 'all' ? words : words.filter(w => w.theme === selectedTheme);
         if (wordsInTheme.length === 0) {
@@ -35,6 +41,7 @@ const SentenceScramble: React.FC<SentenceScrambleProps> = ({ onBack }) => {
         }
         
         const randomWord = wordsInTheme[Math.floor(Math.random() * wordsInTheme.length)];
+        setTriggerWord(randomWord);
         
         try {
             const sentence = await generateScrambledSentence(randomWord, learningLanguage);
@@ -127,6 +134,17 @@ const SentenceScramble: React.FC<SentenceScrambleProps> = ({ onBack }) => {
                 <div className="text-center p-4 space-y-3 bg-green-500/10 rounded-xl animate-fade-in">
                     <CheckCircle className="w-12 h-12 mx-auto text-green-400" />
                     <h3 className="text-xl font-bold text-white">Chính xác!</h3>
+                    {triggerWord && (
+                        <p className="text-gray-300">
+                            Câu này được tạo từ từ: 
+                            <strong 
+                                className="text-cyan-300 cursor-pointer hover:underline ml-1"
+                                onClick={() => openInspector(triggerWord)}
+                            >
+                                {triggerWord.word}
+                            </strong>
+                        </p>
+                    )}
                      <button onClick={generateNewSentence} className="flex items-center justify-center mx-auto px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl">
                         <RefreshCw className="w-5 h-5 mr-2" />
                         Câu tiếp theo

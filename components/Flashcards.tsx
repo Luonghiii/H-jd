@@ -1,28 +1,37 @@
-
-
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useVocabulary, themeTranslationMap } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
-import { ArrowLeft, ArrowRight, Shuffle, RotateCcw } from 'lucide-react';
+import { useInspector } from '../hooks/useInspector';
+import { ArrowLeft, ArrowRight, Shuffle, RotateCcw, Info } from 'lucide-react';
 
 type FlashcardView = 'setup' | 'playing';
 
 const Flashcards: React.FC = () => {
   const { words, getAvailableThemes } = useVocabulary();
   const { targetLanguage } = useSettings();
+  const { openInspector } = useInspector();
   
   const [view, setView] = useState<FlashcardView>('setup');
   const [selectedThemes, setSelectedThemes] = useState<Set<string>>(new Set(['all']));
-  const [cardWords, setCardWords] = useState(words);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isFlipped, setIsFlipped] = useState(false);
   
   const availableThemes = getAvailableThemes();
   
-  const wordsForFlashcards = useMemo(() => {
+  const themeFilteredWords = useMemo(() => {
     if (selectedThemes.has('all')) return words;
     return words.filter(w => w.theme && selectedThemes.has(w.theme));
   }, [words, selectedThemes]);
+  
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(themeFilteredWords.map(w => w.id)));
+  
+  useEffect(() => {
+    setSelectedIds(new Set(themeFilteredWords.map(w => w.id)));
+  }, [themeFilteredWords]);
+  
+  const wordsForFlashcards = useMemo(() => themeFilteredWords.filter(w => selectedIds.has(w.id)), [themeFilteredWords, selectedIds]);
+
+  const [cardWords, setCardWords] = useState(wordsForFlashcards);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isFlipped, setIsFlipped] = useState(false);
   
   const handleThemeToggle = (theme: string) => {
     setSelectedThemes(prev => {
@@ -35,6 +44,16 @@ const Flashcards: React.FC = () => {
         return newSet;
     });
   };
+
+  const handleToggleWord = (id: string) => {
+    setSelectedIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) newSet.delete(id); else newSet.add(id);
+      return newSet;
+    });
+  };
+  const handleSelectAll = () => setSelectedIds(new Set(themeFilteredWords.map(w => w.id)));
+  const handleDeselectAll = () => setSelectedIds(new Set());
 
   const handleStart = () => {
     const shuffled = [...wordsForFlashcards].sort(() => 0.5 - Math.random());
@@ -66,10 +85,10 @@ const Flashcards: React.FC = () => {
       <div className="space-y-6 animate-fade-in">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-white">Thẻ ghi nhớ</h2>
-          <p className="text-gray-400 mt-1">Chọn chủ đề để bắt đầu ôn tập.</p>
+          <p className="text-gray-400 mt-1">Chọn từ để bắt đầu ôn tập.</p>
         </div>
         <div>
-          <h3 className="font-semibold text-white mb-2">Chọn chủ đề</h3>
+          <h3 className="font-semibold text-white mb-2">1. Chọn chủ đề</h3>
           <div className="flex flex-wrap gap-2 p-3 bg-slate-800/50 border border-slate-700 rounded-2xl">
             <button onClick={() => handleThemeToggle('all')} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has('all') ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 hover:bg-slate-600'}`}>
               Tất cả ({words.length})
@@ -81,6 +100,26 @@ const Flashcards: React.FC = () => {
             ))}
           </div>
         </div>
+
+        <div>
+          <h3 className="font-semibold text-white mb-2">2. Chọn từ ({selectedIds.size} / {themeFilteredWords.length} đã chọn)</h3>
+          <div className="flex gap-2 mb-2">
+            <button onClick={handleSelectAll} className="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded-lg">Chọn tất cả</button>
+            <button onClick={handleDeselectAll} className="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded-lg">Bỏ chọn tất cả</button>
+          </div>
+          <div className="max-h-[25vh] overflow-y-auto pr-2 bg-slate-800/50 border border-slate-700 rounded-2xl p-3 space-y-2">
+            {themeFilteredWords.map(word => (
+              <div key={word.id} onClick={() => handleToggleWord(word.id)} className="flex items-center p-2 rounded-xl hover:bg-slate-700/50 cursor-pointer">
+                <input type="checkbox" checked={selectedIds.has(word.id)} readOnly className="w-5 h-5 mr-3 bg-slate-900 border-slate-600 text-indigo-500 focus:ring-indigo-600 rounded-md pointer-events-none" />
+                <div>
+                  <p className="font-medium text-white hover:underline" onClick={(e) => { e.stopPropagation(); openInspector(word); }}>{word.word}</p>
+                  <p className="text-sm text-gray-400">{word.translation[targetLanguage]}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         <button onClick={handleStart} disabled={wordsForFlashcards.length === 0} className="w-full flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98] disabled:bg-indigo-400 disabled:cursor-not-allowed">
             Bắt đầu ôn tập ({wordsForFlashcards.length} từ)
         </button>
@@ -97,16 +136,19 @@ const Flashcards: React.FC = () => {
         <button onClick={() => setView('setup')} className="text-sm text-indigo-400 hover:underline">Thay đổi lựa chọn</button>
       </div>
       
-      <div className="[perspective:1000px]" onClick={() => setIsFlipped(!isFlipped)}>
+      <div className="[perspective:1000px]">
         <div 
+          onClick={() => setIsFlipped(!isFlipped)}
           className="relative w-full h-64 rounded-2xl shadow-xl [transform-style:preserve-3d] transition-transform duration-500 cursor-pointer"
           style={{ transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'}}
         >
           <div className="absolute w-full h-full [backface-visibility:hidden] flex items-center justify-center p-4 bg-slate-700 rounded-2xl border border-slate-600">
             <p className="text-3xl font-bold text-white text-center">{currentWord.word}</p>
+            <button onClick={(e) => { e.stopPropagation(); openInspector(currentWord); }} className="absolute top-2 right-2 p-2 text-gray-300 hover:text-white hover:bg-black/20 rounded-full" aria-label="Inspect word"><Info className="w-5 h-5" /></button>
           </div>
           <div className="absolute w-full h-full [backface-visibility:hidden] [transform:rotateY(180deg)] flex items-center justify-center p-4 bg-indigo-500 rounded-2xl">
             <p className="text-3xl font-bold text-white text-center">{currentWord.translation[targetLanguage]}</p>
+            <button onClick={(e) => { e.stopPropagation(); openInspector(currentWord); }} className="absolute top-2 right-2 p-2 text-gray-200 hover:text-white hover:bg-black/20 rounded-full" aria-label="Inspect word"><Info className="w-5 h-5" /></button>
           </div>
         </div>
       </div>

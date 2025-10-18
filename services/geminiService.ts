@@ -135,6 +135,32 @@ Output a JSON array of objects.`;
     return result || [];
 };
 
+export const identifyObjectInImage = async (base64: string, mimeType: string, coords: {x: number, y: number}, language: LearningLanguage): Promise<GeneratedWord | null> => {
+    const ai = getAiClient();
+    const systemInstruction = `You are an AI assistant for a language learning app. A user has clicked on an image at normalized coordinates (x: ${coords.x}, y: ${coords.y}). Your task is to identify the object at or very near these coordinates.
+The target learning language is ${language}.
+Provide its name, translations in both Vietnamese and English, and a relevant, single-word theme in Vietnamese.
+If no specific object is at the coordinates, identify the general area (e.g., 'sky', 'wall').
+If you cannot identify anything, return a JSON object with null values.
+Output a single JSON object.`;
+
+    const imagePart = { inlineData: { data: base64, mimeType } };
+    const textPart = { text: `Identify the object at x:${coords.x}, y:${coords.y}.`};
+
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-pro',
+        contents: { parts: [imagePart, textPart] },
+        config: {
+            systemInstruction,
+            responseMimeType: "application/json",
+            responseSchema: generatedWordSchema
+        }
+    });
+
+    const result = parseJsonResponse<GeneratedWord>(response.text);
+    return result?.word ? result : null;
+}
+
 export const generateStory = async (words: string[], targetLanguage: TargetLanguage, learningLanguage: LearningLanguage): Promise<string> => {
     const ai = getAiClient();
     const targetLangName = targetLanguage === 'vietnamese' ? 'Vietnamese' : 'English';
@@ -311,9 +337,9 @@ Answer the user's questions clearly and simply. Keep responses concise. The conv
 export const generateHintsForWord = async (word: VocabularyWord, targetLanguage: TargetLanguage, learningLanguage: LearningLanguage) => {
     const ai = getAiClient();
     const prompt = `For the ${learningLanguage} word "${word.word}", generate four progressive hints for a word-guessing game. The user knows the number of letters.
-    1.  **Hint 1 (Theme):** The general category or theme of the word.
-    2.  **Hint 2 (Description):** A short, simple description of the word.
-    3.  **Hint 3 (Sentence):** An example sentence using the word, but replace the word with underscores (\_).
+    1.  **Hint 1 (Riddle):** A short, clever riddle or a descriptive clue about the word. This is the first thing the user sees.
+    2.  **Hint 2 (Category):** The general category or theme of the word (e.g., Food, Animal).
+    3.  **Hint 3 (Sentence):** An example sentence using the word, but replace the word with underscores (\\_). The sentence should clearly suggest the word.
     4.  **Hint 4 (First Letter):** The first letter of the word.
     All hints must be in ${targetLanguage === 'vietnamese' ? 'Vietnamese' : 'English'}.
     Return a single JSON object.`;
@@ -325,8 +351,8 @@ export const generateHintsForWord = async (word: VocabularyWord, targetLanguage:
             responseSchema: {
                 type: Type.OBJECT,
                 properties: {
-                    hint1: { type: Type.STRING, description: "Theme" },
-                    hint2: { type: Type.STRING, description: "Short description" },
+                    hint1: { type: Type.STRING, description: "Riddle or descriptive clue" },
+                    hint2: { type: Type.STRING, description: "Category/Theme" },
                     hint3: { type: Type.STRING, description: "Example sentence with blank" },
                     hint4: { type: Type.STRING, description: "First letter" },
                 },

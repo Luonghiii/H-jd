@@ -2,12 +2,16 @@ import React, { useState } from 'react';
 import StoryGenerator from './StoryGenerator';
 import SentenceGenerator from './SentenceGenerator';
 import GrammarChecker from './GrammarChecker';
-import { Sparkles, BookText, FileText, CheckSquare, ArrowRight } from 'lucide-react';
+import AiTutor from './AiTutor';
+import InteractiveImage from './InteractiveImage';
+import { Sparkles, BookText, FileText, CheckSquare, ArrowRight, MessageCircle, ImageIcon } from 'lucide-react';
 import { useVocabulary } from '../hooks/useVocabulary';
 
-type AiTool = 'menu' | 'story' | 'sentence' | 'grammar';
+type AiTool = 'menu' | 'story' | 'sentence' | 'grammar' | 'tutor' | 'imageExplorer';
 
 const toolOptions = [
+    { id: 'tutor', component: AiTutor, title: 'Gia sư Đối thoại AI', description: 'Trò chuyện trực tiếp với AI bằng giọng nói để luyện kỹ năng giao tiếp.', icon: MessageCircle },
+    { id: 'imageExplorer', component: InteractiveImage, title: 'Khám phá qua Ảnh', description: 'Tải lên một bức ảnh và nhấp vào các vật thể để học từ vựng.', icon: ImageIcon },
     { id: 'story', component: StoryGenerator, title: 'Tạo truyện', description: 'Chọn từ vựng và để AI viết một câu chuyện ngắn độc đáo.', icon: BookText },
     { id: 'sentence', component: SentenceGenerator, title: 'Tạo câu ví dụ', description: 'Chọn một từ và xem cách nó được sử dụng trong một câu hoàn chỉnh.', icon: FileText },
     { id: 'grammar', component: GrammarChecker, title: 'Kiểm tra ngữ pháp', description: 'Viết một câu hoặc đoạn văn và để AI kiểm tra, sửa lỗi ngữ pháp.', icon: CheckSquare },
@@ -19,7 +23,9 @@ const AiTools: React.FC = () => {
 
     const handleBack = () => setActiveTool('menu');
 
-    if (words.length === 0 && (activeTool === 'story' || activeTool === 'sentence')) {
+    const toolsRequiringWords: AiTool[] = ['story', 'sentence'];
+
+    if (words.length === 0 && toolsRequiringWords.includes(activeTool)) {
         return (
           <div className="text-center py-10">
             <h2 className="text-2xl font-bold text-white">Công cụ AI</h2>
@@ -33,6 +39,7 @@ const AiTools: React.FC = () => {
         const selectedTool = toolOptions.find(t => t.id === activeTool);
         if (selectedTool) {
             const ToolComponent = selectedTool.component;
+            // @ts-ignore
             return <ToolComponent onBack={handleBack} />;
         }
     }

@@ -14,6 +14,9 @@ export interface VocabularyWord {
   createdAt: number;
   isStarred: boolean;
   imageUrl?: string;
+  // Spaced Repetition System fields
+  srsLevel: number; // 0 for new, increases with correct reviews
+  nextReview: number; // Timestamp for the next review
 }
 
 export interface GeneratedWord {
@@ -36,7 +39,7 @@ export interface ChatMessage {
 
 export interface HistoryEntry {
     id: string;
-    type: 'LOGIN' | 'WORDS_ADDED' | 'STORY_GENERATED' | 'QUIZ_COMPLETED' | 'MEMORY_MATCH_WON' | 'MEMORY_MATCH_LOST' | 'SENTENCE_SCRAMBLE_WON' | 'WORD_GUESS_WON' | 'WORD_GUESS_LOST' | 'WORD_LINK_COMPLETED' | 'GRAMMAR_CHECK_COMPLETED';
+    type: 'LOGIN' | 'WORDS_ADDED' | 'STORY_GENERATED' | 'QUIZ_COMPLETED' | 'MEMORY_MATCH_WON' | 'MEMORY_MATCH_LOST' | 'SENTENCE_SCRAMBLE_WON' | 'WORD_GUESS_WON' | 'WORD_GUESS_LOST' | 'WORD_LINK_COMPLETED' | 'GRAMMAR_CHECK_COMPLETED' | 'REVIEW_SESSION_COMPLETED';
     details: string;
     timestamp: number;
     payload?: any;
@@ -48,6 +51,7 @@ export enum View {
   List = 'list',
   Practice = 'practice',
   Flashcards = 'flashcards',
+  Review = 'review',
   Games = 'games',
   AiTools = 'aitools',
   History = 'history'

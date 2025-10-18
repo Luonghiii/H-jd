@@ -1,9 +1,9 @@
-
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useVocabulary, themeTranslationMap } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
 import { VocabularyWord } from '../types';
 import { RefreshCw, ArrowLeft } from 'lucide-react';
+import { useInspector } from '../hooks/useInspector';
 
 type PracticeView = 'setup' | 'playing' | 'results';
 type Answer = {
@@ -15,23 +15,41 @@ type Answer = {
 const Practice: React.FC = () => {
   const { words, getAvailableThemes } = useVocabulary();
   const { targetLanguage } = useSettings();
+  const { openInspector } = useInspector();
 
   const [view, setView] = useState<PracticeView>('setup');
   const [selectedThemes, setSelectedThemes] = useState<Set<string>>(new Set(['all']));
   const [numWords, setNumWords] = useState(10);
   
   const [practiceWords, setPracticeWords] = useState<VocabularyWord[]>([]);
+  const [initialPracticeWords, setInitialPracticeWords] = useState<VocabularyWord[]>([]);
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
   const [userAnswer, setUserAnswer] = useState('');
   const [answers, setAnswers] = useState<Answer[]>([]);
   
   const availableThemes = getAvailableThemes();
   
-  const wordsForPractice = useMemo(() => {
+  const themeFilteredWords = useMemo(() => {
     if (selectedThemes.has('all')) return words;
     return words.filter(w => w.theme && selectedThemes.has(w.theme));
   }, [words, selectedThemes]);
+
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(themeFilteredWords.map(w => w.id)));
   
+  useEffect(() => {
+    setSelectedIds(new Set(themeFilteredWords.map(w => w.id)));
+  }, [themeFilteredWords]);
+
+  const wordsForPractice = useMemo(() => themeFilteredWords.filter(w => selectedIds.has(w.id)), [themeFilteredWords, selectedIds]);
+  
+  useEffect(() => {
+    if (wordsForPractice.length > 0) {
+        setNumWords(currentNum => Math.max(1, Math.min(currentNum, wordsForPractice.length)));
+    } else {
+        setNumWords(1);
+    }
+  }, [wordsForPractice.length]);
+
   const handleThemeToggle = (theme: string) => {
     setSelectedThemes(prev => {
         const newSet = new Set(prev);
@@ -43,18 +61,36 @@ const Practice: React.FC = () => {
         return newSet;
     });
   };
+  
+  const handleToggleWord = (id: string) => {
+    setSelectedIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) newSet.delete(id); else newSet.add(id);
+      return newSet;
+    });
+  };
+  const handleSelectAll = () => setSelectedIds(new Set(themeFilteredWords.map(w => w.id)));
+  const handleDeselectAll = () => setSelectedIds(new Set());
 
-  const handleStartPractice = useCallback(() => {
-    const shuffledWords = [...wordsForPractice].sort(() => 0.5 - Math.random());
-    const wordCount = Math.min(numWords, shuffledWords.length);
-    const wordsToPractice = shuffledWords.slice(0, wordCount);
+  const handleStartPractice = useCallback((options?: { replay?: boolean }) => {
+    let wordsToPractice: VocabularyWord[];
+
+    if (options?.replay && initialPracticeWords.length > 0) {
+        // Shuffle the same set of words again for a different order
+        wordsToPractice = [...initialPracticeWords].sort(() => 0.5 - Math.random());
+    } else {
+        const shuffledWords = [...wordsForPractice].sort(() => 0.5 - Math.random());
+        const wordCount = Math.min(numWords, shuffledWords.length);
+        wordsToPractice = shuffledWords.slice(0, wordCount);
+        setInitialPracticeWords(wordsToPractice); // Save this set for potential replay
+    }
 
     setPracticeWords(wordsToPractice);
     setCurrentWordIndex(0);
     setAnswers([]);
     setUserAnswer('');
     setView('playing');
-  }, [wordsForPractice, numWords]);
+  }, [wordsForPractice, numWords, initialPracticeWords]);
 
   const handleSubmitAnswer = (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,16 +132,57 @@ const Practice: React.FC = () => {
             ))}
           </div>
         </div>
+
         <div>
-          <h3 className="font-semibold text-white mb-2">2. Chọn số từ</h3>
-          <div className="flex justify-center gap-2">
-            {[5, 10, 20].map(n => (
-              <button key={n} onClick={() => setNumWords(n)} className={`px-4 py-2 text-sm rounded-xl transition-colors ${numWords === n ? 'bg-indigo-600 text-white' : 'bg-slate-700 hover:bg-slate-600'}`}>{n} từ</button>
+          <h3 className="font-semibold text-white mb-2">2. Chọn từ ({selectedIds.size} / {themeFilteredWords.length} đã chọn)</h3>
+          <div className="flex gap-2 mb-2">
+            <button onClick={handleSelectAll} className="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded-lg">Chọn tất cả</button>
+            <button onClick={handleDeselectAll} className="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded-lg">Bỏ chọn tất cả</button>
+          </div>
+          <div className="max-h-[20vh] overflow-y-auto pr-2 bg-slate-800/50 border border-slate-700 rounded-2xl p-3 space-y-2">
+            {themeFilteredWords.map(word => (
+              <div key={word.id} onClick={() => handleToggleWord(word.id)} className="flex items-center p-2 rounded-xl hover:bg-slate-700/50 cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={selectedIds.has(word.id)}
+                  readOnly
+                  className="w-5 h-5 mr-3 bg-slate-900 border-slate-600 text-indigo-500 focus:ring-indigo-600 rounded-md pointer-events-none"
+                />
+                <div>
+                  <p 
+                    className="font-medium text-white hover:underline" 
+                    onClick={(e) => { 
+                      e.stopPropagation();
+                      openInspector(word); 
+                    }}
+                  >
+                    {word.word}
+                  </p>
+                  <p className="text-sm text-gray-400">{word.translation[targetLanguage]}</p>
+                </div>
+              </div>
             ))}
-            <button onClick={() => setNumWords(wordsForPractice.length)} className={`px-4 py-2 text-sm rounded-xl transition-colors ${numWords === wordsForPractice.length ? 'bg-indigo-600 text-white' : 'bg-slate-700 hover:bg-slate-600'}`}>Tất cả ({wordsForPractice.length})</button>
           </div>
         </div>
-        <button onClick={handleStartPractice} disabled={wordsForPractice.length === 0} className="w-full flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98] disabled:bg-indigo-400 disabled:cursor-not-allowed">
+
+        <div>
+          <h3 className="font-semibold text-white mb-2 flex justify-between items-center">
+            <span>3. Chọn số từ</span>
+            <span className="font-bold text-indigo-400 text-lg bg-slate-800/50 px-3 py-1 rounded-lg">
+                {wordsForPractice.length > 0 ? numWords : 0}
+            </span>
+          </h3>
+          <input
+            type="range"
+            min="1"
+            max={wordsForPractice.length > 0 ? wordsForPractice.length : 1}
+            value={wordsForPractice.length > 0 ? numWords : 1}
+            onChange={(e) => setNumWords(Number(e.target.value))}
+            disabled={wordsForPractice.length === 0}
+            className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-indigo-500 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:bg-indigo-500 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:bg-indigo-500 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:cursor-pointer"
+          />
+        </div>
+        <button onClick={() => handleStartPractice()} disabled={wordsForPractice.length === 0} className="w-full flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98] disabled:bg-indigo-400 disabled:cursor-not-allowed">
             Bắt đầu
         </button>
       </div>
@@ -123,7 +200,7 @@ const Practice: React.FC = () => {
             <div className="max-h-60 overflow-y-auto space-y-2 pr-2">
                 {answers.map(({ word, userAnswer, isCorrect }, index) => (
                     <div key={index} className={`p-3 rounded-xl ${isCorrect ? 'bg-green-500/10' : 'bg-red-500/10'}`}>
-                        <p className="font-semibold text-white">{word.word}</p>
+                        <p className="font-semibold text-white cursor-pointer hover:underline" onClick={() => openInspector(word)}>{word.word}</p>
                         <p className="text-sm">{isCorrect ? 
                             <span className="text-green-400">Chính xác: {userAnswer}</span> : 
                             <>
@@ -136,7 +213,11 @@ const Practice: React.FC = () => {
             </div>
         </div>
         <div className="flex flex-col sm:flex-row gap-3 pt-4">
-            <button onClick={() => setView('setup')} className="flex-1 px-4 py-3 bg-slate-600 hover:bg-slate-700 text-white font-semibold rounded-xl">Luyện tập lại</button>
+            <button onClick={() => setView('setup')} className="flex-1 px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-xl">Game mới</button>
+            <button onClick={() => handleStartPractice({ replay: true })} className="flex-1 px-4 py-3 bg-slate-600 hover:bg-slate-700 text-white font-semibold rounded-xl">Chơi lại</button>
+            <button onClick={() => handleStartPractice()} className="flex-1 flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl">
+                 <RefreshCw className="w-5 h-5 mr-2" /> Tiếp tục
+            </button>
         </div>
       </div>
     );
@@ -154,7 +235,13 @@ const Practice: React.FC = () => {
         </div>
       </div>
       <div className="text-center p-8 bg-slate-800/50 rounded-2xl">
-        <p className="text-3xl font-bold text-white">{currentWord.word}</p>
+        <p 
+          className="text-3xl font-bold text-white cursor-pointer hover:underline"
+          onClick={() => openInspector(currentWord)}
+          title="Nhấp để xem chi tiết"
+        >
+          {currentWord.word}
+        </p>
         <p className="text-gray-400 mt-1">Dịch sang {targetLanguage === 'vietnamese' ? 'Tiếng Việt' : 'Tiếng Anh'}</p>
       </div>
       <form onSubmit={handleSubmitAnswer} className="space-y-4">

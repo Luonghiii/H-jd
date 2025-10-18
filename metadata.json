@@ -1,5 +1,7 @@
 {
   "name": "LBWL",
   "description": "An AI-powered application to help users learn and practice vocabulary for new languages.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "microphone"
+  ]
 }

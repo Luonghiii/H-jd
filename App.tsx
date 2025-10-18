@@ -17,11 +17,12 @@ import PrivacyPolicyModal from './components/PrivacyPolicyModal';
 import TermsOfServiceModal from './components/TermsOfServiceModal';
 import History from './components/History';
 import { View } from './types';
-import { Home as HomeIcon, BookOpen, Feather, PenSquare, Sparkles, Layers, Gamepad2, History as HistoryIcon } from 'lucide-react';
+import { Home as HomeIcon, BookOpen, Feather, PenSquare, Sparkles, Layers, Gamepad2, History as HistoryIcon, BrainCircuit } from 'lucide-react';
 import ApiKeySetup from './components/ApiKeySetup';
 import SettingsModal from './components/SettingsModal';
 import Games from './components/Games';
 import AiTools from './components/AiTools';
+import Review from './components/Review';
 
 const AppLayout: React.FC<{ onLogout: () => void; onOpenSettings: () => void; }> = ({ onLogout, onOpenSettings }) => {
   const [currentView, setCurrentView] = useState<View>(View.Home);
@@ -42,6 +43,8 @@ const AppLayout: React.FC<{ onLogout: () => void; onOpenSettings: () => void; }>
         return <Practice />;
       case View.Flashcards:
         return <Flashcards />;
+      case View.Review:
+        return <Review />;
       case View.Games:
         return <Games />;
       case View.AiTools:
@@ -55,6 +58,7 @@ const AppLayout: React.FC<{ onLogout: () => void; onOpenSettings: () => void; }>
 
   const navItems = [
     { view: View.Home, label: 'Trang chủ', icon: HomeIcon },
+    { view: View.Review, label: 'Ôn tập', icon: BrainCircuit },
     { view: View.Practice, label: 'Luyện tập', icon: PenSquare },
     { view: View.Flashcards, label: 'Thẻ ghi nhớ', icon: Layers },
     { view: View.Games, label: 'Trò chơi', icon: Gamepad2 },

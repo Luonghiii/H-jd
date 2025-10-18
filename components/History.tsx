@@ -1,7 +1,8 @@
 import React from 'react';
 import { useHistory } from '../hooks/useHistory';
 import { HistoryEntry } from '../types';
-import { LogIn, PlusSquare, BookOpen, CheckSquare, Award, XCircle, Trash2, Link, Puzzle, Shuffle } from 'lucide-react';
+// FIX: Imported BrainCircuit icon for the 'REVIEW_SESSION_COMPLETED' history entry type.
+import { LogIn, PlusSquare, BookOpen, CheckSquare, Award, XCircle, Trash2, Link, Puzzle, Shuffle, BrainCircuit } from 'lucide-react';
 
 const ICONS: { [key in HistoryEntry['type']]: React.ElementType } = {
     LOGIN: LogIn,
@@ -15,6 +16,7 @@ const ICONS: { [key in HistoryEntry['type']]: React.ElementType } = {
     WORD_GUESS_LOST: XCircle,
     WORD_LINK_COMPLETED: Link,
     GRAMMAR_CHECK_COMPLETED: CheckSquare,
+    REVIEW_SESSION_COMPLETED: BrainCircuit,
 };
 
 const formatTimeAgo = (timestamp: number) => {

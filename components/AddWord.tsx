@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useVocabulary } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
 import { useHistory } from '../hooks/useHistory';
-import { PlusCircle, RefreshCw, Sparkles, UploadCloud, Image as ImageIcon, FileText } from 'lucide-react';
+import { PlusCircle, RefreshCw, Sparkles, Image as ImageIcon, FileText } from 'lucide-react';
 import { generateWordsFromPrompt, getWordsFromImage, getWordsFromFile } from '../services/geminiService';
 
 const fileToBase64 = (file: File): Promise<{base64: string, mimeType: string}> => {
@@ -17,7 +17,7 @@ const fileToBase64 = (file: File): Promise<{base64: string, mimeType: string}> =
   });
 };
 
-type AddMode = 'manual' | 'ai' | 'image' | 'file';
+type AddMode = 'manual' | 'ai' | 'upload';
 
 const AddWord: React.FC = () => {
   const [mode, setMode] = useState<AddMode>('manual');
@@ -32,16 +32,11 @@ const AddWord: React.FC = () => {
   const [aiPrompt, setAiPrompt] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
 
-  // Image state
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [isImageLoading, setIsImageLoading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // File state
-  const [textFile, setTextFile] = useState<File | null>(null);
-  const [isFileLoading, setIsFileLoading] = useState(false);
-  const textFileInputRef = useRef<HTMLInputElement>(null);
+  // Upload state
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [filePreview, setFilePreview] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
 
   // General state
   const [feedback, setFeedback] = useState<{type: 'success' | 'error', message: string} | null>(null);
@@ -101,76 +96,58 @@ const AddWord: React.FC = () => {
     }
   };
 
-  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setImageFile(file);
-      setImagePreview(URL.createObjectURL(file));
+      setUploadedFile(file);
       setFeedback(null);
+      if (file.type.startsWith('image/')) {
+        setFilePreview(URL.createObjectURL(file));
+      } else {
+        setFilePreview(null);
+      }
     }
   };
   
-  const handleImageSubmit = async () => {
-      if (imageFile && !isImageLoading) {
-          setIsImageLoading(true);
-          setFeedback(null);
-          try {
-              const { base64, mimeType } = await fileToBase64(imageFile);
-              const existingWords = words.map(w => w.word);
-              const generatedWords = await getWordsFromImage(base64, mimeType, existingWords, learningLanguage);
-              const count = addMultipleWords(generatedWords);
-              if (count > 0) {
-                addHistoryEntry('WORDS_ADDED', `Đã thêm ${count} từ mới từ ảnh`, { wordCount: count });
-              }
-              setFeedback({ type: 'success', message: `Tìm thấy và đã thêm ${count} từ mới từ ảnh!` });
-              setImageFile(null);
-              setImagePreview(null);
-          } catch(error) {
-              setFeedback({ type: 'error', message: error instanceof Error ? error.message : 'Lỗi không xác định' });
-          } finally {
-              setIsImageLoading(false);
-              clearFeedback();
-          }
-      }
-  }
+  const handleUploadSubmit = async () => {
+    if (uploadedFile && !isUploading) {
+        setIsUploading(true);
+        setFeedback(null);
+        try {
+            const { base64, mimeType } = await fileToBase64(uploadedFile);
+            const existingWords = words.map(w => w.word);
+            let generatedWords;
+            let sourceText = '';
 
-  const handleTextFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setTextFile(file);
-      setFeedback(null);
+            if (uploadedFile.type.startsWith('image/')) {
+                sourceText = 'ảnh';
+                generatedWords = await getWordsFromImage(base64, mimeType, existingWords, learningLanguage);
+            } else {
+                sourceText = 'file';
+                generatedWords = await getWordsFromFile(base64, mimeType, existingWords, learningLanguage);
+            }
+
+            const count = addMultipleWords(generatedWords);
+            if (count > 0) {
+              addHistoryEntry('WORDS_ADDED', `Đã thêm ${count} từ mới từ ${sourceText}`, { wordCount: count });
+            }
+            setFeedback({ type: 'success', message: `Tìm thấy và đã thêm ${count} từ mới từ ${sourceText}!` });
+            setUploadedFile(null);
+            setFilePreview(null);
+        } catch(error) {
+            setFeedback({ type: 'error', message: error instanceof Error ? error.message : 'Lỗi không xác định' });
+        } finally {
+            setIsUploading(false);
+            clearFeedback();
+        }
     }
-  };
-
-  const handleFileSubmit = async () => {
-      if (textFile && !isFileLoading) {
-          setIsFileLoading(true);
-          setFeedback(null);
-          try {
-              const { base64, mimeType } = await fileToBase64(textFile);
-              const existingWords = words.map(w => w.word);
-              const generatedWords = await getWordsFromFile(base64, mimeType, existingWords, learningLanguage);
-              const count = addMultipleWords(generatedWords);
-              if (count > 0) {
-                addHistoryEntry('WORDS_ADDED', `Đã thêm ${count} từ mới từ file`, { wordCount: count });
-              }
-              setFeedback({ type: 'success', message: `Tìm thấy và đã thêm ${count} từ mới từ file!` });
-              setTextFile(null);
-          } catch(error) {
-              setFeedback({ type: 'error', message: error instanceof Error ? error.message : 'Lỗi không xác định' });
-          } finally {
-              setIsFileLoading(false);
-              clearFeedback();
-          }
-      }
   }
 
   const renderTabs = () => (
     <div className="flex justify-center p-1 bg-slate-800/60 rounded-full mb-6 overflow-x-auto">
         <button onClick={() => setMode('manual')} className={`px-4 py-1.5 text-sm rounded-full font-medium transition-all flex-shrink-0 ${mode === 'manual' ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-slate-700'}`}>Thêm thủ công</button>
         <button onClick={() => setMode('ai')} className={`px-4 py-1.5 text-sm rounded-full font-medium transition-all flex-shrink-0 ${mode === 'ai' ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-slate-700'}`}>Tạo bằng AI</button>
-        <button onClick={() => setMode('image')} className={`px-4 py-1.5 text-sm rounded-full font-medium transition-all flex-shrink-0 ${mode === 'image' ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-slate-700'}`}>Thêm từ ảnh</button>
-        <button onClick={() => setMode('file')} className={`px-4 py-1.5 text-sm rounded-full font-medium transition-all flex-shrink-0 ${mode === 'file' ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-slate-700'}`}>Thêm từ file</button>
+        <button onClick={() => setMode('upload')} className={`px-4 py-1.5 text-sm rounded-full font-medium transition-all flex-shrink-0 ${mode === 'upload' ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-slate-700'}`}>Thêm từ File/Ảnh</button>
     </div>
   );
 
@@ -214,49 +191,47 @@ const AddWord: React.FC = () => {
     </form>
   );
   
-  const renderImageForm = () => (
+  const renderUploadForm = () => {
+    const buttonText = !uploadedFile
+      ? 'Thêm từ File/Ảnh'
+      : uploadedFile.type.startsWith('image/')
+      ? 'Thêm từ ảnh'
+      : 'Thêm từ file';
+
+    return (
       <div className="space-y-4 animate-fade-in">
-        <input type="file" ref={fileInputRef} onChange={handleImageFileChange} accept="image/*" className="hidden" />
-        <button onClick={() => fileInputRef.current?.click()} className="w-full flex flex-col items-center justify-center px-4 py-10 bg-slate-800 border-2 border-dashed border-slate-600 rounded-xl text-gray-400 hover:border-indigo-500 hover:text-white transition-colors">
-            <UploadCloud className="w-8 h-8 mb-2" />
-            <span className="font-semibold">Nhấp để tải ảnh lên</span>
-            <span className="text-sm">PNG, JPG, WEBP</span>
+        <input type="file" ref={uploadInputRef} onChange={handleFileChange} accept="image/*,.pdf,.txt,.md" className="hidden" />
+        <button onClick={() => uploadInputRef.current?.click()} className="w-full flex flex-col items-center justify-center px-4 py-10 bg-slate-800 border-2 border-dashed border-slate-600 rounded-xl text-gray-400 hover:border-indigo-500 hover:text-white transition-colors">
+          <div className="flex items-center gap-4">
+              <ImageIcon className="w-8 h-8" />
+              <FileText className="w-8 h-8" />
+          </div>
+          <span className="font-semibold mt-2">Nhấp để tải ảnh hoặc file lên</span>
+          <span className="text-sm">PNG, JPG, PDF, TXT, MD</span>
         </button>
-        {imagePreview && (
+        {filePreview && (
             <div className="relative">
-                <img src={imagePreview} alt="Preview" className="w-full h-auto max-h-48 object-contain rounded-xl" />
-                {isImageLoading && (
+                <img src={filePreview} alt="Preview" className="w-full h-auto max-h-48 object-contain rounded-xl" />
+                {isUploading && (
                     <div className="absolute inset-0 bg-black/60 flex items-center justify-center rounded-xl">
                         <RefreshCw className="w-8 h-8 text-white animate-spin" />
                     </div>
                 )}
             </div>
         )}
-        <button onClick={handleImageSubmit} className="w-full flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98] disabled:bg-indigo-400 disabled:cursor-not-allowed" disabled={!imageFile || isImageLoading}>
-            {isImageLoading ? <><RefreshCw className="w-5 h-5 mr-2 animate-spin" />Đang phân tích...</> : <><ImageIcon className="w-5 h-5 mr-2" />Thêm từ ảnh</>}
-        </button>
-    </div>
-  );
-
-  const renderFileForm = () => (
-    <div className="space-y-4 animate-fade-in">
-        <input type="file" ref={textFileInputRef} onChange={handleTextFileChange} accept=".pdf,.txt,.md" className="hidden" />
-        <button onClick={() => textFileInputRef.current?.click()} className="w-full flex flex-col items-center justify-center px-4 py-10 bg-slate-800 border-2 border-dashed border-slate-600 rounded-xl text-gray-400 hover:border-indigo-500 hover:text-white transition-colors">
-            <FileText className="w-8 h-8 mb-2" />
-            <span className="font-semibold">Nhấp để tải file lên</span>
-            <span className="text-sm">PDF, TXT, MD</span>
-        </button>
-        {textFile && (
+        {uploadedFile && !filePreview && (
             <div className="text-center bg-slate-800 p-3 rounded-xl border border-slate-700">
                 <p className="text-sm text-gray-400">Đã chọn file:</p>
-                <p className="font-semibold text-white truncate">{textFile.name}</p>
+                <p className="font-semibold text-white truncate">{uploadedFile.name}</p>
             </div>
         )}
-        <button onClick={handleFileSubmit} className="w-full flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98] disabled:bg-indigo-400 disabled:cursor-not-allowed" disabled={!textFile || isFileLoading}>
-            {isFileLoading ? <><RefreshCw className="w-5 h-5 mr-2 animate-spin" />Đang phân tích...</> : <><Sparkles className="w-5 h-5 mr-2" />Thêm từ file</>}
+        <button onClick={handleUploadSubmit} className="w-full flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98] disabled:bg-indigo-400 disabled:cursor-not-allowed" disabled={!uploadedFile || isUploading}>
+            {isUploading ? <><RefreshCw className="w-5 h-5 mr-2 animate-spin" />Đang phân tích...</> : <><Sparkles className="w-5 h-5 mr-2" />{buttonText}</>}
         </button>
-    </div>
-  );
+      </div>
+    );
+  };
+
 
   return (
     <div className="space-y-6">
@@ -275,8 +250,7 @@ const AddWord: React.FC = () => {
 
       {mode === 'manual' && renderManualForm()}
       {mode === 'ai' && renderAiForm()}
-      {mode === 'image' && renderImageForm()}
-      {mode === 'file' && renderFileForm()}
+      {mode === 'upload' && renderUploadForm()}
     </div>
   );
 };
