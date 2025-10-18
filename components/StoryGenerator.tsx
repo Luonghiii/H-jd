@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { useVocabulary } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
-import { generateGermanStory } from '../services/geminiService';
+import { generateStory } from '../services/geminiService';
 import { VocabularyWord } from '../types';
 import { Sparkles, RefreshCw, CheckCircle, BookText } from 'lucide-react';
+import HighlightableText from './HighlightableText';
 
 const StoryGenerator: React.FC = () => {
   const { words } = useVocabulary();
-  const { targetLanguage } = useSettings();
+  const { targetLanguage, learningLanguage } = useSettings();
   const [selectedWords, setSelectedWords] = useState<VocabularyWord[]>([]);
   const [germanStory, setGermanStory] = useState('');
   const [translation, setTranslation] = useState('');
@@ -31,8 +32,8 @@ const StoryGenerator: React.FC = () => {
     setIsLoading(true);
     setGermanStory('');
     setTranslation('');
-    const germanWords = selectedWords.map(w => w.german);
-    const aiStory = await generateGermanStory(germanWords, targetLanguage);
+    const wordsForStory = selectedWords.map(w => w.word);
+    const aiStory = await generateStory(wordsForStory, targetLanguage, learningLanguage);
     
     const parts = aiStory.split('---Translation---');
     if (parts.length === 2) {
@@ -44,6 +45,12 @@ const StoryGenerator: React.FC = () => {
     }
 
     setIsLoading(false);
+  };
+  
+  const languageNameMap = {
+      german: 'tiếng Đức',
+      english: 'tiếng Anh',
+      chinese: 'tiếng Trung'
   };
 
   if (words.length === 0) {
@@ -66,19 +73,19 @@ const StoryGenerator: React.FC = () => {
 
       <div>
         <h3 className="font-semibold text-white mb-2">1. Chọn từ của bạn:</h3>
-        <div className="max-h-[25vh] overflow-y-auto pr-2 bg-slate-800/50 border border-slate-700 rounded-lg p-3 space-y-2">
+        <div className="max-h-[25vh] overflow-y-auto pr-2 bg-slate-800/50 border border-slate-700 rounded-2xl p-3 space-y-2">
             {words.map(word => {
                 const isSelected = selectedWords.some(w => w.id === word.id);
                 return (
                     <button
                         key={word.id}
                         onClick={() => handleToggleWord(word)}
-                        className={`w-full flex items-center justify-between text-left p-2 rounded-md transition-colors duration-200 ${
+                        className={`w-full flex items-center justify-between text-left p-2 rounded-lg transition-colors duration-200 ${
                             isSelected ? 'bg-indigo-600/30 ring-2 ring-indigo-500' : 'bg-slate-700/50 hover:bg-slate-600/50'
                         }`}
                     >
                         <div>
-                            <p className="font-medium text-white">{word.german}</p>
+                            <p className="font-medium text-white">{word.word}</p>
                             <p className="text-sm text-gray-400">{word.translation[targetLanguage]}</p>
                         </div>
                         {isSelected && <CheckCircle className="w-5 h-5 text-indigo-400 flex-shrink-0" />}
@@ -90,10 +97,10 @@ const StoryGenerator: React.FC = () => {
 
       <div>
         <h3 className="font-semibold text-white mb-2">2. Các từ cho câu chuyện:</h3>
-        <div className="flex flex-wrap gap-2 p-3 bg-slate-800 rounded-lg min-h-[44px]">
+        <div className="flex flex-wrap gap-2 p-3 bg-slate-800 rounded-xl min-h-[44px]">
           {selectedWords.length > 0 ? selectedWords.map(word => (
             <span key={word.id} className="px-3 py-1 bg-slate-700 text-cyan-300 text-sm font-medium rounded-full">
-              {word.german}
+              {word.word}
             </span>
           )) : <p className="text-sm text-gray-500">Chưa có từ nào được chọn.</p>}
         </div>
@@ -101,7 +108,7 @@ const StoryGenerator: React.FC = () => {
 
       <button
         onClick={handleGenerate}
-        className="w-full flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-md transition duration-300 disabled:bg-indigo-400 disabled:cursor-not-allowed"
+        className="w-full flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98] disabled:bg-indigo-400 disabled:cursor-not-allowed"
         disabled={selectedWords.length === 0 || isLoading}
       >
         {isLoading ? (
@@ -118,19 +125,25 @@ const StoryGenerator: React.FC = () => {
       </button>
       
       {germanStory && (
-        <div className="p-4 rounded-lg bg-slate-800/50 border border-slate-700 space-y-4">
-          <div className="flex items-center">
-            <BookText className="w-6 h-6 mr-3 text-indigo-400" />
-            <h3 className="text-lg font-semibold text-white">Truyện được tạo bởi AI của bạn</h3>
+        <div className="p-4 rounded-2xl bg-slate-800/50 border border-slate-700 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <BookText className="w-6 h-6 mr-3 text-indigo-400" />
+              <h3 className="text-lg font-semibold text-white">Truyện được tạo bởi AI của bạn</h3>
+            </div>
           </div>
           <div>
-            <h4 className="font-semibold text-cyan-300 mb-2">Tiếng Đức</h4>
-            <p className="text-gray-200 whitespace-pre-wrap leading-relaxed">{germanStory}</p>
+            <h4 className="font-semibold text-cyan-300 mb-2">{languageNameMap[learningLanguage]}</h4>
+            <p className="text-gray-200 whitespace-pre-wrap leading-relaxed">
+              <HighlightableText text={germanStory} words={selectedWords} />
+            </p>
           </div>
           {translation && (
             <div className="border-t border-slate-600 pt-4 mt-4">
               <h4 className="font-semibold text-gray-400 mb-2">Bản dịch</h4>
-              <p className="text-gray-400 whitespace-pre-wrap leading-relaxed">{translation}</p>
+              <p className="text-gray-400 whitespace-pre-wrap leading-relaxed">
+                 <HighlightableText text={translation} words={selectedWords} />
+              </p>
             </div>
           )}
         </div>

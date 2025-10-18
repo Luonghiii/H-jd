@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { useVocabulary } from '../hooks/useVocabulary';
+import { useVocabulary, themeTranslationMap } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
 import { VocabularyWord } from '../types';
 import { generateQuizForWord } from '../services/geminiService';
 import { RefreshCw, Dices, Trophy, Flame, Star } from 'lucide-react';
+import { useInspector } from '../hooks/useInspector';
 
 type Quiz = {
   question: string;
@@ -12,9 +13,22 @@ type Quiz = {
 };
 
 const LuckyWheel: React.FC = () => {
-  const { words } = useVocabulary();
-  const { targetLanguage } = useSettings();
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(words.map(w => w.id)));
+  const { words, getAvailableThemes } = useVocabulary();
+  const { targetLanguage, learningLanguage } = useSettings();
+  const { openInspector } = useInspector();
+  
+  const availableThemes = useMemo(() => getAvailableThemes(), [getAvailableThemes]);
+  const [selectedThemes, setSelectedThemes] = useState<Set<string>>(new Set(['all']));
+  
+  const filteredWordsByTheme = useMemo(() => {
+    if (selectedThemes.has('all')) {
+        return words;
+    }
+    return words.filter(word => word.theme && selectedThemes.has(word.theme));
+  }, [words, selectedThemes]);
+  
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(filteredWordsByTheme.map(w => w.id)));
+  
   const [duration, setDuration] = useState(3);
   const [rotation, setRotation] = useState(0);
   const [isSpinning, setIsSpinning] = useState(false);
@@ -37,8 +51,12 @@ const LuckyWheel: React.FC = () => {
       console.error("Could not load best streak from localStorage", error);
     }
   }, []);
+  
+  useEffect(() => {
+    setSelectedIds(new Set(filteredWordsByTheme.map(w => w.id)));
+  }, [filteredWordsByTheme]);
 
-  const wordsForWheel = useMemo(() => words.filter(w => selectedIds.has(w.id)), [words, selectedIds]);
+  const wordsForWheel = useMemo(() => filteredWordsByTheme.filter(w => selectedIds.has(w.id)), [filteredWordsByTheme, selectedIds]);
 
   const handleToggleWord = (id: string) => {
     setSelectedIds(prev => {
@@ -48,8 +66,31 @@ const LuckyWheel: React.FC = () => {
     });
   };
   
-  const handleSelectAll = () => setSelectedIds(new Set(words.map(w => w.id)));
+  const handleSelectAll = () => setSelectedIds(new Set(filteredWordsByTheme.map(w => w.id)));
   const handleDeselectAll = () => setSelectedIds(new Set());
+
+  const handleThemeToggle = (theme: string) => {
+    setSelectedThemes(prev => {
+        const newSet = new Set(prev);
+        if (theme === 'all') {
+            return new Set(['all']);
+        }
+
+        newSet.delete('all');
+
+        if (newSet.has(theme)) {
+            newSet.delete(theme);
+        } else {
+            newSet.add(theme);
+        }
+
+        if (newSet.size === 0) {
+            return new Set(['all']);
+        }
+        
+        return newSet;
+    });
+  };
 
   const handleSpin = () => {
     if (isSpinning || wordsForWheel.length < 2) return;
@@ -65,18 +106,24 @@ const LuckyWheel: React.FC = () => {
     const randomStopAngle = Math.floor(Math.random() * 360);
     const newRotation = rotation + (360 * randomSpins) + randomStopAngle;
     setRotation(newRotation);
+    
+    const starredWords = wordsForWheel.filter(w => w.isStarred);
+    const weightedList = [...wordsForWheel, ...starredWords]; // Starred words appear twice
 
-    const winningIndex = Math.floor(Math.random() * wordsForWheel.length);
-    const winningWord = wordsForWheel[winningIndex];
+    const winningIndex = Math.floor(Math.random() * weightedList.length);
+    const winningWord = weightedList[winningIndex];
+
+    const quizPromise = winningWord 
+      ? generateQuizForWord(winningWord, targetLanguage, learningLanguage) 
+      : Promise.resolve(null);
 
     setTimeout(async () => {
       setIsSpinning(false);
       setResultWord(winningWord);
       
-      if (winningWord) {
-        const generatedQuiz = await generateQuizForWord(winningWord, targetLanguage);
-        setQuiz(generatedQuiz);
-      }
+      const generatedQuiz = await quizPromise;
+      setQuiz(generatedQuiz);
+
     }, duration * 1000);
   };
   
@@ -162,38 +209,44 @@ const LuckyWheel: React.FC = () => {
     <div className="flex flex-col items-center">
         {renderWheel()}
         <div className="w-full max-w-md text-center min-h-[17rem] mt-8 flex flex-col justify-center">
-        {quiz ? (
+        {quiz && resultWord ? (
             <div className="space-y-4 animate-fade-in">
                 <p className="text-gray-400">Từ cần dịch là:</p>
-                <p className="text-4xl font-bold text-cyan-300 my-2">{resultWord?.german}</p>
+                <div 
+                  className="inline-block cursor-pointer hover:underline" 
+                  onClick={() => openInspector(resultWord)}
+                  title="Nhấp để phân tích từ"
+                >
+                    <p className="text-4xl font-bold text-cyan-300 my-2">{resultWord.word}</p>
+                </div>
                 <div className="grid grid-cols-1 gap-3 pt-2">
                     {quiz.options.map((option, i) => {
                         const isCorrect = option === quiz.correctAnswer;
                         const isSelected = option === selectedAnswer;
-                        let buttonClass = 'bg-slate-700/80 hover:bg-slate-700';
+                        let buttonClass = 'bg-slate-700/80 hover:bg-slate-700 hover:scale-105';
                          if (showResult) {
                             if (isCorrect) buttonClass = 'bg-green-600 ring-2 ring-green-400 text-white scale-105';
                             else if (isSelected && !isCorrect) buttonClass = 'bg-red-600 ring-2 ring-red-400 text-white';
                             else buttonClass = 'bg-slate-700/50 opacity-60';
                         }
                         return (
-                             <button key={i} onClick={() => handleAnswer(option)} disabled={showResult} className={`w-full text-center py-3 px-4 rounded-lg font-semibold text-lg transition-all duration-300 ${buttonClass}`}>
+                             <button key={i} onClick={() => handleAnswer(option)} disabled={showResult} className={`w-full text-center py-3 px-4 rounded-2xl font-semibold text-lg transition-all duration-300 ${buttonClass}`}>
                                 {option}
                             </button>
                         );
                     })}
                 </div>
                  {showResult && (
-                     <button onClick={handleSpin} className="w-auto mt-6 inline-flex items-center justify-center px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition duration-300 animate-fade-in">
+                     <button onClick={handleSpin} className="w-auto mt-6 inline-flex items-center justify-center px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98] animate-fade-in">
                         <Dices className="w-5 h-5 mr-2"/>
                         Quay tiếp
                     </button>
                  )}
             </div>
         ) : (
-             <div className="flex flex-col justify-center items-center p-6 rounded-lg h-full">
+             <div className="flex flex-col justify-center items-center p-6 rounded-2xl h-full">
                  <RefreshCw className="w-8 h-8 mx-auto mb-3 animate-spin text-indigo-400" />
-                 <p className="text-white text-lg">{isSpinning ? "Đang quay..." : `Trúng từ "${resultWord?.german}"! Đang tạo câu hỏi...`}</p>
+                 <p className="text-white text-lg">{isSpinning ? "Đang quay..." : `Trúng từ "${resultWord?.word}"! Đang tạo câu hỏi...`}</p>
              </div>
         )}
         </div>
@@ -202,38 +255,58 @@ const LuckyWheel: React.FC = () => {
   
   const renderSetupView = () => (
     <div className="space-y-6">
+        <div>
+            <h3 className="font-semibold text-white mb-2">1. Chọn chủ đề</h3>
+            <div className="flex flex-wrap gap-2 p-3 bg-slate-800/50 border border-slate-700 rounded-2xl">
+                <button
+                    onClick={() => handleThemeToggle('all')}
+                    className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has('all') ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 hover:bg-slate-600'}`}
+                >
+                    Tất cả
+                </button>
+                {availableThemes.map(theme => (
+                    <button
+                        key={theme}
+                        onClick={() => handleThemeToggle(theme)}
+                        className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has(theme) ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 hover:bg-slate-600'}`}
+                    >
+                        {targetLanguage === 'english' ? (themeTranslationMap[theme] || theme) : theme}
+                    </button>
+                ))}
+            </div>
+        </div>
+        <div>
+          <h3 className="font-semibold text-white mb-2">2. Chọn từ ({selectedIds.size} / {filteredWordsByTheme.length} đã chọn)</h3>
+          <div className="flex gap-2 mb-2">
+              <button onClick={handleSelectAll} className="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded-lg">Chọn tất cả</button>
+              <button onClick={handleDeselectAll} className="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded-lg">Bỏ chọn tất cả</button>
+          </div>
+          <div className="max-h-[25vh] overflow-y-auto pr-2 bg-slate-800/50 border border-slate-700 rounded-2xl p-3 space-y-2">
+              {filteredWordsByTheme.length > 0 ? filteredWordsByTheme.map(word => (
+                  <div key={word.id} onClick={() => handleToggleWord(word.id)} className="flex items-center p-2 rounded-xl hover:bg-slate-700/50 cursor-pointer">
+                      <input type="checkbox" checked={selectedIds.has(word.id)} readOnly className="w-5 h-5 mr-3 bg-slate-900 border-slate-600 text-indigo-500 focus:ring-indigo-600 rounded-md pointer-events-none" />
+                      <div>
+                          <p className="font-medium text-white">{word.word}</p>
+                          <p className="text-sm text-gray-400">{word.translation[targetLanguage]}</p>
+                      </div>
+                  </div>
+              )) : <p className="text-sm text-gray-400 text-center py-4">Không có từ nào trong chủ đề đã chọn.</p>}
+          </div>
+      </div>
        <div className="space-y-4">
           <div>
-              <h3 className="font-semibold text-white mb-2">1. Thời gian quay</h3>
+              <h3 className="font-semibold text-white mb-2">3. Thời gian quay</h3>
               <div className="flex justify-center gap-2">
                   {[1, 2, 3, 5, 10].map(d => (
-                      <button key={d} onClick={() => setDuration(d)} className={`px-4 py-2 text-sm rounded-md transition-colors ${duration === d ? 'bg-indigo-600 text-white' : 'bg-slate-700 hover:bg-slate-600'}`}>{d}s</button>
+                      <button key={d} onClick={() => setDuration(d)} className={`px-4 py-2 text-sm rounded-xl transition-colors ${duration === d ? 'bg-indigo-600 text-white' : 'bg-slate-700 hover:bg-slate-600'}`}>{d}s</button>
                   ))}
               </div>
           </div>
-          <button onClick={handleSpin} className="w-full flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-md transition duration-300 disabled:bg-indigo-400 disabled:cursor-not-allowed" disabled={isSpinning || wordsForWheel.length < 2}>
+          <button onClick={handleSpin} className="w-full flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98] disabled:bg-indigo-400 disabled:cursor-not-allowed" disabled={isSpinning || wordsForWheel.length < 2}>
               {isSpinning ? <><RefreshCw className="w-5 h-5 mr-2 animate-spin" />Đang quay...</> : <><Dices className="w-5 h-5 mr-2"/>Bắt đầu quay</>}
           </button>
           {wordsForWheel.length < 2 && <p className="text-center text-sm text-amber-400">Vui lòng chọn ít nhất 2 từ cho vòng quay.</p>}
        </div>
-       <div>
-          <h3 className="font-semibold text-white mb-2">2. Chọn từ ({selectedIds.size} đã chọn)</h3>
-          <div className="flex gap-2 mb-2">
-              <button onClick={handleSelectAll} className="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded">Chọn tất cả</button>
-              <button onClick={handleDeselectAll} className="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded">Bỏ chọn tất cả</button>
-          </div>
-          <div className="max-h-[25vh] overflow-y-auto pr-2 bg-slate-800/50 border border-slate-700 rounded-lg p-3 space-y-2">
-              {words.map(word => (
-                  <div key={word.id} onClick={() => handleToggleWord(word.id)} className="flex items-center p-2 rounded-md hover:bg-slate-700/50 cursor-pointer">
-                      <input type="checkbox" checked={selectedIds.has(word.id)} readOnly className="w-5 h-5 mr-3 bg-slate-900 border-slate-600 text-indigo-500 focus:ring-indigo-600 rounded" />
-                      <div>
-                          <p className="font-medium text-white">{word.german}</p>
-                          <p className="text-sm text-gray-400">{word.translation[targetLanguage]}</p>
-                      </div>
-                  </div>
-              ))}
-          </div>
-      </div>
     </div>
   );
 

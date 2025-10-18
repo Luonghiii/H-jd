@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import { useVocabulary } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
-import { generateGermanSentence } from '../services/geminiService';
+import { generateSentence } from '../services/geminiService';
 import { VocabularyWord } from '../types';
 import { RefreshCw, Wand2 } from 'lucide-react';
+import HighlightableText from './HighlightableText';
 
 const SentenceGenerator: React.FC = () => {
     const { words } = useVocabulary();
-    const { targetLanguage } = useSettings();
+    const { targetLanguage, learningLanguage } = useSettings();
     const [selectedWord, setSelectedWord] = useState<VocabularyWord | null>(null);
-    const [germanSentence, setGermanSentence] = useState('');
+    const [generatedSentence, setGeneratedSentence] = useState('');
     const [translation, setTranslation] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
@@ -17,21 +18,27 @@ const SentenceGenerator: React.FC = () => {
         if (isLoading) return;
         setSelectedWord(word);
         setIsLoading(true);
-        setGermanSentence('');
+        setGeneratedSentence('');
         setTranslation('');
 
-        const result = await generateGermanSentence(word, targetLanguage);
+        const result = await generateSentence(word, targetLanguage, learningLanguage);
         const parts = result.split('---Translation---');
         if (parts.length === 2) {
-            setGermanSentence(parts[0].trim());
+            setGeneratedSentence(parts[0].trim());
             setTranslation(parts[1].trim());
         } else {
-            setGermanSentence(result.trim());
+            setGeneratedSentence(result.trim());
             setTranslation('');
         }
         setIsLoading(false);
     };
     
+    const languageNameMap = {
+      german: 'tiếng Đức',
+      english: 'tiếng Anh',
+      chinese: 'tiếng Trung'
+    };
+
     if (words.length === 0) {
       return (
         <div className="text-center py-10">
@@ -51,23 +58,29 @@ const SentenceGenerator: React.FC = () => {
             </div>
 
             {isLoading && (
-                 <div className="flex justify-center items-center p-6 bg-slate-800/50 rounded-lg">
+                 <div className="flex justify-center items-center p-6 bg-slate-800/50 rounded-2xl">
                      <RefreshCw className="w-6 h-6 mr-3 animate-spin text-indigo-400" />
-                     <p className="text-white">Đang tạo câu cho "{selectedWord?.german}"...</p>
+                     <p className="text-white">Đang tạo câu cho "{selectedWord?.word}"...</p>
                  </div>
             )}
 
-            {germanSentence && !isLoading && (
-                <div className="p-4 rounded-lg bg-slate-800/50 border border-slate-700 space-y-4">
-                    <h3 className="text-lg font-semibold text-white">Ví dụ cho <span className="text-cyan-300">{selectedWord?.german}</span></h3>
+            {generatedSentence && !isLoading && selectedWord && (
+                <div className="p-4 rounded-2xl bg-slate-800/50 border border-slate-700 space-y-4">
+                    <h3 className="text-lg font-semibold text-white">Ví dụ cho <span className="text-cyan-300">{selectedWord.word}</span></h3>
                     <div>
-                        <h4 className="font-semibold text-gray-300 mb-2">Câu tiếng Đức</h4>
-                        <p className="text-white text-lg whitespace-pre-wrap leading-relaxed">{germanSentence}</p>
+                        <div className="flex items-center justify-between mb-2">
+                            <h4 className="font-semibold text-gray-300">Câu {languageNameMap[learningLanguage]}</h4>
+                        </div>
+                        <p className="text-white text-lg whitespace-pre-wrap leading-relaxed">
+                            <HighlightableText text={generatedSentence} words={[selectedWord]} />
+                        </p>
                     </div>
                     {translation && (
                         <div className="border-t border-slate-600 pt-4 mt-4">
                             <h4 className="font-semibold text-gray-400 mb-2">Bản dịch</h4>
-                            <p className="text-gray-400 whitespace-pre-wrap leading-relaxed">{translation}</p>
+                            <p className="text-gray-400 whitespace-pre-wrap leading-relaxed">
+                                <HighlightableText text={translation} words={[selectedWord]} />
+                            </p>
                         </div>
                     )}
                 </div>
@@ -82,12 +95,12 @@ const SentenceGenerator: React.FC = () => {
                                 <button
                                     onClick={() => handleWordClick(word)}
                                     disabled={isLoading}
-                                    className={`w-full flex items-center justify-between text-left bg-slate-800/50 p-3 rounded-lg border border-slate-700 transition-all duration-200
-                                    ${selectedWord?.id === word.id && !isLoading ? 'ring-2 ring-indigo-500' : 'hover:bg-slate-700/80'}
+                                    className={`w-full flex items-center justify-between text-left bg-slate-800/50 p-3 rounded-2xl border border-slate-700 transition-all duration-200
+                                    ${selectedWord?.id === word.id && !isLoading ? 'ring-2 ring-indigo-500' : 'hover:bg-slate-700/80 hover:scale-[1.02] hover:border-slate-600'}
                                     disabled:opacity-50 disabled:cursor-not-allowed`}
                                 >
                                     <div>
-                                        <p className="font-semibold text-white">{word.german}</p>
+                                        <p className="font-semibold text-white">{word.word}</p>
                                         <p className="text-sm text-gray-400">{word.translation[targetLanguage]}</p>
                                     </div>
                                     <Wand2 className="w-5 h-5 text-gray-400" />

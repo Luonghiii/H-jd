@@ -1,24 +1,26 @@
-import { GoogleGenAI, Type } from "@google/genai";
-import { VocabularyWord, TargetLanguage } from "../types";
+import { GoogleGenAI, Type, Modality } from "@google/genai";
+import { VocabularyWord, TargetLanguage, ChatMessage, LearningLanguage, WordInfo, GeneratedWord } from "../types";
 
 const getAiClient = () => {
-  try {
-    const apiKey = localStorage.getItem('gemini_api_key');
-    if (!apiKey) {
-      throw new Error("API key not found in localStorage. Please set it in the settings.");
-    }
-    return new GoogleGenAI({ apiKey });
-  } catch (error) {
-    console.error("Could not get API key from localStorage", error);
-    throw new Error("API key is not configured. Please set it in the settings.");
+  const apiKey = localStorage.getItem('geminiApiKey');
+  if (!apiKey) {
+    throw new Error("Khóa API Google Gemini chưa được đặt. Vui lòng vào cài đặt để thêm khóa.");
   }
+  return new GoogleGenAI({ apiKey });
+};
+
+const languageMap: Record<LearningLanguage, string> = {
+    german: 'German',
+    english: 'English',
+    chinese: 'Chinese',
 };
 
 
-export const translateWord = async (word: string, targetLanguage: 'English' | 'Vietnamese'): Promise<string> => {
+export const translateWord = async (word: string, targetLanguage: 'English' | 'Vietnamese', learningLanguage: LearningLanguage): Promise<string> => {
   try {
     const ai = getAiClient();
-    const prompt = `Translate the following German word to ${targetLanguage}. Respond with ONLY the translated word/phrase itself, without any extra text or quotation marks.\n\nGerman word: "${word}"`;
+    const sourceLanguage = languageMap[learningLanguage];
+    const prompt = `Translate the following ${sourceLanguage} word to ${targetLanguage}. Respond with ONLY the translated word/phrase itself, without any extra text or quotation marks.\n\n${sourceLanguage} word: "${word}"`;
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: prompt,
@@ -26,24 +28,22 @@ export const translateWord = async (word: string, targetLanguage: 'English' | 'V
     return response.text.trim();
   } catch (error) {
     console.error("Error translating word:", error);
-    if (error instanceof Error && error.message.includes("API key")) {
-        return "API Key Error. Check settings.";
-    }
-    return "Translation failed";
+    throw error;
   }
 };
 
 
-export const checkGermanSentence = async (sentence: string, word: string, targetLanguage: TargetLanguage): Promise<string> => {
+export const checkSentence = async (sentence: string, word: string, targetLanguage: TargetLanguage, learningLanguage: LearningLanguage): Promise<string> => {
   try {
     const ai = getAiClient();
+    const sourceLanguage = languageMap[learningLanguage];
     const prompt = `
-      You are an expert German language teacher assisting a ${targetLanguage}-speaking student.
-      The student is learning the German word: "${word}".
+      You are an expert ${sourceLanguage} language teacher assisting a ${targetLanguage}-speaking student.
+      The student is learning the ${sourceLanguage} word: "${word}".
       They wrote the following sentence: "${sentence}".
 
       Your tasks are:
-      1. Analyze if the sentence is grammatically correct in German.
+      1. Analyze if the sentence is grammatically correct in ${sourceLanguage}.
       2. Check if the word "${word}" is used naturally and correctly in the context of the sentence.
       3. Provide clear, concise feedback.
 
@@ -61,24 +61,22 @@ export const checkGermanSentence = async (sentence: string, word: string, target
     return response.text;
   } catch (error) {
     console.error("Error checking sentence:", error);
-    if (error instanceof Error && error.message.includes("API key")) {
-        return "API Key Error. Please configure your key in the settings.";
-    }
-    return "Sorry, I couldn't check your sentence right now. Please try again later.";
+    throw error;
   }
 };
 
-export const generateGermanStory = async (words: string[], targetLanguage: TargetLanguage): Promise<string> => {
+export const generateStory = async (words: string[], targetLanguage: TargetLanguage, learningLanguage: LearningLanguage): Promise<string> => {
   if (words.length === 0) {
     return "Please select some words to generate a story.";
   }
   try {
     const ai = getAiClient();
+    const sourceLanguage = languageMap[learningLanguage];
     const prompt = `
-      You are a creative storyteller. Write a very short and simple story in German, suitable for an A1/A2 level language learner.
-      The story must include the following German words: ${words.join(', ')}.
+      You are a creative storyteller. Write a very short and simple story in ${sourceLanguage}, suitable for an A1/A2 level language learner.
+      The story must include the following ${sourceLanguage} words: ${words.join(', ')}.
       
-      After the German story, provide a full ${targetLanguage} translation under a "---Translation---" separator.
+      After the ${sourceLanguage} story, provide a full ${targetLanguage} translation under a "---Translation---" separator.
       Make the story interesting and easy to understand.
     `;
     
@@ -90,19 +88,17 @@ export const generateGermanStory = async (words: string[], targetLanguage: Targe
     return response.text;
   } catch (error) {
     console.error("Error generating story:", error);
-    if (error instanceof Error && error.message.includes("API key")) {
-        return "API Key Error. Please configure your key in the settings.";
-    }
-    return "Sorry, I couldn't generate a story right now. Please try again later.";
+    throw error;
   }
 };
 
-export const rewriteGermanSentence = async (sentence: string, word: string, targetLanguage: TargetLanguage): Promise<string> => {
+export const rewriteSentence = async (sentence: string, word: string, targetLanguage: TargetLanguage, learningLanguage: LearningLanguage): Promise<string> => {
   try {
     const ai = getAiClient();
+    const sourceLanguage = languageMap[learningLanguage];
     const prompt = `
-      You are an expert German language teacher assisting a ${targetLanguage}-speaking student.
-      The student is learning the German word: "${word}".
+      You are an expert ${sourceLanguage} language teacher assisting a ${targetLanguage}-speaking student.
+      The student is learning the ${sourceLanguage} word: "${word}".
       They wrote the sentence: "${sentence}".
 
       Your task is to rewrite their sentence in a more natural, interesting, or stylistically better way.
@@ -125,24 +121,22 @@ export const rewriteGermanSentence = async (sentence: string, word: string, targ
     return response.text;
   } catch (error) {
     console.error("Error rewriting sentence:", error);
-    if (error instanceof Error && error.message.includes("API key")) {
-        return "API Key Error. Please configure your key in the settings.";
-    }
-    return "Sorry, I couldn't rewrite the sentence right now. Please try again later.";
+    throw error;
   }
 };
 
-export const generateGermanSentence = async (word: VocabularyWord, targetLanguage: TargetLanguage): Promise<string> => {
+export const generateSentence = async (word: VocabularyWord, targetLanguage: TargetLanguage, learningLanguage: LearningLanguage): Promise<string> => {
   try {
     const ai = getAiClient();
+    const sourceLanguage = languageMap[learningLanguage];
     const prompt = `
-      You are a helpful German language teacher creating an example for a ${targetLanguage}-speaking student.
-      The student is learning the German word: "${word.german}" (which means "${word.translation[targetLanguage]}" in ${targetLanguage}).
+      You are a helpful ${sourceLanguage} language teacher creating an example for a ${targetLanguage}-speaking student.
+      The student is learning the ${sourceLanguage} word: "${word.word}" (which means "${word.translation[targetLanguage]}" in ${targetLanguage}).
       
-      Your task is to create one clear, simple, and natural example sentence in German using the word "${word.german}".
+      Your task is to create one clear, simple, and natural example sentence in ${sourceLanguage} using the word "${word.word}".
       The sentence should be appropriate for an A1/A2 level learner.
       
-      After the German sentence, provide its ${targetLanguage} translation under a "---Translation---" separator.
+      After the ${sourceLanguage} sentence, provide its ${targetLanguage} translation under a "---Translation---" separator.
     `;
 
     const response = await ai.models.generateContent({
@@ -153,19 +147,17 @@ export const generateGermanSentence = async (word: VocabularyWord, targetLanguag
     return response.text;
   } catch (error) {
     console.error("Error generating sentence:", error);
-    if (error instanceof Error && error.message.includes("API key")) {
-        return "API Key Error. Please configure your key in the settings.";
-    }
-    return "Sorry, I couldn't generate a sentence right now. Please try again later.";
+    throw error;
   }
 };
 
 
-export const generateQuizForWord = async (word: VocabularyWord, targetLanguage: TargetLanguage): Promise<{ question: string; options: string[]; correctAnswer: string } | null> => {
+export const generateQuizForWord = async (word: VocabularyWord, targetLanguage: TargetLanguage, learningLanguage: LearningLanguage): Promise<{ question: string; options: string[]; correctAnswer: string } | null> => {
   const correctTranslation = word.translation[targetLanguage];
   try {
     const ai = getAiClient();
-    const prompt = `Create a multiple-choice quiz question for a ${targetLanguage}-speaking student learning German. The German word is "${word.german}". The correct ${targetLanguage} translation is "${correctTranslation}". Generate three plausible but incorrect ${targetLanguage} translations to be used as distractors. Return a JSON object with the question, the four shuffled options, and the correct answer. The question should be in ${targetLanguage}.`;
+    const sourceLanguage = languageMap[learningLanguage];
+    const prompt = `Create a multiple-choice quiz question for a ${targetLanguage}-speaking student learning ${sourceLanguage}. The ${sourceLanguage} word is "${word.word}". The correct ${targetLanguage} translation is "${correctTranslation}". Generate three plausible but incorrect ${targetLanguage} translations to be used as distractors. Return a JSON object with the question, the four shuffled options, and the correct answer. The question should be in ${targetLanguage}.`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
@@ -175,7 +167,7 @@ export const generateQuizForWord = async (word: VocabularyWord, targetLanguage: 
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            question: { type: Type.STRING, description: `A question asking for the translation of ${word.german}` },
+            question: { type: Type.STRING, description: `A question asking for the translation of ${word.word}` },
             options: {
               type: Type.ARRAY,
               description: "An array of 4 strings, one correct answer and three distractors, shuffled.",
@@ -188,7 +180,7 @@ export const generateQuizForWord = async (word: VocabularyWord, targetLanguage: 
       }
     });
     
-    const quizData = JSON.parse(response.text);
+    const quizData = JSON.parse(response.text.trim());
     
     if (!quizData.options.includes(quizData.correctAnswer)) {
         const randomIndex = Math.floor(Math.random() * 4);
@@ -198,6 +190,277 @@ export const generateQuizForWord = async (word: VocabularyWord, targetLanguage: 
     return quizData;
   } catch (error) {
     console.error("Error generating quiz:", error);
-    return null;
+    throw error;
+  }
+};
+
+export const generateImageForWord = async (word: string): Promise<string> => {
+  try {
+    const ai = getAiClient();
+    const prompt = `A simple, clear, cute vector illustration of "${word}", on a clean white background, minimalist style.`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-image',
+      contents: {
+        parts: [{ text: prompt }],
+      },
+      config: {
+        responseModalities: [Modality.IMAGE],
+      },
+    });
+
+    for (const part of response.candidates[0].content.parts) {
+      if (part.inlineData) {
+        const base64ImageBytes: string = part.inlineData.data;
+        return `data:${part.inlineData.mimeType};base64,${base64ImageBytes}`;
+      }
+    }
+    
+    throw new Error("No image data received from API.");
+
+  } catch (error) {
+    console.error("Error generating image:", error);
+    throw error;
+  }
+};
+
+export const getWordInfo = async (word: string, targetLanguage: TargetLanguage, learningLanguage: LearningLanguage): Promise<WordInfo> => {
+  try {
+    const ai = getAiClient();
+    const sourceLanguage = languageMap[learningLanguage];
+    const genderPrompt = learningLanguage === 'german' 
+        ? "its gender (der, die, das) if it's a noun (return null if not applicable),"
+        : "";
+    
+    const genderProperty = learningLanguage === 'german' 
+        ? { gender: { type: Type.STRING, description: "The gender of the noun (der, die, das), or null." } }
+        : {};
+        
+    const prompt = `Analyze the ${sourceLanguage} word "${word}". Provide its grammatical type (e.g., Noun, Verb, Adjective, Adverb, Preposition), ${genderPrompt} and a concise one-sentence definition in ${targetLanguage}.`;
+    
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    partOfSpeech: { type: Type.STRING, description: "The grammatical type of the word, e.g., Noun." },
+                    ...genderProperty,
+                    definition: { type: Type.STRING, description: `A concise definition in ${targetLanguage}.` }
+                },
+                required: ["partOfSpeech", "definition"]
+            }
+        }
+    });
+
+    return JSON.parse(response.text.trim());
+  } catch (error) {
+    console.error(`Error getting info for word "${word}":`, error);
+    throw error;
+  }
+};
+
+export const getChatResponseForWord = async (word: VocabularyWord, question: string, chatHistory: ChatMessage[], targetLanguage: TargetLanguage, learningLanguage: LearningLanguage): Promise<string> => {
+    try {
+        const ai = getAiClient();
+        const sourceLanguage = languageMap[learningLanguage];
+        const historyText = chatHistory.map(msg => `${msg.role === 'user' ? 'Student' : 'Tutor'}: ${msg.text}`).join('\n');
+
+        const prompt = `
+            You are a helpful and concise ${sourceLanguage} language tutor. A ${targetLanguage}-speaking student is asking about the ${sourceLanguage} word "${word.word}" (which means "${word.translation[targetLanguage]}"). 
+            
+            Given the previous conversation and their new question, provide a clear and simple answer in ${targetLanguage}. Keep the response focused and brief.
+
+            Previous Conversation:
+            ${historyText}
+
+            Student's new question: "${question}"
+        `;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+        });
+
+        return response.text;
+    } catch (error) {
+        console.error("Error getting chat response:", error);
+        throw error;
+    }
+};
+
+export const generateWordsFromPrompt = async (
+  userPrompt: string,
+  existingWords: string[],
+  learningLanguage: LearningLanguage
+): Promise<GeneratedWord[]> => {
+  try {
+    const ai = getAiClient();
+    const sourceLanguage = languageMap[learningLanguage];
+    const prompt = `
+      You are a language teacher creating a vocabulary list for a student learning ${sourceLanguage}.
+      The student's request is: "${userPrompt}".
+      The student already knows these words, so DO NOT include them in your response: ${existingWords.join(', ')}.
+      
+      Generate a list of new, relevant words based on the student's request. For each word, provide:
+      1. The word in ${sourceLanguage}.
+      2. Its Vietnamese translation ("translation_vi").
+      3. Its English translation ("translation_en").
+      4. A suitable theme/category in Vietnamese ("theme").
+
+      Ensure the theme is a simple, common category name.
+      If the request is unreasonable or you cannot generate words, return an empty array.
+    `;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              word: { type: Type.STRING, description: `The word in ${sourceLanguage}` },
+              translation_vi: { type: Type.STRING, description: "The Vietnamese translation" },
+              translation_en: { type: Type.STRING, description: "The English translation" },
+              theme: { type: Type.STRING, description: "The category/theme in Vietnamese" }
+            },
+            required: ["word", "translation_vi", "translation_en", "theme"]
+          }
+        }
+      }
+    });
+
+    return JSON.parse(response.text.trim());
+  } catch (error) {
+    console.error("Error generating words from prompt:", error);
+    throw error;
+  }
+};
+
+
+export const getWordsFromImage = async (
+  base64ImageData: string,
+  mimeType: string,
+  existingWords: string[],
+  learningLanguage: LearningLanguage
+): Promise<GeneratedWord[]> => {
+  try {
+    const ai = getAiClient();
+    const sourceLanguage = languageMap[learningLanguage];
+    
+    const imagePart = {
+      inlineData: {
+        mimeType: mimeType,
+        data: base64ImageData,
+      },
+    };
+    
+    const textPart = {
+      text: `
+        You are a language teacher helping a student learn ${sourceLanguage} from an image.
+        Identify 5 to 10 key objects or concepts in this image.
+        The student already knows these words, so DO NOT include them in your response: ${existingWords.join(', ')}.
+        
+        For each new object/concept you identify, provide:
+        1. The word in ${sourceLanguage}.
+        2. Its Vietnamese translation ("translation_vi").
+        3. Its English translation ("translation_en").
+        4. A suitable theme/category in Vietnamese ("theme").
+        
+        Return an array of these words in the specified JSON format. If you cannot identify anything new, return an empty array.
+      `
+    };
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: { parts: [imagePart, textPart] },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              word: { type: Type.STRING, description: `The word in ${sourceLanguage}` },
+              translation_vi: { type: Type.STRING, description: "The Vietnamese translation" },
+              translation_en: { type: Type.STRING, description: "The English translation" },
+              theme: { type: Type.STRING, description: "The category/theme in Vietnamese" }
+            },
+            required: ["word", "translation_vi", "translation_en", "theme"]
+          }
+        }
+      }
+    });
+
+    return JSON.parse(response.text.trim());
+  } catch (error) {
+    console.error("Error getting words from image:", error);
+    throw error;
+  }
+};
+
+export const getWordsFromFile = async (
+  base64FileData: string,
+  mimeType: string,
+  existingWords: string[],
+  learningLanguage: LearningLanguage
+): Promise<GeneratedWord[]> => {
+  try {
+    const ai = getAiClient();
+    const sourceLanguage = languageMap[learningLanguage];
+    
+    const filePart = {
+      inlineData: {
+        mimeType: mimeType,
+        data: base64FileData,
+      },
+    };
+    
+    const textPart = {
+      text: `
+        You are a language teacher helping a student learn ${sourceLanguage} by extracting vocabulary from a document.
+        Identify 10 to 20 key vocabulary words or short phrases from the provided file.
+        The student already knows these words, so DO NOT include them in your response: ${existingWords.join(', ')}.
+        
+        For each new word/phrase you identify, provide:
+        1. The word/phrase in ${sourceLanguage}.
+        2. Its Vietnamese translation ("translation_vi").
+        3. Its English translation ("translation_en").
+        4. A suitable theme/category in Vietnamese ("theme") based on the document's content.
+        
+        Return an array of these words in the specified JSON format. If you cannot identify anything new or the file is not suitable, return an empty array.
+      `
+    };
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: { parts: [filePart, textPart] },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              word: { type: Type.STRING, description: `The word in ${sourceLanguage}` },
+              translation_vi: { type: Type.STRING, description: "The Vietnamese translation" },
+              translation_en: { type: Type.STRING, description: "The English translation" },
+              theme: { type: Type.STRING, description: "The category/theme in Vietnamese" }
+            },
+            required: ["word", "translation_vi", "translation_en", "theme"]
+          }
+        }
+      }
+    });
+
+    return JSON.parse(response.text.trim());
+  } catch (error) {
+    console.error("Error getting words from file:", error);
+    throw error;
   }
 };
