@@ -87,8 +87,12 @@ const AddWord: React.FC = () => {
         }
         setFeedback({ type: 'success', message: `Đã thêm ${count} từ mới!` });
         setAiPrompt('');
-      } catch (error) {
-        setFeedback({ type: 'error', message: error instanceof Error ? error.message : 'Lỗi không xác định' });
+      } catch (error: any) {
+        if (error.message === "All API keys failed.") {
+             setFeedback({ type: 'error', message: "Tất cả API key đều không hoạt động. Vui lòng kiểm tra lại trong Cài đặt." });
+        } else {
+             setFeedback({ type: 'error', message: "Lỗi không xác định khi tạo từ." });
+        }
       } finally {
         setIsAiLoading(false);
         clearFeedback();
@@ -134,8 +138,12 @@ const AddWord: React.FC = () => {
             setFeedback({ type: 'success', message: `Tìm thấy và đã thêm ${count} từ mới từ ${sourceText}!` });
             setUploadedFile(null);
             setFilePreview(null);
-        } catch(error) {
-            setFeedback({ type: 'error', message: error instanceof Error ? error.message : 'Lỗi không xác định' });
+        } catch(error: any) {
+            if (error.message === "All API keys failed.") {
+                setFeedback({ type: 'error', message: "Tất cả API key đều không hoạt động. Vui lòng kiểm tra lại trong Cài đặt." });
+            } else {
+                setFeedback({ type: 'error', message: "Lỗi không xác định khi phân tích file." });
+            }
         } finally {
             setIsUploading(false);
             clearFeedback();

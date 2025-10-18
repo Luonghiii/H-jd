@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { TargetLanguage, LearningLanguage } from '../types';
 
@@ -7,9 +6,9 @@ export type BackgroundSetting = {
   value: string;
 } | null;
 
+const MAX_API_KEYS = 10;
+
 interface SettingsContextType {
-  apiKey: string | null;
-  setApiKey: (key: string) => void;
   targetLanguage: TargetLanguage;
   setTargetLanguage: (language: TargetLanguage) => void;
   learningLanguage: LearningLanguage;
@@ -21,19 +20,15 @@ interface SettingsContextType {
   customGradients: string[];
   addCustomGradient: (gradient: string) => void;
   removeCustomGradient: (gradient: string) => void;
+  userApiKeys: string[];
+  addUserApiKey: (key: string) => boolean;
+  removeUserApiKey: (keyToRemove: string) => void;
+  hasApiKey: boolean;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [apiKey, setApiKeyState] = useState<string | null>(() => {
-    try {
-      return localStorage.getItem('geminiApiKey');
-    } catch {
-      return null;
-    }
-  });
-
   const [targetLanguage, setTargetLanguage] = useState<TargetLanguage>(() => {
     try {
       const savedLanguage = localStorage.getItem('targetLanguage');
@@ -72,18 +67,28 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
         return [];
     }
   });
-  
-  useEffect(() => {
-    try {
-      if (apiKey) {
-        localStorage.setItem('geminiApiKey', apiKey);
-      } else {
-        localStorage.removeItem('geminiApiKey');
-      }
-    } catch (error) {
-      console.error("Could not save API key to localStorage", error);
+
+  const [userApiKeys, setUserApiKeysState] = useState<string[]>(() => {
+      try {
+        const savedKeys = localStorage.getItem('userApiKeys');
+        if (savedKeys) {
+            return JSON.parse(savedKeys);
+        }
+        // Migration from old single key system
+        const oldKey = localStorage.getItem('userApiKey');
+        if (oldKey) {
+            const newKeys = [oldKey.replace(/"/g, '')];
+            localStorage.setItem('userApiKeys', JSON.stringify(newKeys));
+            localStorage.removeItem('userApiKey'); // Clean up old key
+            return newKeys;
+        }
+        return [];
+    } catch {
+        return [];
     }
-  }, [apiKey]);
+  });
+
+  const hasApiKey = !!process.env.API_KEY || userApiKeys.length > 0;
   
   useEffect(() => {
     try {
@@ -97,7 +102,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     try {
       localStorage.setItem('learningLanguage', learningLanguage);
     } catch (error) {
-      console.error("Could not save learning language to localStorage", error);
+      console.error("Could not save learning language from localStorage", error);
     }
   }, [learningLanguage]);
 
@@ -120,11 +125,15 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
         console.error("Could not save custom gradients to localStorage", error);
     }
   }, [customGradients]);
-
-  const setApiKey = (key: string) => {
-    setApiKeyState(key);
-  };
   
+   useEffect(() => {
+    try {
+        localStorage.setItem('userApiKeys', JSON.stringify(userApiKeys));
+    } catch (error) {
+        console.error("Could not save API keys to localStorage", error);
+    }
+  }, [userApiKeys]);
+
   const setLearningLanguage = (language: LearningLanguage) => {
     setLearningLanguageState(language);
   };
@@ -149,8 +158,21 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     setCustomGradients(prev => prev.filter(g => g !== gradient));
   };
 
+  const addUserApiKey = (key: string): boolean => {
+      const trimmedKey = key.trim();
+      if (userApiKeys.length >= MAX_API_KEYS || userApiKeys.includes(trimmedKey)) {
+          return false;
+      }
+      setUserApiKeysState(prev => [...prev, trimmedKey]);
+      return true;
+  };
+
+  const removeUserApiKey = (keyToRemove: string) => {
+      setUserApiKeysState(prev => prev.filter(k => k !== keyToRemove));
+  };
+
   return (
-    <SettingsContext.Provider value={{ apiKey, setApiKey, targetLanguage, setTargetLanguage, learningLanguage, setLearningLanguage, backgroundSetting, setBackgroundImage, setBackgroundGradient, clearBackgroundSetting, customGradients, addCustomGradient, removeCustomGradient }}>
+    <SettingsContext.Provider value={{ targetLanguage, setTargetLanguage, learningLanguage, setLearningLanguage, backgroundSetting, setBackgroundImage, setBackgroundGradient, clearBackgroundSetting, customGradients, addCustomGradient, removeCustomGradient, userApiKeys, addUserApiKey, removeUserApiKey, hasApiKey }}>
       {children}
     </SettingsContext.Provider>
   );

@@ -74,32 +74,41 @@ const Quiz: React.FC<QuizProps> = ({ onBack }) => {
     
     setView('loading');
     
-    const promises = wordsToQuiz.map(word => 
-      generateQuizForWord(word, targetLanguage, learningLanguage).catch(err => {
-        console.error(`Failed to generate quiz for "${word.word}":`, err);
-        return null;
-      })
-    );
+    try {
+        const promises = wordsToQuiz.map(word => 
+        generateQuizForWord(word, targetLanguage, learningLanguage).catch(err => {
+            console.error(`Failed to generate quiz for "${word.word}":`, err);
+            return null;
+        })
+        );
 
-    const results = await Promise.all(promises);
-    const successfulQuizzes = results.filter(q => q !== null) as Awaited<ReturnType<typeof generateQuizForWord>>[];
-    
-    const formattedQuestions: QuizQuestion[] = successfulQuizzes.map((quiz, index) => ({
-        ...quiz!,
-        word: wordsToQuiz[index],
-    }));
+        const results = await Promise.all(promises);
+        const successfulQuizzes = results.filter(q => q !== null) as Awaited<ReturnType<typeof generateQuizForWord>>[];
+        
+        const formattedQuestions: QuizQuestion[] = successfulQuizzes.map((quiz, index) => ({
+            ...quiz!,
+            word: wordsToQuiz[index],
+        }));
 
-    if (formattedQuestions.length < 1) {
-        setError("Không thể tạo câu hỏi. Vui lòng kiểm tra API key hoặc thử lại.");
+        if (formattedQuestions.length < 1) {
+            setError("Không thể tạo câu hỏi. Có thể do API key của bạn đã hết hạn mức.");
+            setView('setup');
+            return;
+        }
+
+        setQuizQuestions(formattedQuestions);
+        setCurrentQuestionIndex(0);
+        setUserAnswers([]);
+        setSelectedAnswer(null);
+        setView('playing');
+    } catch (error: any) {
+        if (error.message === "All API keys failed.") {
+             setError("Tất cả API key đều không hoạt động. Vui lòng kiểm tra lại trong Cài đặt.");
+        } else {
+             setError("Không thể tạo câu hỏi. Vui lòng kiểm tra API key hoặc thử lại.");
+        }
         setView('setup');
-        return;
     }
-
-    setQuizQuestions(formattedQuestions);
-    setCurrentQuestionIndex(0);
-    setUserAnswers([]);
-    setSelectedAnswer(null);
-    setView('playing');
 
   }, [wordsForQuiz, numQuestions, targetLanguage, learningLanguage]);
   
@@ -277,7 +286,6 @@ const Quiz: React.FC<QuizProps> = ({ onBack }) => {
     );
   };
   
-  // FIX: Added renderContent function to switch between different quiz views.
   const renderContent = () => {
     switch (view) {
       case 'setup':

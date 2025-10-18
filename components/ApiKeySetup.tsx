@@ -2,16 +2,16 @@ import React, { useState } from 'react';
 import { BookOpen, KeyRound, ArrowRight } from 'lucide-react';
 
 interface ApiKeySetupProps {
-  onKeySaved: (apiKey: string) => void;
+  onAddKey: (apiKey: string) => void;
 }
 
-const ApiKeySetup: React.FC<ApiKeySetupProps> = ({ onKeySaved }) => {
+const ApiKeySetup: React.FC<ApiKeySetupProps> = ({ onAddKey }) => {
   const [apiKey, setApiKey] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (apiKey.trim()) {
-      onKeySaved(apiKey.trim());
+      onAddKey(apiKey.trim());
     }
   };
 

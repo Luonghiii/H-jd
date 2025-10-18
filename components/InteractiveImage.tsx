@@ -82,9 +82,13 @@ const InteractiveImage: React.FC<{onBack: () => void;}> = ({onBack}) => {
             if (!result) {
                 setFeedback("Không thể xác định đối tượng tại vị trí này.");
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            setFeedback("Đã xảy ra lỗi khi phân tích hình ảnh.");
+            if (error.message === "All API keys failed.") {
+                setFeedback("Tất cả API key đều không hoạt động. Vui lòng kiểm tra lại trong Cài đặt.");
+            } else {
+                setFeedback("Đã xảy ra lỗi khi phân tích hình ảnh.");
+            }
         }
         setIsLoading(false);
     };

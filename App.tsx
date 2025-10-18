@@ -18,11 +18,12 @@ import TermsOfServiceModal from './components/TermsOfServiceModal';
 import History from './components/History';
 import { View } from './types';
 import { Home as HomeIcon, BookOpen, Feather, PenSquare, Sparkles, Layers, Gamepad2, History as HistoryIcon, BrainCircuit } from 'lucide-react';
-import ApiKeySetup from './components/ApiKeySetup';
 import SettingsModal from './components/SettingsModal';
 import Games from './components/Games';
 import AiTools from './components/AiTools';
 import Review from './components/Review';
+import ApiKeySetup from './components/ApiKeySetup';
+import NotificationManager from './components/NotificationManager';
 
 const AppLayout: React.FC<{ onLogout: () => void; onOpenSettings: () => void; }> = ({ onLogout, onOpenSettings }) => {
   const [currentView, setCurrentView] = useState<View>(View.Home);
@@ -86,6 +87,7 @@ const AppLayout: React.FC<{ onLogout: () => void; onOpenSettings: () => void; }>
 
   return (
     <>
+      <NotificationManager />
       <div 
         className={`min-h-screen text-gray-200 font-sans flex flex-col ${backgroundClasses}`}
         style={backgroundStyle}
@@ -137,7 +139,7 @@ const AppLayout: React.FC<{ onLogout: () => void; onOpenSettings: () => void; }>
 
 const AppContent: React.FC = () => {
   const { addHistoryEntry } = useHistory();
-  const { apiKey, setApiKey } = useSettings();
+  const { hasApiKey, addUserApiKey } = useSettings();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     try {
@@ -170,8 +172,8 @@ const AppContent: React.FC = () => {
     return <Login onLoginSuccess={handleLoginSuccess} />;
   }
   
-  if (!apiKey) {
-    return <ApiKeySetup onKeySaved={setApiKey} />
+  if (!hasApiKey) {
+    return <ApiKeySetup onAddKey={addUserApiKey} />;
   }
 
   return (
@@ -181,7 +183,6 @@ const AppContent: React.FC = () => {
         <SettingsModal 
             isOpen={isSettingsOpen}
             onClose={() => setIsSettingsOpen(false)}
-            onKeySaved={setApiKey}
         />
       </InspectorProvider>
     </VocabularyProvider>

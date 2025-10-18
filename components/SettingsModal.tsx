@@ -1,13 +1,11 @@
-
 import React, { useState } from 'react';
-import { X, KeyRound } from 'lucide-react';
+import { X, KeyRound, Trash2 } from 'lucide-react';
 import { useSettings } from '../hooks/useSettings';
 import { LearningLanguage } from '../types';
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onKeySaved: (key: string) => void;
 }
 
 const LearningLanguageSelector: React.FC = () => {
@@ -38,19 +36,82 @@ const LearningLanguageSelector: React.FC = () => {
   );
 };
 
-const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onKeySaved }) => {
-  const { apiKey } = useSettings();
-  const [currentApiKey, setCurrentApiKey] = useState(apiKey || '');
+const ApiKeyManager: React.FC = () => {
+    const { userApiKeys, addUserApiKey, removeUserApiKey } = useSettings();
+    const [newApiKey, setNewApiKey] = useState('');
+    const [feedback, setFeedback] = useState('');
 
-  const handleSaveKey = () => {
-      if (currentApiKey.trim()) {
-        onKeySaved(currentApiKey.trim());
-        onClose();
-      }
-  };
+    const handleAdd = () => {
+        if (newApiKey.trim()) {
+            const success = addUserApiKey(newApiKey.trim());
+            if (success) {
+                setNewApiKey('');
+                setFeedback('Đã thêm khóa API thành công!');
+            } else {
+                if(userApiKeys.length >= 10) {
+                    setFeedback('Đã đạt giới hạn 10 khóa API.');
+                } else {
+                    setFeedback('Khóa API này đã tồn tại.');
+                }
+            }
+            setTimeout(() => setFeedback(''), 3000);
+        }
+    };
+    
+    const hasSystemKey = !!process.env.API_KEY;
 
+    let statusText;
+    if (userApiKeys.length > 0) {
+        statusText = `Đang sử dụng ${userApiKeys.length} khóa API của bạn (xoay vòng).`;
+    } else if (hasSystemKey) {
+        statusText = 'Đang sử dụng khóa API hệ thống. Bạn có thể thêm khóa riêng để ưu tiên sử dụng.';
+    } else {
+        statusText = 'Chưa có khóa API nào được cấu hình. Vui lòng thêm một khóa để sử dụng các tính năng AI.';
+    }
+
+    return (
+        <div>
+            <p className="text-sm font-medium text-gray-300 mb-2 text-center">Quản lý API Key</p>
+            <div className="p-3 bg-slate-900/50 rounded-xl space-y-3">
+                {userApiKeys.length > 0 && (
+                    <div className="space-y-2 max-h-32 overflow-y-auto pr-2">
+                        {userApiKeys.map((key) => (
+                            <div key={key} className="flex items-center justify-between gap-2 bg-slate-800 p-2 rounded-md">
+                                <div className="flex items-center gap-2 min-w-0">
+                                    <KeyRound className="w-5 h-5 text-gray-400 flex-shrink-0"/>
+                                    <span className="truncate font-mono text-sm">{`****...${key.slice(-4)}`}</span>
+                                </div>
+                                <button onClick={() => removeUserApiKey(key)} className="p-1 text-red-400 hover:bg-red-500/10 rounded-full">
+                                    <Trash2 className="w-4 h-4"/>
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+                {userApiKeys.length < 10 && (
+                    <div className="flex gap-2">
+                         <input
+                            type="password"
+                            value={newApiKey}
+                            onChange={(e) => setNewApiKey(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+                            placeholder="Nhập khóa API mới..."
+                            className="flex-grow px-3 py-2 bg-slate-800 border border-slate-600 rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                        <button onClick={handleAdd} className="px-4 text-sm py-2 bg-indigo-600 hover:bg-indigo-700 rounded-md">Thêm</button>
+                    </div>
+                )}
+                {feedback && <p className="text-xs text-center text-cyan-300 pt-1">{feedback}</p>}
+            </div>
+            <p className="text-xs text-gray-500 mt-2 text-center">{statusText}</p>
+        </div>
+    );
+};
+
+
+const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
-
+  
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
@@ -68,31 +129,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onKeySav
               <LearningLanguageSelector />
             </div>
             
-            <div className="border-t border-slate-700 pt-6">
-              <p className="text-sm font-medium text-gray-300 mb-2">Quản lý API Key</p>
-              <div className="flex gap-2">
-                <div className="relative flex-grow">
-                  <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                  <input
-                    type="password"
-                    value={currentApiKey}
-                    onChange={(e) => setCurrentApiKey(e.target.value)}
-                    placeholder="Nhập khóa API mới của bạn"
-                    className="w-full pl-9 pr-3 py-2 bg-slate-900/50 border border-slate-600 rounded-md text-sm text-white"
-                  />
-                </div>
-                <button 
-                  onClick={handleSaveKey} 
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-sm font-semibold transition-colors disabled:bg-indigo-400"
-                  disabled={!currentApiKey.trim() || currentApiKey.trim() === apiKey}
-                >
-                  Lưu
-                </button>
-              </div>
-              <p className="text-xs text-gray-500 mt-2">
-                Khóa API của bạn được lưu cục bộ trong trình duyệt.
-              </p>
-            </div>
+            <ApiKeyManager />
+
           </div>
         </div>
       </div>

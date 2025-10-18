@@ -16,6 +16,7 @@ const ICONS: { [key in HistoryEntry['type']]: React.ElementType } = {
     WORD_GUESS_LOST: XCircle,
     WORD_LINK_COMPLETED: Link,
     GRAMMAR_CHECK_COMPLETED: CheckSquare,
+    // FIX: Add BrainCircuit icon for review sessions.
     REVIEW_SESSION_COMPLETED: BrainCircuit,
 };
 
