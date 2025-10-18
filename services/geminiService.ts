@@ -217,9 +217,10 @@ export const generateStory = async (words: string[], targetLanguage: TargetLangu
         const targetLangName = targetLanguage === 'vietnamese' ? 'Vietnamese' : 'English';
         const learningLangName = learningLanguage.charAt(0).toUpperCase() + learningLanguage.slice(1);
         
-        const prompt = `Write a short, simple story for a language learner in ${learningLangName}. The story must include the following words: ${words.join(', ')}.
-The story should be engaging and easy to understand.
-After the story, provide a translation in ${targetLangName}.
+        const prompt = `Write a short, coherent story in ${learningLangName} aimed at an intermediate language learner (A2/B1 level). The story must logically incorporate the following words: ${words.join(', ')}.
+The plot should be interesting and make sense. Avoid overly simplistic or childish themes.
+The story should be a few paragraphs long.
+After the story, provide a complete translation in ${targetLangName}.
 Separate the original story and its translation with "---Translation---".`;
 
         const response = await ai.models.generateContent({
@@ -235,8 +236,8 @@ export const generateSentence = async (word: VocabularyWord, targetLanguage: Tar
         const targetLangName = targetLanguage === 'vietnamese' ? 'Vietnamese' : 'English';
         const learningLangName = learningLanguage.charAt(0).toUpperCase() + learningLanguage.slice(1);
         
-        const prompt = `Create a simple example sentence for a language learner in ${learningLangName} using the word "${word.word}".
-The sentence should be easy to understand and clearly demonstrate the word's meaning.
+        const prompt = `Create a clear and natural-sounding example sentence in ${learningLangName} using the word "${word.word}".
+The sentence should be appropriate for an intermediate language learner and effectively demonstrate the word's typical usage and context.
 After the sentence, provide a translation in ${targetLangName}.
 Separate the original sentence and its translation with "---Translation---".`;
         
