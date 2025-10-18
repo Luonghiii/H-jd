@@ -115,14 +115,13 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
     };
 
     setWords(currentWords => {
-        const newWords = [newWord, ...currentWords];
-        updateWordsInFirestore(newWords);
-        return newWords;
+        const newWordsList = [newWord, ...currentWords];
+        updateWordsInFirestore(newWordsList);
+        return newWordsList;
     });
   }, [learningLanguage, updateWordsInFirestore]);
-
+  
   const addMultipleWords = useCallback((newWords: GeneratedWord[]): number => {
-    let finalWords: VocabularyWord[] = [];
     let addedCount = 0;
     
     setWords(currentWords => {
@@ -132,8 +131,7 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
         );
 
         if (uniqueNewWords.length === 0) {
-            finalWords = currentWords;
-            return currentWords;
+            return currentWords; // No changes
         }
 
         const wordsToAdd: VocabularyWord[] = uniqueNewWords.map(nw => ({
@@ -148,31 +146,35 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
         }));
         
         addedCount = wordsToAdd.length;
-        finalWords = [...wordsToAdd, ...currentWords];
-        return finalWords;
+        const newWordsList = [...wordsToAdd, ...currentWords];
+        updateWordsInFirestore(newWordsList);
+        return newWordsList;
     });
 
-    if (addedCount > 0) {
-        updateWordsInFirestore(finalWords);
-    }
     return addedCount;
   }, [updateWordsInFirestore]);
 
   const deleteWord = useCallback((id: string) => {
     if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
 
-    const wordIndex = words.findIndex(w => w.id === id);
-    if (wordIndex === -1) return;
+    let wordToDelete: VocabularyWord | null = null;
+    let wordIndex = -1;
 
-    const wordToDelete = words[wordIndex];
-    const newWords = words.filter(word => word.id !== id);
-    
-    setWords(newWords); // Optimistic update
-    updateWordsInFirestore(newWords);
-    setLastDeletedWord({ word: wordToDelete, index: wordIndex });
+    setWords(currentWords => {
+        wordIndex = currentWords.findIndex(w => w.id === id);
+        if (wordIndex === -1) return currentWords;
 
-    undoTimerRef.current = window.setTimeout(() => setLastDeletedWord(null), 5000);
-  }, [words, updateWordsInFirestore]);
+        wordToDelete = currentWords[wordIndex];
+        const newWordsList = currentWords.filter(word => word.id !== id);
+        
+        updateWordsInFirestore(newWordsList);
+        setLastDeletedWord({ word: wordToDelete!, index: wordIndex });
+
+        undoTimerRef.current = window.setTimeout(() => setLastDeletedWord(null), 5000);
+        
+        return newWordsList;
+    });
+  }, [updateWordsInFirestore]);
 
   const undoDelete = useCallback(() => {
     if (!lastDeletedWord) return;
@@ -180,63 +182,75 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
       clearTimeout(undoTimerRef.current);
       undoTimerRef.current = null;
     }
-
-    const newWords = [...words];
-    newWords.splice(lastDeletedWord.index, 0, lastDeletedWord.word);
-
-    setWords(newWords); // Optimistic update
-    updateWordsInFirestore(newWords);
-    setLastDeletedWord(null);
-  }, [words, lastDeletedWord, updateWordsInFirestore]);
+    
+    setWords(currentWords => {
+        const newWordsList = [...currentWords];
+        newWordsList.splice(lastDeletedWord.index, 0, lastDeletedWord.word);
+        updateWordsInFirestore(newWordsList);
+        setLastDeletedWord(null);
+        return newWordsList;
+    });
+  }, [lastDeletedWord, updateWordsInFirestore]);
   
   const updateWord = useCallback((id: string, updates: Partial<VocabularyWord>) => {
-    const newWords = words.map(word => word.id === id ? { ...word, ...updates } : word);
-    setWords(newWords); // Optimistic update
-    updateWordsInFirestore(newWords);
-  }, [words, updateWordsInFirestore]);
+    setWords(currentWords => {
+        const newWordsList = currentWords.map(word => word.id === id ? { ...word, ...updates } : word);
+        updateWordsInFirestore(newWordsList);
+        return newWordsList;
+    });
+  }, [updateWordsInFirestore]);
   
   const updateWordSrs = useCallback((wordId: string, performance: 'hard' | 'good' | 'easy') => {
-    const word = words.find(w => w.id === wordId);
-    if (!word) return;
+    setWords(currentWords => {
+        const word = currentWords.find(w => w.id === wordId);
+        if (!word) return currentWords;
 
-    let newSrsLevel = word.srsLevel;
-    let nextReview;
+        let newSrsLevel = word.srsLevel;
+        let nextReview;
 
-    switch (performance) {
-        case 'hard':
-            newSrsLevel = 0;
-            nextReview = Date.now() + 10 * MINUTE_IN_MS;
-            break;
-        case 'good':
-            newSrsLevel = Math.min(newSrsLevel + 1, srsIntervalsDays.length - 1);
-            nextReview = Date.now() + srsIntervalsDays[newSrsLevel] * DAY_IN_MS;
-            break;
-        case 'easy':
-            newSrsLevel = Math.min(newSrsLevel + 2, srsIntervalsDays.length - 1);
-            nextReview = Date.now() + srsIntervalsDays[newSrsLevel] * DAY_IN_MS;
-            break;
-    }
-    updateWord(wordId, { srsLevel: newSrsLevel, nextReview });
-  }, [words, updateWord]);
+        switch (performance) {
+            case 'hard':
+                newSrsLevel = 0;
+                nextReview = Date.now() + 10 * MINUTE_IN_MS;
+                break;
+            case 'good':
+                newSrsLevel = Math.min(newSrsLevel + 1, srsIntervalsDays.length - 1);
+                nextReview = Date.now() + srsIntervalsDays[newSrsLevel] * DAY_IN_MS;
+                break;
+            case 'easy':
+                newSrsLevel = Math.min(newSrsLevel + 2, srsIntervalsDays.length - 1);
+                nextReview = Date.now() + srsIntervalsDays[newSrsLevel] * DAY_IN_MS;
+                break;
+        }
+        
+        const newWordsList = currentWords.map(w => w.id === wordId ? { ...w, srsLevel: newSrsLevel, nextReview } : w);
+        updateWordsInFirestore(newWordsList);
+        return newWordsList;
+    });
+  }, [updateWordsInFirestore]);
 
   const toggleWordStar = useCallback((id: string) => {
-    const newWords = words.map(word =>
-      word.id === id ? { ...word, isStarred: !word.isStarred } : word
-    );
-    setWords(newWords); // Optimistic update
-    updateWordsInFirestore(newWords);
-  }, [words, updateWordsInFirestore]);
+    setWords(currentWords => {
+        const newWordsList = currentWords.map(word =>
+          word.id === id ? { ...word, isStarred: !word.isStarred } : word
+        );
+        updateWordsInFirestore(newWordsList);
+        return newWordsList;
+    });
+  }, [updateWordsInFirestore]);
 
   const updateWordImage = useCallback((wordId: string, imageUrl: string | null) => {
-    const newWords = words.map(word => {
-      if (word.id === wordId) {
-        return { ...word, imageUrl: imageUrl || undefined };
-      }
-      return word;
+    setWords(currentWords => {
+        const newWordsList = currentWords.map(word => {
+          if (word.id === wordId) {
+            return { ...word, imageUrl: imageUrl || undefined };
+          }
+          return word;
+        });
+        updateWordsInFirestore(newWordsList);
+        return newWordsList;
     });
-    setWords(newWords); // Optimistic update
-    updateWordsInFirestore(newWords);
-  }, [words, updateWordsInFirestore]);
+  }, [updateWordsInFirestore]);
 
   const getWordsForStory = useCallback((count: number): VocabularyWord[] => {
     const shuffled = [...words].sort(() => 0.5 - Math.random());
