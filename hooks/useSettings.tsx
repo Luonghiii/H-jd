@@ -73,10 +73,9 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const updateSetting = (key: string, value: any) => {
     if (currentUser?.uid) {
-      // Using dot notation with a key in a nested object.
-      // updateUserData now uses setDoc with merge, so we need to construct the nested object.
-      const dataToUpdate = { settings: { [key]: value } };
-      updateUserData(currentUser.uid, dataToUpdate);
+      // Use dot notation to update a specific field within the 'settings' map.
+      // This prevents overwriting the entire settings object.
+      updateUserData(currentUser.uid, { [`settings.${key}`]: value });
     }
   };
 
