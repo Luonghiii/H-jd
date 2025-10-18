@@ -12,8 +12,11 @@ import {
   Unsubscribe,
 } from 'firebase/firestore';
 import { User } from 'firebase/auth';
-import { ConversationSession } from '../types';
+import { ConversationSession, GeneratedWord, VocabularyWord } from '../types';
 import eventBus from '../utils/eventBus';
+import { defaultGermanWords } from '../data/german_words';
+import { defaultEnglishWords } from '../data/english_words';
+import { defaultChineseWords } from '../data/chinese_words';
 
 // =====================
 // Types
@@ -32,7 +35,7 @@ export interface UserDoc {
   displayName: string | null;
   photoURL: string | null;
   createdAt: any;
-  words: Record<string, unknown>;
+  words: Record<string, VocabularyWord[]>;
   settings: UserSettings;
   history: unknown[];
   stats: {
@@ -40,6 +43,19 @@ export interface UserDoc {
   };
   aiTutorHistory: ConversationSession[];
 }
+
+const generatedWordsToVocabulary = (words: GeneratedWord[]): VocabularyWord[] => {
+    return words.map(w => ({
+        id: crypto.randomUUID(),
+        word: w.word,
+        translation: { vietnamese: w.translation_vi, english: w.translation_en },
+        theme: w.theme,
+        createdAt: Date.now(),
+        isStarred: false,
+        srsLevel: 0,
+        nextReview: Date.now(),
+    }));
+};
 
 // =====================
 // Create user (first-time only) via transaction
@@ -63,7 +79,11 @@ export const createUserDocument = async (user: User): Promise<void> => {
         displayName: displayName ?? null,
         photoURL: photoURL ?? null,
         createdAt: serverTimestamp(),
-        words: {},
+        words: {
+            german: generatedWordsToVocabulary(defaultGermanWords),
+            english: generatedWordsToVocabulary(defaultEnglishWords),
+            chinese: generatedWordsToVocabulary(defaultChineseWords),
+        },
         settings: {
           targetLanguage: 'vietnamese',
           learningLanguage: 'german',
