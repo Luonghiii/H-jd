@@ -1,5 +1,5 @@
 import { db } from './firebase';
-import { doc, getDoc, setDoc, onSnapshot, DocumentData, Unsubscribe, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot, DocumentData, Unsubscribe } from 'firebase/firestore';
 import { User } from 'firebase/auth';
 
 /**
@@ -43,7 +43,8 @@ export const createUserDocument = async (user: User): Promise<void> => {
 
 /**
  * Updates a user's document in Firestore.
- * This function now uses `updateDoc` to correctly handle dot notation for nested fields.
+ * This function now uses `setDoc` with `merge: true` to robustly handle updates,
+ * creating the document or nested fields if they don't exist.
  * @param uid The user's ID.
  * @param data The data to update, which can use dot notation (e.g., { 'settings.language': 'english' }).
  */
@@ -51,7 +52,7 @@ export const updateUserData = async (uid: string, data: DocumentData): Promise<v
     if (!uid) return;
     const userRef = doc(db, 'users', uid);
     try {
-        await updateDoc(userRef, data);
+        await setDoc(userRef, data, { merge: true });
     } catch (error) {
         console.error("Error updating user data:", error);
     }
