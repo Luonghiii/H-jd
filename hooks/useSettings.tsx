@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { TargetLanguage, LearningLanguage } from '../types';
 import { useAuth } from './useAuth';
 import { onUserDataSnapshot, updateUserData } from '../services/firestoreService';
@@ -41,26 +41,26 @@ const defaultSettings = {
 export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { currentUser } = useAuth();
   const [settings, setSettings] = useState(defaultSettings);
-  const isFirestoreUpdate = useRef(true);
 
   // Effect to listen for Firestore updates
   useEffect(() => {
     if (currentUser?.uid) {
       const unsubscribe = onUserDataSnapshot(currentUser.uid, (data) => {
         if (data?.settings) {
-          isFirestoreUpdate.current = true;
           const newSettings = { ...defaultSettings, ...data.settings };
           setSettings(newSettings);
           // Sync API keys to localStorage for immediate use by geminiService
           try {
             localStorage.setItem('userApiKeys', JSON.stringify(newSettings.userApiKeys || []));
           } catch (e) { console.error("Failed to sync API keys to localStorage", e); }
+        } else {
+          // If no settings exist in Firestore, initialize them
+          updateUserData(currentUser.uid, { settings: defaultSettings });
         }
       });
       return () => unsubscribe();
     } else {
       // Reset to defaults on logout
-      isFirestoreUpdate.current = true;
       setSettings(defaultSettings);
       try {
         localStorage.removeItem('userApiKeys');
@@ -68,74 +68,67 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
   }, [currentUser]);
 
-  // Effect to persist local state changes to Firestore
-  useEffect(() => {
-    if (isFirestoreUpdate.current) {
-        isFirestoreUpdate.current = false;
-        return;
-    }
-    if (currentUser?.uid) {
-        updateUserData(currentUser.uid, { settings });
-    }
-  }, [settings, currentUser]);
-
   const setTargetLanguage = useCallback((language: TargetLanguage) => {
-    setSettings(s => ({ ...s, targetLanguage: language }));
-  }, []);
+    if (!currentUser) return;
+    updateUserData(currentUser.uid, { 'settings.targetLanguage': language });
+  }, [currentUser]);
   
   const setLearningLanguage = useCallback((language: LearningLanguage) => {
-    setSettings(s => ({ ...s, learningLanguage: language }));
-  }, []);
+    if (!currentUser) return;
+    updateUserData(currentUser.uid, { 'settings.learningLanguage': language });
+  }, [currentUser]);
 
   const setBackgroundImage = useCallback((imageDataUrl: string) => {
+    if (!currentUser) return;
     const newBg = { type: 'image' as const, value: imageDataUrl };
-    setSettings(s => ({ ...s, backgroundSetting: newBg }));
-  }, []);
+    updateUserData(currentUser.uid, { 'settings.backgroundSetting': newBg });
+  }, [currentUser]);
   
   const setBackgroundGradient = useCallback((cssGradient: string) => {
+    if (!currentUser) return;
     const newBg = { type: 'gradient' as const, value: cssGradient };
-    setSettings(s => ({ ...s, backgroundSetting: newBg }));
-  }, []);
+    updateUserData(currentUser.uid, { 'settings.backgroundSetting': newBg });
+  }, [currentUser]);
 
   const clearBackgroundSetting = useCallback(() => {
-    setSettings(s => ({ ...s, backgroundSetting: null }));
-  }, []);
+    if (!currentUser) return;
+    updateUserData(currentUser.uid, { 'settings.backgroundSetting': null });
+  }, [currentUser]);
   
   const addCustomGradient = useCallback((gradient: string) => {
-    setSettings(s => ({ ...s, customGradients: [gradient, ...s.customGradients] }));
-  }, []);
+    if (!currentUser) return;
+    const newGradients = [gradient, ...settings.customGradients];
+    updateUserData(currentUser.uid, { 'settings.customGradients': newGradients });
+  }, [currentUser, settings.customGradients]);
   
   const removeCustomGradient = useCallback((gradient: string) => {
-    setSettings(s => ({ ...s, customGradients: s.customGradients.filter(g => g !== gradient)}));
-  }, []);
+    if (!currentUser) return;
+    const newGradients = settings.customGradients.filter(g => g !== gradient);
+    updateUserData(currentUser.uid, { 'settings.customGradients': newGradients });
+  }, [currentUser, settings.customGradients]);
 
   const addUserApiKey = useCallback((key: string): boolean => {
+    if (!currentUser) return false;
     const trimmedKey = key.trim();
-    let success = false;
-    setSettings(s => {
-        if (s.userApiKeys.length >= MAX_API_KEYS || s.userApiKeys.includes(trimmedKey)) {
-            success = false;
-            return s;
-        }
-        const newKeys = [...s.userApiKeys, trimmedKey];
-        try {
-            localStorage.setItem('userApiKeys', JSON.stringify(newKeys));
-        } catch (e) { console.error("Failed to save API keys to localStorage", e); }
-        success = true;
-        return { ...s, userApiKeys: newKeys };
-    });
-    return success;
-  }, []);
+    if (settings.userApiKeys.length >= MAX_API_KEYS || settings.userApiKeys.includes(trimmedKey)) {
+        return false;
+    }
+    const newKeys = [...settings.userApiKeys, trimmedKey];
+    try {
+        localStorage.setItem('userApiKeys', JSON.stringify(newKeys));
+    } catch (e) { console.error("Failed to save API keys to localStorage", e); }
+    updateUserData(currentUser.uid, { 'settings.userApiKeys': newKeys });
+    return true;
+  }, [currentUser, settings.userApiKeys]);
 
   const removeUserApiKey = useCallback((keyToRemove: string) => {
-    setSettings(s => {
-        const newKeys = s.userApiKeys.filter(k => k !== keyToRemove);
-        try {
-            localStorage.setItem('userApiKeys', JSON.stringify(newKeys));
-        } catch (e) { console.error("Failed to save API keys to localStorage", e); }
-        return { ...s, userApiKeys: newKeys };
-    });
-  }, []);
+    if (!currentUser) return;
+    const newKeys = settings.userApiKeys.filter(k => k !== keyToRemove);
+    try {
+        localStorage.setItem('userApiKeys', JSON.stringify(newKeys));
+    } catch (e) { console.error("Failed to save API keys to localStorage", e); }
+    updateUserData(currentUser.uid, { 'settings.userApiKeys': newKeys });
+  }, [currentUser, settings.userApiKeys]);
 
   const hasApiKey = !!process.env.API_KEY || settings.userApiKeys.length > 0;
 

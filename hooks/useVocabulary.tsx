@@ -68,32 +68,28 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
   
   const [lastDeletedWord, setLastDeletedWord] = useState<{ word: VocabularyWord; index: number } | null>(null);
   const undoTimerRef = useRef<number | null>(null);
-  const isFirestoreUpdate = useRef(true);
   
-  // Effect to listen for Firestore updates
+  // Effect to listen for Firestore updates. This is the single source of truth.
   useEffect(() => {
     if (currentUser?.uid) {
       const unsubscribe = onUserDataSnapshot(currentUser.uid, (data) => {
         const wordsByLang = data?.words?.[learningLanguage] || [];
-        isFirestoreUpdate.current = true;
         setWords(wordsByLang);
       });
       return () => unsubscribe();
+    } else {
+      // Clear words on logout
+      setWords([]);
     }
   }, [currentUser, learningLanguage]);
 
-  // Effect to persist local state changes to Firestore
-  useEffect(() => {
-    if (isFirestoreUpdate.current) {
-        isFirestoreUpdate.current = false;
-        return;
-    }
-    if (currentUser?.uid) {
-        updateUserData(currentUser.uid, {
-            [`words.${learningLanguage}`]: words
-        });
-    }
-  }, [words, currentUser, learningLanguage]);
+  const persistWords = useCallback(async (newWords: VocabularyWord[]) => {
+      if (currentUser?.uid) {
+          await updateUserData(currentUser.uid, {
+              [`words.${learningLanguage}`]: newWords
+          });
+      }
+  }, [currentUser, learningLanguage]);
 
   const addWord = useCallback(async (word: string, providedTranslation: string, language: TargetLanguage, theme?: string) => {
     let vietnamese = '';
@@ -118,57 +114,45 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
       nextReview: Date.now(),
     };
 
-    setWords(currentWords => [newWord, ...currentWords]);
-  }, [learningLanguage]);
+    await persistWords([newWord, ...words]);
+  }, [learningLanguage, persistWords, words]);
   
   const addMultipleWords = useCallback((newWords: GeneratedWord[]): number => {
-    let addedCount = 0;
+    const existingWordStrings = new Set(words.map(w => w.word.toLowerCase()));
+    const uniqueNewWords = newWords.filter(nw => 
+        nw.word && !existingWordStrings.has(nw.word.toLowerCase())
+    );
+
+    if (uniqueNewWords.length === 0) return 0;
+
+    const wordsToAdd: VocabularyWord[] = uniqueNewWords.map(nw => ({
+        id: crypto.randomUUID(),
+        word: nw.word,
+        translation: { vietnamese: nw.translation_vi, english: nw.translation_en },
+        theme: nw.theme,
+        createdAt: Date.now(),
+        isStarred: false,
+        srsLevel: 0,
+        nextReview: Date.now(),
+    }));
     
-    setWords(currentWords => {
-        const existingWordStrings = new Set(currentWords.map(w => w.word.toLowerCase()));
-        const uniqueNewWords = newWords.filter(nw => 
-            nw.word && !existingWordStrings.has(nw.word.toLowerCase())
-        );
-
-        if (uniqueNewWords.length === 0) {
-            return currentWords;
-        }
-
-        const wordsToAdd: VocabularyWord[] = uniqueNewWords.map(nw => ({
-            id: crypto.randomUUID(),
-            word: nw.word,
-            translation: { vietnamese: nw.translation_vi, english: nw.translation_en },
-            theme: nw.theme,
-            createdAt: Date.now(),
-            isStarred: false,
-            srsLevel: 0,
-            nextReview: Date.now(),
-        }));
-        
-        addedCount = wordsToAdd.length;
-        return [...wordsToAdd, ...currentWords];
-    });
-
-    return addedCount;
-  }, []);
+    persistWords([...wordsToAdd, ...words]);
+    return wordsToAdd.length;
+  }, [words, persistWords]);
 
   const deleteWord = useCallback((id: string) => {
     if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
 
-    let wordToDelete: VocabularyWord | null = null;
-    let wordIndex = -1;
+    const wordIndex = words.findIndex(w => w.id === id);
+    if (wordIndex === -1) return;
 
-    setWords(currentWords => {
-        wordIndex = currentWords.findIndex(w => w.id === id);
-        if (wordIndex === -1) return currentWords;
-
-        wordToDelete = currentWords[wordIndex];
-        setLastDeletedWord({ word: wordToDelete!, index: wordIndex });
-        undoTimerRef.current = window.setTimeout(() => setLastDeletedWord(null), 5000);
-        
-        return currentWords.filter(word => word.id !== id);
-    });
-  }, []);
+    const wordToDelete = words[wordIndex];
+    setLastDeletedWord({ word: wordToDelete!, index: wordIndex });
+    undoTimerRef.current = window.setTimeout(() => setLastDeletedWord(null), 5000);
+    
+    const newWords = words.filter(word => word.id !== id);
+    persistWords(newWords);
+  }, [words, persistWords]);
 
   const undoDelete = useCallback(() => {
     if (!lastDeletedWord) return;
@@ -177,65 +161,59 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
       undoTimerRef.current = null;
     }
     
-    setWords(currentWords => {
-        const newWordsList = [...currentWords];
-        newWordsList.splice(lastDeletedWord.index, 0, lastDeletedWord.word);
-        setLastDeletedWord(null);
-        return newWordsList;
-    });
-  }, [lastDeletedWord]);
+    const newWordsList = [...words];
+    newWordsList.splice(lastDeletedWord.index, 0, lastDeletedWord.word);
+    persistWords(newWordsList);
+    setLastDeletedWord(null);
+  }, [lastDeletedWord, words, persistWords]);
   
   const updateWord = useCallback((id: string, updates: Partial<VocabularyWord>) => {
-    setWords(currentWords => 
-        currentWords.map(word => word.id === id ? { ...word, ...updates } : word)
-    );
-  }, []);
+    const newWords = words.map(word => word.id === id ? { ...word, ...updates } : word);
+    persistWords(newWords);
+  }, [words, persistWords]);
   
   const updateWordSrs = useCallback((wordId: string, performance: 'hard' | 'good' | 'easy') => {
-    setWords(currentWords => {
-        const word = currentWords.find(w => w.id === wordId);
-        if (!word) return currentWords;
+    const word = words.find(w => w.id === wordId);
+    if (!word) return;
 
-        let newSrsLevel = word.srsLevel;
-        let nextReview;
+    let newSrsLevel = word.srsLevel;
+    let nextReview;
 
-        switch (performance) {
-            case 'hard':
-                newSrsLevel = 0;
-                nextReview = Date.now() + 10 * MINUTE_IN_MS;
-                break;
-            case 'good':
-                newSrsLevel = Math.min(newSrsLevel + 1, srsIntervalsDays.length - 1);
-                nextReview = Date.now() + srsIntervalsDays[newSrsLevel] * DAY_IN_MS;
-                break;
-            case 'easy':
-                newSrsLevel = Math.min(newSrsLevel + 2, srsIntervalsDays.length - 1);
-                nextReview = Date.now() + srsIntervalsDays[newSrsLevel] * DAY_IN_MS;
-                break;
-        }
-        
-        return currentWords.map(w => w.id === wordId ? { ...w, srsLevel: newSrsLevel, nextReview } : w);
-    });
-  }, []);
+    switch (performance) {
+        case 'hard':
+            newSrsLevel = 0;
+            nextReview = Date.now() + 10 * MINUTE_IN_MS;
+            break;
+        case 'good':
+            newSrsLevel = Math.min(newSrsLevel + 1, srsIntervalsDays.length - 1);
+            nextReview = Date.now() + srsIntervalsDays[newSrsLevel] * DAY_IN_MS;
+            break;
+        case 'easy':
+            newSrsLevel = Math.min(newSrsLevel + 2, srsIntervalsDays.length - 1);
+            nextReview = Date.now() + srsIntervalsDays[newSrsLevel] * DAY_IN_MS;
+            break;
+    }
+    
+    const newWords = words.map(w => w.id === wordId ? { ...w, srsLevel: newSrsLevel, nextReview } : w);
+    persistWords(newWords);
+  }, [words, persistWords]);
 
   const toggleWordStar = useCallback((id: string) => {
-    setWords(currentWords => 
-        currentWords.map(word =>
-          word.id === id ? { ...word, isStarred: !word.isStarred } : word
-        )
+    const newWords = words.map(word =>
+      word.id === id ? { ...word, isStarred: !word.isStarred } : word
     );
-  }, []);
+    persistWords(newWords);
+  }, [words, persistWords]);
 
   const updateWordImage = useCallback((wordId: string, imageUrl: string | null) => {
-    setWords(currentWords => 
-        currentWords.map(word => {
-          if (word.id === wordId) {
-            return { ...word, imageUrl: imageUrl || undefined };
-          }
-          return word;
-        })
-    );
-  }, []);
+    const newWords = words.map(word => {
+      if (word.id === wordId) {
+        return { ...word, imageUrl: imageUrl || undefined };
+      }
+      return word;
+    });
+    persistWords(newWords);
+  }, [words, persistWords]);
 
   const getWordsForStory = useCallback((count: number): VocabularyWord[] => {
     const shuffled = [...words].sort(() => 0.5 - Math.random());
