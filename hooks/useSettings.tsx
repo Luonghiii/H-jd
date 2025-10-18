@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { TargetLanguage, LearningLanguage } from '../types';
 import { useAuth } from './useAuth';
 import { onUserDataSnapshot, updateUserData } from '../services/firestoreService';
@@ -49,7 +49,12 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
           setLearningLanguageState(data.settings.learningLanguage || 'german');
           setBackgroundSettingState(data.settings.backgroundSetting || null);
           setCustomGradients(data.settings.customGradients || []);
-          setUserApiKeysState(data.settings.userApiKeys || []);
+          const apiKeys = data.settings.userApiKeys || [];
+          setUserApiKeysState(apiKeys);
+          // Sync with localStorage for geminiService
+          try {
+            localStorage.setItem('userApiKeys', JSON.stringify(apiKeys));
+          } catch (e) { console.error("Failed to save API keys to localStorage", e); }
         } else {
             // This case might happen if the document is created but settings are missing.
             // We can set default values here as a fallback.
@@ -58,6 +63,9 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
             setBackgroundSettingState(null);
             setCustomGradients([]);
             setUserApiKeysState([]);
+            try {
+                localStorage.removeItem('userApiKeys');
+            } catch (e) { console.error("Failed to clear API keys from localStorage", e); }
         }
       });
       return () => unsubscribe();
@@ -68,52 +76,51 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
         setBackgroundSettingState(null);
         setCustomGradients([]);
         setUserApiKeysState([]);
+        try {
+            localStorage.removeItem('userApiKeys');
+        } catch (e) { console.error("Failed to clear API keys from localStorage", e); }
     }
   }, [currentUser]);
 
-  const updateSetting = (key: string, value: any) => {
+  const updateSetting = useCallback((key: string, value: any) => {
     if (currentUser?.uid) {
-      // Use dot notation to update a specific field within the 'settings' map.
-      // This prevents overwriting the entire settings object.
       updateUserData(currentUser.uid, { [`settings.${key}`]: value });
     }
-  };
+  }, [currentUser]);
 
-  const setTargetLanguage = (language: TargetLanguage) => {
+  const setTargetLanguage = useCallback((language: TargetLanguage) => {
     updateSetting('targetLanguage', language);
-  };
+  }, [updateSetting]);
   
-  const setLearningLanguage = (language: LearningLanguage) => {
+  const setLearningLanguage = useCallback((language: LearningLanguage) => {
     updateSetting('learningLanguage', language);
-  };
+  }, [updateSetting]);
 
-  const setBackgroundImage = (imageDataUrl: string) => {
+  const setBackgroundImage = useCallback((imageDataUrl: string) => {
     const newBg = { type: 'image', value: imageDataUrl };
     updateSetting('backgroundSetting', newBg);
-  };
+  }, [updateSetting]);
   
-  const setBackgroundGradient = (cssGradient: string) => {
+  const setBackgroundGradient = useCallback((cssGradient: string) => {
     const newBg = { type: 'gradient', value: cssGradient };
     updateSetting('backgroundSetting', newBg);
-  };
+  }, [updateSetting]);
 
-  const clearBackgroundSetting = () => {
+  const clearBackgroundSetting = useCallback(() => {
     updateSetting('backgroundSetting', null);
-  };
+  }, [updateSetting]);
   
-  const addCustomGradient = (gradient: string) => {
-    // Read from current state to perform the update
+  const addCustomGradient = useCallback((gradient: string) => {
     const newGradients = [gradient, ...customGradients];
     updateSetting('customGradients', newGradients);
-  };
+  }, [customGradients, updateSetting]);
   
-  const removeCustomGradient = (gradient: string) => {
-    // Read from current state to perform the update
+  const removeCustomGradient = useCallback((gradient: string) => {
     const newGradients = customGradients.filter(g => g !== gradient);
     updateSetting('customGradients', newGradients);
-  };
+  }, [customGradients, updateSetting]);
 
-  const addUserApiKey = (key: string): boolean => {
+  const addUserApiKey = useCallback((key: string): boolean => {
       const trimmedKey = key.trim();
       if (userApiKeys.length >= MAX_API_KEYS || userApiKeys.includes(trimmedKey)) {
           return false;
@@ -121,12 +128,12 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
       const newKeys = [...userApiKeys, trimmedKey];
       updateSetting('userApiKeys', newKeys);
       return true;
-  };
+  }, [userApiKeys, updateSetting]);
 
-  const removeUserApiKey = (keyToRemove: string) => {
+  const removeUserApiKey = useCallback((keyToRemove: string) => {
       const newKeys = userApiKeys.filter(k => k !== keyToRemove);
       updateSetting('userApiKeys', newKeys);
-  };
+  }, [userApiKeys, updateSetting]);
 
   const hasApiKey = !!process.env.API_KEY || userApiKeys.length > 0;
 
