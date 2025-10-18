@@ -1,10 +1,10 @@
-
-
 import React, { useState, useEffect, useRef } from 'react';
 import { VocabularyWord, WordInfo, ChatMessage } from '../types';
 import { useSettings } from '../hooks/useSettings';
-import { getWordInfo, generateSentence, checkSentence, rewriteSentence, getChatResponseForWord } from '../services/geminiService';
-import { X, Info, MessageSquare, BookOpen, Send, RefreshCw } from 'lucide-react';
+import { getWordInfo, generateSentence, checkSentence, rewriteSentence, getChatResponseForWord, generateSpeech } from '../services/geminiService';
+import { useAudioPlayer } from '../hooks/useAudioPlayer';
+import { useHistory } from '../hooks/useHistory';
+import { X, Info, MessageSquare, BookOpen, Send, RefreshCw, Volume2, Loader2 } from 'lucide-react';
 
 interface WordInspectorModalProps {
   isOpen: boolean;
@@ -38,6 +38,11 @@ const WordInspectorModal: React.FC<WordInspectorModalProps> = ({ isOpen, word, o
   const [isChatLoading, setIsChatLoading] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
+  // Audio state
+  const { play, isPlaying: isAudioPlaying } = useAudioPlayer();
+  const { addHistoryEntry } = useHistory();
+  const [isSpeechLoading, setIsSpeechLoading] = useState(false);
+
   useEffect(() => {
     if (isOpen) {
       // Reset state when modal opens or word changes
@@ -46,6 +51,9 @@ const WordInspectorModal: React.FC<WordInspectorModalProps> = ({ isOpen, word, o
       setExampleSentence('');
       setExampleTranslation('');
       setChatHistory([]);
+      setUserSentence('');
+      setSentenceFeedback('');
+      setRewrittenSentence('');
     }
   }, [isOpen, word]);
 
@@ -68,6 +76,19 @@ const WordInspectorModal: React.FC<WordInspectorModalProps> = ({ isOpen, word, o
         chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
   }, [chatHistory]);
+
+  const handlePlaySpeech = async () => {
+      if (isSpeechLoading || isAudioPlaying) return;
+      setIsSpeechLoading(true);
+      try {
+          const audioB64 = await generateSpeech(word.word, learningLanguage);
+          await play(audioB64);
+          addHistoryEntry('SPEECH_GENERATED', `Phát âm từ "${word.word}".`, { word: word.word });
+      } catch (error) {
+          console.error("Failed to generate/play speech", error);
+      }
+      setIsSpeechLoading(false);
+  }
 
   const handleGenerateExample = async () => {
     setIsExampleLoading(true);
@@ -116,7 +137,12 @@ const WordInspectorModal: React.FC<WordInspectorModalProps> = ({ isOpen, word, o
         <div className="p-4 sm:p-6 flex-shrink-0 border-b border-slate-600">
             <div className="flex items-start justify-between">
                 <div>
-                    <h2 className="text-2xl font-bold text-white">{word.word}</h2>
+                    <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                      {word.word}
+                      <button onClick={handlePlaySpeech} disabled={isSpeechLoading || isAudioPlaying} className="p-1 text-gray-400 hover:text-white disabled:opacity-50">
+                          {isSpeechLoading ? <Loader2 className="w-5 h-5 animate-spin"/> : <Volume2 className="w-5 h-5"/>}
+                      </button>
+                    </h2>
                     <p className="text-gray-400">{word.translation[targetLanguage]}</p>
                 </div>
                 <button onClick={onClose} className="p-2 text-gray-400 hover:bg-slate-700 rounded-full">

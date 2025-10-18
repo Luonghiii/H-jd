@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useRef, useCallback } from 'react';
 import { HistoryEntry } from '../types';
 import { useAuth } from './useAuth';
 import { onUserDataSnapshot, updateUserData } from '../services/firestoreService';
@@ -14,6 +14,11 @@ const HistoryContext = createContext<HistoryContextType | undefined>(undefined);
 export const HistoryProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { currentUser, isLoading: isAuthLoading } = useAuth();
   const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const historyRef = useRef<HistoryEntry[]>(history);
+
+  useEffect(() => {
+    historyRef.current = history;
+  }, [history]);
   
   useEffect(() => {
     if (isAuthLoading) {
@@ -34,7 +39,7 @@ export const HistoryProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
   }, [currentUser, isAuthLoading]);
 
-  const addHistoryEntry = async (type: HistoryEntry['type'], details: string, payload?: HistoryEntry['payload']) => {
+  const addHistoryEntry = useCallback(async (type: HistoryEntry['type'], details: string, payload?: HistoryEntry['payload']) => {
     if (!currentUser) return;
     
     const newEntry: HistoryEntry = {
@@ -45,17 +50,16 @@ export const HistoryProvider: React.FC<{ children: ReactNode }> = ({ children })
       payload,
     };
     
-    // Read the latest history from state to avoid race conditions if called multiple times quickly
-    const currentHistory = history;
-    const newHistory = [newEntry, ...currentHistory].slice(0, 100);
-    await updateUserData(currentUser.uid, { history: newHistory });
-  };
+    const updatedHistory = [newEntry, ...historyRef.current].slice(0, 100);
+    // Directly update Firestore. The onSnapshot listener will then update the state.
+    await updateUserData(currentUser.uid, { history: updatedHistory });
+  }, [currentUser]);
   
-  const clearHistory = async () => {
+  const clearHistory = useCallback(async () => {
       if(currentUser && window.confirm("Bạn có chắc muốn xóa toàn bộ lịch sử học tập không? Hành động này không thể hoàn tác.")) {
           await updateUserData(currentUser.uid, { history: [] });
       }
-  }
+  }, [currentUser]);
 
   return (
     <HistoryContext.Provider value={{ history, addHistoryEntry, clearHistory }}>

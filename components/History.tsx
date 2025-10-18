@@ -1,11 +1,13 @@
-
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { useHistory } from '../hooks/useHistory';
 import { HistoryEntry } from '../types';
-import { LogIn, PlusSquare, BookOpen, CheckSquare, Award, XCircle, Trash2, Link, Puzzle, Shuffle, BrainCircuit, Volume2 } from 'lucide-react';
+import { useInspector } from '../hooks/useInspector';
+import { useVocabulary } from '../hooks/useVocabulary';
+import { LogIn, LogOut, PlusSquare, BookOpen, CheckSquare, Award, XCircle, Trash2, Link, Puzzle, Shuffle, BrainCircuit, Volume2, Wand2, Image as ImageIcon, Search } from 'lucide-react';
 
 const ICONS: { [key in HistoryEntry['type']]: React.ElementType } = {
     LOGIN: LogIn,
+    LOGOUT: LogOut,
     WORDS_ADDED: PlusSquare,
     STORY_GENERATED: BookOpen,
     QUIZ_COMPLETED: CheckSquare,
@@ -17,8 +19,9 @@ const ICONS: { [key in HistoryEntry['type']]: React.ElementType } = {
     WORD_LINK_COMPLETED: Link,
     GRAMMAR_CHECK_COMPLETED: CheckSquare,
     REVIEW_SESSION_COMPLETED: BrainCircuit,
-    // FIX: Add missing SPEECH_GENERATED icon type
     SPEECH_GENERATED: Volume2,
+    SENTENCE_GENERATED: Wand2,
+    IMAGE_OBJECT_IDENTIFIED: ImageIcon,
 };
 
 const formatTimeAgo = (timestamp: number) => {
@@ -36,8 +39,40 @@ const formatTimeAgo = (timestamp: number) => {
     return `${years} năm trước`;
 };
 
+const formatFullDateTime = (timestamp: number) => {
+    return new Date(timestamp).toLocaleString('vi-VN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+    });
+};
+
 const History: React.FC = () => {
     const { history, clearHistory } = useHistory();
+    const { openInspector } = useInspector();
+    const { words } = useVocabulary();
+    const [searchTerm, setSearchTerm] = useState('');
+
+    const filteredHistory = useMemo(() => {
+        if (!searchTerm) return history;
+        const lowerSearch = searchTerm.toLowerCase();
+        return history.filter(entry => 
+            entry.details.toLowerCase().includes(lowerSearch) ||
+            entry.payload?.word?.toLowerCase().includes(lowerSearch)
+        );
+    }, [history, searchTerm]);
+
+    const handleEntryClick = (entry: HistoryEntry) => {
+        if (entry.payload?.word) {
+            const wordObject = words.find(w => w.word === entry.payload.word);
+            if (wordObject) {
+                openInspector(wordObject);
+            }
+        }
+    };
 
     const renderPayload = (entry: HistoryEntry) => {
         if (!entry.payload) return null;
@@ -59,7 +94,7 @@ const History: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center flex-wrap gap-4">
                 <div className="text-center sm:text-left">
                     <h2 className="text-2xl font-bold text-white">Lịch sử hoạt động</h2>
                     <p className="text-gray-400 mt-1">Xem lại các hoạt động học tập gần đây của bạn.</p>
@@ -73,20 +108,36 @@ const History: React.FC = () => {
                     <span>Xóa lịch sử</span>
                 </button>
             </div>
+
+            <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+                <input
+                    type="text"
+                    placeholder="Tìm kiếm trong lịch sử..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-600 rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+            </div>
             
-            <div className="max-h-[60vh] overflow-y-auto pr-2">
-                {history.length > 0 ? (
+            <div className="max-h-[55vh] overflow-y-auto pr-2">
+                {filteredHistory.length > 0 ? (
                     <ul className="space-y-3">
-                        {history.map(entry => {
+                        {filteredHistory.map(entry => {
                             const Icon = ICONS[entry.type] || BookOpen;
+                            const isClickable = !!entry.payload?.word && words.some(w => w.word === entry.payload.word);
                             return (
-                                <li key={entry.id} className="flex items-start gap-4 bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+                                <li 
+                                    key={entry.id}
+                                    onClick={() => handleEntryClick(entry)}
+                                    className={`flex items-start gap-4 bg-slate-800/50 p-4 rounded-xl border border-slate-700 transition-colors ${isClickable ? 'cursor-pointer hover:bg-slate-700/50 hover:border-slate-600' : ''}`}
+                                >
                                     <div className="p-2 bg-slate-700/50 rounded-full">
                                         <Icon className="w-5 h-5 text-gray-300" />
                                     </div>
                                     <div className="flex-grow">
                                         <p className="font-medium text-white">{entry.details} {renderPayload(entry)}</p>
-                                        <p className="text-sm text-gray-500">
+                                        <p className="text-sm text-gray-500" title={formatFullDateTime(entry.timestamp)}>
                                             {formatTimeAgo(entry.timestamp)}
                                         </p>
                                     </div>
@@ -95,7 +146,9 @@ const History: React.FC = () => {
                         })}
                     </ul>
                 ) : (
-                    <p className="text-center text-gray-400 py-16">Chưa có hoạt động nào được ghi lại.</p>
+                    <p className="text-center text-gray-400 py-16">
+                        {history.length > 0 ? "Không tìm thấy kết quả phù hợp." : "Chưa có hoạt động nào được ghi lại."}
+                    </p>
                 )}
             </div>
         </div>

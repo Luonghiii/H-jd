@@ -127,6 +127,9 @@ const Quiz: React.FC<QuizProps> = ({ onBack }) => {
       setCurrentQuestionIndex(prev => prev + 1);
       setSelectedAnswer(null);
     } else {
+      const correctAnswers = userAnswers.filter(a => a.isCorrect).length;
+      const details = `Hoàn thành bài trắc nghiệm.`;
+      addHistoryEntry('QUIZ_COMPLETED', details, { score: { correct: correctAnswers + (selectedAnswer === quizQuestions[currentQuestionIndex].correctAnswer ? 1 : 0), total: quizQuestions.length }});
       setView('results');
     }
   };
@@ -139,11 +142,6 @@ const Quiz: React.FC<QuizProps> = ({ onBack }) => {
     const correctAnswers = userAnswers.filter(a => a.isCorrect).length;
     const score = quizQuestions.length > 0 ? (correctAnswers / quizQuestions.length) * 100 : 0;
     const incorrectAnswers = userAnswers.filter(a => !a.isCorrect);
-
-    useEffect(() => {
-        const details = `Hoàn thành bài trắc nghiệm.`;
-        addHistoryEntry('QUIZ_COMPLETED', details, { score: { correct: correctAnswers, total: quizQuestions.length }});
-    }, []);
 
     return (
         <div className="space-y-6 text-center animate-fade-in">

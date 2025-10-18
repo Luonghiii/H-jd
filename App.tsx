@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { VocabularyProvider } from './hooks/useVocabulary';
 import { SettingsProvider, useSettings } from './hooks/useSettings';
 import { InspectorProvider, useInspector } from './hooks/useInspector';
-import { HistoryProvider } from './hooks/useHistory';
+import { HistoryProvider, useHistory } from './hooks/useHistory';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import WordInspectorModal from './components/WordInspectorModal';
 import Header from './components/Header';
@@ -141,13 +141,24 @@ const AppLayout: React.FC<{ onLogout: () => void; onOpenSettings: () => void; }>
   );
 };
 
+// This component logs the login event once when the user session is established.
+const LoginHistoryLogger: React.FC = () => {
+    const { addHistoryEntry } = useHistory();
+    useEffect(() => {
+        addHistoryEntry('LOGIN', 'Đăng nhập thành công.');
+    }, [addHistoryEntry]);
+    return null;
+};
+
+
 const AppContent: React.FC = () => {
   const { currentUser, isLoading } = useAuth();
   const { hasApiKey } = useSettings();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
-  const handleLogout = () => {
-    signOut(auth);
+  const handleLogout = async (addHistoryEntry: (type: any, details: string) => Promise<void>) => {
+    await addHistoryEntry('LOGOUT', 'Đã đăng xuất.');
+    await signOut(auth);
   };
 
   if (isLoading) {
@@ -165,17 +176,26 @@ const AppContent: React.FC = () => {
   return (
     <VocabularyProvider>
         <HistoryProvider>
-            <InspectorProvider>
-                <AppLayout onLogout={handleLogout} onOpenSettings={() => setIsSettingsOpen(true)} />
-                <SettingsModal 
-                    isOpen={isSettingsOpen}
-                    onClose={() => setIsSettingsOpen(false)}
-                />
-            </InspectorProvider>
+            <LoginHistoryLogger />
+            <LogoutWrapper onLogout={handleLogout} onOpenSettings={() => setIsSettingsOpen(true)} />
+            <SettingsModal 
+                isOpen={isSettingsOpen}
+                onClose={() => setIsSettingsOpen(false)}
+            />
         </HistoryProvider>
     </VocabularyProvider>
   );
 }
+
+// A new wrapper component to access useHistory for the logout function
+const LogoutWrapper: React.FC<{onLogout: (addHistoryEntry: any) => Promise<void>, onOpenSettings: () => void}> = ({ onLogout, onOpenSettings }) => {
+    const { addHistoryEntry } = useHistory();
+    return (
+        <InspectorProvider>
+            <AppLayout onLogout={() => onLogout(addHistoryEntry)} onOpenSettings={onOpenSettings} />
+        </InspectorProvider>
+    );
+};
 
 const App: React.FC = () => {
   return (

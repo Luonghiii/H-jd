@@ -1,7 +1,7 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { useVocabulary } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
+import { useHistory } from '../hooks/useHistory';
 import { identifyObjectInImage } from '../services/geminiService';
 import { GeneratedWord } from '../types';
 import { Upload, Sparkles, PlusCircle, X, RefreshCw } from 'lucide-react';
@@ -26,6 +26,7 @@ const InteractiveImage: React.FC<{onBack: () => void;}> = ({onBack}) => {
     const [clickMarker, setClickMarker] = useState<{x: number, y: number} | null>(null);
     
     const { addMultipleWords } = useVocabulary();
+    const { addHistoryEntry } = useHistory();
     const { learningLanguage } = useSettings();
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const imageRef = useRef<HTMLImageElement>(new Image());
@@ -80,7 +81,9 @@ const InteractiveImage: React.FC<{onBack: () => void;}> = ({onBack}) => {
             // Use normalized coordinates for the API
             const result = await identifyObjectInImage(imageFile.base64, imageFile.mimeType, { x: x / canvas.width, y: y / canvas.height }, learningLanguage);
             setLastResult(result);
-            if (!result) {
+            if (result) {
+                addHistoryEntry('IMAGE_OBJECT_IDENTIFIED', `Xác định đối tượng "${result.word}" từ ảnh.`, { word: result.word });
+            } else {
                 setFeedback("Không thể xác định đối tượng tại vị trí này.");
             }
         } catch (error: any) {

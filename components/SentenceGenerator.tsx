@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useVocabulary } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
+import { useHistory } from '../hooks/useHistory';
 import { generateSentence } from '../services/geminiService';
 import { VocabularyWord } from '../types';
 import { RefreshCw, Wand2, ArrowLeft } from 'lucide-react';
@@ -13,6 +14,7 @@ interface SentenceGeneratorProps {
 const SentenceGenerator: React.FC<SentenceGeneratorProps> = ({ onBack }) => {
     const { words } = useVocabulary();
     const { targetLanguage, learningLanguage } = useSettings();
+    const { addHistoryEntry } = useHistory();
     const [selectedWord, setSelectedWord] = useState<VocabularyWord | null>(null);
     const [generatedSentence, setGeneratedSentence] = useState('');
     const [translation, setTranslation] = useState('');
@@ -26,6 +28,7 @@ const SentenceGenerator: React.FC<SentenceGeneratorProps> = ({ onBack }) => {
         setTranslation('');
 
         const result = await generateSentence(word, targetLanguage, learningLanguage);
+        addHistoryEntry('SENTENCE_GENERATED', `Tạo câu ví dụ cho từ "${word.word}".`, { word: word.word });
         const parts = result.split('---Translation---');
         if (parts.length === 2) {
             setGeneratedSentence(parts[0].trim());

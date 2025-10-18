@@ -1,3 +1,5 @@
+import { GoogleGenAI, LiveSession, LiveServerMessage, Modality, Blob } from '@google/genai';
+
 export type TargetLanguage = 'vietnamese' | 'english';
 export type LearningLanguage = 'german' | 'english' | 'chinese';
 
@@ -39,7 +41,7 @@ export interface ChatMessage {
 
 export interface HistoryEntry {
     id: string;
-    type: 'LOGIN' | 'WORDS_ADDED' | 'STORY_GENERATED' | 'QUIZ_COMPLETED' | 'MEMORY_MATCH_WON' | 'MEMORY_MATCH_LOST' | 'SENTENCE_SCRAMBLE_WON' | 'WORD_GUESS_WON' | 'WORD_GUESS_LOST' | 'WORD_LINK_COMPLETED' | 'GRAMMAR_CHECK_COMPLETED' | 'REVIEW_SESSION_COMPLETED' | 'SPEECH_GENERATED';
+    type: 'LOGIN' | 'LOGOUT' | 'WORDS_ADDED' | 'STORY_GENERATED' | 'SENTENCE_GENERATED' | 'IMAGE_OBJECT_IDENTIFIED' | 'QUIZ_COMPLETED' | 'MEMORY_MATCH_WON' | 'MEMORY_MATCH_LOST' | 'SENTENCE_SCRAMBLE_WON' | 'WORD_GUESS_WON' | 'WORD_GUESS_LOST' | 'WORD_LINK_COMPLETED' | 'GRAMMAR_CHECK_COMPLETED' | 'REVIEW_SESSION_COMPLETED' | 'SPEECH_GENERATED';
     details: string;
     timestamp: number;
     payload?: any;
