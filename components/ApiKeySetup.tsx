@@ -1,17 +1,16 @@
 import React, { useState } from 'react';
 import { BookOpen, KeyRound, ArrowRight } from 'lucide-react';
+import { useSettings } from '../hooks/useSettings';
 
-interface ApiKeySetupProps {
-  onAddKey: (apiKey: string) => void;
-}
-
-const ApiKeySetup: React.FC<ApiKeySetupProps> = ({ onAddKey }) => {
+const ApiKeySetup: React.FC = () => {
+  const { addUserApiKey } = useSettings();
   const [apiKey, setApiKey] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (apiKey.trim()) {
-      onAddKey(apiKey.trim());
+      addUserApiKey(apiKey.trim());
+      // The parent component will re-render and show the main app
     }
   };
 
@@ -47,7 +46,7 @@ const ApiKeySetup: React.FC<ApiKeySetupProps> = ({ onAddKey }) => {
                 />
               </div>
                <p className="text-xs text-gray-500 mt-2">
-                Khóa của bạn chỉ được lưu trữ trong bộ nhớ cục bộ của trình duyệt và không bao giờ được gửi đến máy chủ của chúng tôi.
+                Khóa của bạn sẽ được lưu trữ an toàn và liên kết với tài khoản của bạn.
                 Bạn có thể nhận khóa của mình từ <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline">Google AI Studio</a>.
               </p>
             </div>

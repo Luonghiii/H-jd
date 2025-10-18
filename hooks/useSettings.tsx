@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { TargetLanguage, LearningLanguage } from '../types';
+import { useAuth } from './useAuth';
+import { onUserDataSnapshot, updateUserData } from '../services/firestoreService';
 
 export type BackgroundSetting = {
   type: 'image' | 'gradient';
@@ -29,133 +31,87 @@ interface SettingsContextType {
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [targetLanguage, setTargetLanguage] = useState<TargetLanguage>(() => {
-    try {
-      const savedLanguage = localStorage.getItem('targetLanguage');
-      return (savedLanguage === 'english' || savedLanguage === 'vietnamese') ? savedLanguage : 'vietnamese';
-    } catch (error) {
-      console.error("Could not load language from localStorage", error);
-      return 'vietnamese';
-    }
-  });
+  const { currentUser } = useAuth();
 
-  const [learningLanguage, setLearningLanguageState] = useState<LearningLanguage>(() => {
-    try {
-      const savedLanguage = localStorage.getItem('learningLanguage');
-      return (savedLanguage === 'german' || savedLanguage === 'english' || savedLanguage === 'chinese') ? savedLanguage : 'german';
-    } catch (error) {
-      console.error("Could not load learning language from localStorage", error);
-      return 'german';
-    }
-  });
+  // Default states
+  const [targetLanguage, setTargetLanguageState] = useState<TargetLanguage>('vietnamese');
+  const [learningLanguage, setLearningLanguageState] = useState<LearningLanguage>('german');
+  const [backgroundSetting, setBackgroundSettingState] = useState<BackgroundSetting>(null);
+  const [customGradients, setCustomGradients] = useState<string[]>([]);
+  const [userApiKeys, setUserApiKeysState] = useState<string[]>([]);
 
-  const [backgroundSetting, setBackgroundSettingState] = useState<BackgroundSetting>(() => {
-    try {
-      const savedBg = localStorage.getItem('backgroundSetting');
-      return savedBg ? JSON.parse(savedBg) : null;
-    } catch (error) {
-      console.error("Could not load background setting from localStorage", error);
-      return null;
-    }
-  });
-  
-  const [customGradients, setCustomGradients] = useState<string[]>(() => {
-    try {
-        const savedGradients = localStorage.getItem('customGradients');
-        return savedGradients ? JSON.parse(savedGradients) : [];
-    } catch {
-        return [];
-    }
-  });
-
-  const [userApiKeys, setUserApiKeysState] = useState<string[]>(() => {
-      try {
-        const savedKeys = localStorage.getItem('userApiKeys');
-        if (savedKeys) {
-            return JSON.parse(savedKeys);
+  // Listen for user data from Firestore
+  useEffect(() => {
+    if (currentUser?.uid) {
+      const unsubscribe = onUserDataSnapshot(currentUser.uid, (data) => {
+        if (data?.settings) {
+          setTargetLanguageState(data.settings.targetLanguage || 'vietnamese');
+          setLearningLanguageState(data.settings.learningLanguage || 'german');
+          setBackgroundSettingState(data.settings.backgroundSetting || null);
+          setCustomGradients(data.settings.customGradients || []);
+          setUserApiKeysState(data.settings.userApiKeys || []);
+        } else {
+            // This case might happen if the document is created but settings are missing.
+            // We can set default values here as a fallback.
+            setTargetLanguageState('vietnamese');
+            setLearningLanguageState('german');
+            setBackgroundSettingState(null);
+            setCustomGradients([]);
+            setUserApiKeysState([]);
         }
-        // Migration from old single key system
-        const oldKey = localStorage.getItem('userApiKey');
-        if (oldKey) {
-            const newKeys = [oldKey.replace(/"/g, '')];
-            localStorage.setItem('userApiKeys', JSON.stringify(newKeys));
-            localStorage.removeItem('userApiKey'); // Clean up old key
-            return newKeys;
-        }
-        return [];
-    } catch {
-        return [];
+      });
+      return () => unsubscribe();
+    } else {
+        // Reset to defaults on logout
+        setTargetLanguageState('vietnamese');
+        setLearningLanguageState('german');
+        setBackgroundSettingState(null);
+        setCustomGradients([]);
+        setUserApiKeysState([]);
     }
-  });
+  }, [currentUser]);
 
-  const hasApiKey = !!process.env.API_KEY || userApiKeys.length > 0;
+  const updateSetting = (key: string, value: any) => {
+    if (currentUser?.uid) {
+      // Using dot notation with a key in a nested object.
+      // updateUserData now uses setDoc with merge, so we need to construct the nested object.
+      const dataToUpdate = { settings: { [key]: value } };
+      updateUserData(currentUser.uid, dataToUpdate);
+    }
+  };
+
+  const setTargetLanguage = (language: TargetLanguage) => {
+    updateSetting('targetLanguage', language);
+  };
   
-  useEffect(() => {
-    try {
-      localStorage.setItem('targetLanguage', targetLanguage);
-    } catch (error) {
-      console.error("Could not save language to localStorage", error);
-    }
-  }, [targetLanguage]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('learningLanguage', learningLanguage);
-    } catch (error) {
-      console.error("Could not save learning language from localStorage", error);
-    }
-  }, [learningLanguage]);
-
-  useEffect(() => {
-    try {
-      if (backgroundSetting) {
-        localStorage.setItem('backgroundSetting', JSON.stringify(backgroundSetting));
-      } else {
-        localStorage.removeItem('backgroundSetting');
-      }
-    } catch (error) {
-      console.error("Could not save background setting to localStorage", error);
-    }
-  }, [backgroundSetting]);
-  
-  useEffect(() => {
-    try {
-        localStorage.setItem('customGradients', JSON.stringify(customGradients));
-    } catch (error) {
-        console.error("Could not save custom gradients to localStorage", error);
-    }
-  }, [customGradients]);
-  
-   useEffect(() => {
-    try {
-        localStorage.setItem('userApiKeys', JSON.stringify(userApiKeys));
-    } catch (error) {
-        console.error("Could not save API keys to localStorage", error);
-    }
-  }, [userApiKeys]);
-
   const setLearningLanguage = (language: LearningLanguage) => {
-    setLearningLanguageState(language);
+    updateSetting('learningLanguage', language);
   };
 
   const setBackgroundImage = (imageDataUrl: string) => {
-    setBackgroundSettingState({ type: 'image', value: imageDataUrl });
+    const newBg = { type: 'image', value: imageDataUrl };
+    updateSetting('backgroundSetting', newBg);
   };
   
   const setBackgroundGradient = (cssGradient: string) => {
-    setBackgroundSettingState({ type: 'gradient', value: cssGradient });
+    const newBg = { type: 'gradient', value: cssGradient };
+    updateSetting('backgroundSetting', newBg);
   };
 
   const clearBackgroundSetting = () => {
-    setBackgroundSettingState(null);
+    updateSetting('backgroundSetting', null);
   };
   
   const addCustomGradient = (gradient: string) => {
-    setCustomGradients(prev => [gradient, ...prev]);
+    // Read from current state to perform the update
+    const newGradients = [gradient, ...customGradients];
+    updateSetting('customGradients', newGradients);
   };
   
   const removeCustomGradient = (gradient: string) => {
-    setCustomGradients(prev => prev.filter(g => g !== gradient));
+    // Read from current state to perform the update
+    const newGradients = customGradients.filter(g => g !== gradient);
+    updateSetting('customGradients', newGradients);
   };
 
   const addUserApiKey = (key: string): boolean => {
@@ -163,13 +119,17 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
       if (userApiKeys.length >= MAX_API_KEYS || userApiKeys.includes(trimmedKey)) {
           return false;
       }
-      setUserApiKeysState(prev => [...prev, trimmedKey]);
+      const newKeys = [...userApiKeys, trimmedKey];
+      updateSetting('userApiKeys', newKeys);
       return true;
   };
 
   const removeUserApiKey = (keyToRemove: string) => {
-      setUserApiKeysState(prev => prev.filter(k => k !== keyToRemove));
+      const newKeys = userApiKeys.filter(k => k !== keyToRemove);
+      updateSetting('userApiKeys', newKeys);
   };
+
+  const hasApiKey = !!process.env.API_KEY || userApiKeys.length > 0;
 
   return (
     <SettingsContext.Provider value={{ targetLanguage, setTargetLanguage, learningLanguage, setLearningLanguage, backgroundSetting, setBackgroundImage, setBackgroundGradient, clearBackgroundSetting, customGradients, addCustomGradient, removeCustomGradient, userApiKeys, addUserApiKey, removeUserApiKey, hasApiKey }}>

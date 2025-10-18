@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { VocabularyProvider } from './hooks/useVocabulary';
 import { SettingsProvider, useSettings } from './hooks/useSettings';
 import { InspectorProvider, useInspector } from './hooks/useInspector';
-import { HistoryProvider, useHistory } from './hooks/useHistory';
+import { HistoryProvider } from './hooks/useHistory';
+import { AuthProvider, useAuth } from './hooks/useAuth';
 import WordInspectorModal from './components/WordInspectorModal';
 import Header from './components/Header';
 import AddWord from './components/AddWord';
@@ -24,6 +25,9 @@ import AiTools from './components/AiTools';
 import Review from './components/Review';
 import ApiKeySetup from './components/ApiKeySetup';
 import NotificationManager from './components/NotificationManager';
+import { auth } from './services/firebase';
+import { signOut } from 'firebase/auth';
+import { Loader2 } from 'lucide-react';
 
 const AppLayout: React.FC<{ onLogout: () => void; onOpenSettings: () => void; }> = ({ onLogout, onOpenSettings }) => {
   const [currentView, setCurrentView] = useState<View>(View.Home);
@@ -138,64 +142,52 @@ const AppLayout: React.FC<{ onLogout: () => void; onOpenSettings: () => void; }>
 };
 
 const AppContent: React.FC = () => {
-  const { addHistoryEntry } = useHistory();
-  const { hasApiKey, addUserApiKey } = useSettings();
+  const { currentUser, isLoading } = useAuth();
+  const { hasApiKey } = useSettings();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    try {
-      return sessionStorage.getItem('isAuthenticated') === 'true';
-    } catch {
-      return false;
-    }
-  });
-  
-  const handleLoginSuccess = () => {
-    try {
-      sessionStorage.setItem('isAuthenticated', 'true');
-    } catch (error) {
-      console.error("Could not save auth state to sessionStorage", error);
-    }
-    addHistoryEntry('LOGIN', 'Đăng nhập vào hệ thống');
-    setIsAuthenticated(true);
-  };
   
   const handleLogout = () => {
-    try {
-      sessionStorage.removeItem('isAuthenticated');
-    } catch (error) {
-      console.error("Could not remove auth state from sessionStorage", error);
-    }
-    setIsAuthenticated(false);
+    signOut(auth);
   };
 
-  if (!isAuthenticated) {
-    return <Login onLoginSuccess={handleLoginSuccess} />;
+  if (isLoading) {
+    return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-900">
+            <Loader2 className="w-12 h-12 text-indigo-400 animate-spin" />
+        </div>
+    );
+  }
+
+  if (!currentUser) {
+    return <Login />;
   }
   
   if (!hasApiKey) {
-    return <ApiKeySetup onAddKey={addUserApiKey} />;
+    return <ApiKeySetup />;
   }
 
   return (
     <VocabularyProvider>
-      <InspectorProvider>
-        <AppLayout onLogout={handleLogout} onOpenSettings={() => setIsSettingsOpen(true)} />
-        <SettingsModal 
-            isOpen={isSettingsOpen}
-            onClose={() => setIsSettingsOpen(false)}
-        />
-      </InspectorProvider>
+        <HistoryProvider>
+            <InspectorProvider>
+                <AppLayout onLogout={handleLogout} onOpenSettings={() => setIsSettingsOpen(true)} />
+                <SettingsModal 
+                    isOpen={isSettingsOpen}
+                    onClose={() => setIsSettingsOpen(false)}
+                />
+            </InspectorProvider>
+        </HistoryProvider>
     </VocabularyProvider>
   );
 }
 
 const App: React.FC = () => {
   return (
-    <SettingsProvider>
-      <HistoryProvider>
-        <AppContent />
-      </HistoryProvider>
-    </SettingsProvider>
+    <AuthProvider>
+        <SettingsProvider>
+            <AppContent />
+        </SettingsProvider>
+    </AuthProvider>
   );
 };
 

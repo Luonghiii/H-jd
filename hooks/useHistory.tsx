@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { HistoryEntry } from '../types';
+import { useAuth } from './useAuth';
+import { onUserDataSnapshot, updateUserData } from '../services/firestoreService';
 
 interface HistoryContextType {
   history: HistoryEntry[];
@@ -10,25 +12,25 @@ interface HistoryContextType {
 const HistoryContext = createContext<HistoryContextType | undefined>(undefined);
 
 export const HistoryProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [history, setHistory] = useState<HistoryEntry[]>(() => {
-    try {
-      const savedHistory = localStorage.getItem('activityHistory');
-      return savedHistory ? JSON.parse(savedHistory) : [];
-    } catch (error) {
-      console.error("Could not load history from localStorage", error);
-      return [];
-    }
-  });
-
+  const { currentUser } = useAuth();
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  
   useEffect(() => {
-    try {
-      localStorage.setItem('activityHistory', JSON.stringify(history));
-    } catch (error) {
-      console.error("Could not save history to localStorage", error);
+    if(currentUser?.uid) {
+        const unsubscribe = onUserDataSnapshot(currentUser.uid, (data) => {
+            if (data?.history) {
+                setHistory(data.history);
+            } else {
+                setHistory([]);
+            }
+        });
+        return () => unsubscribe();
     }
-  }, [history]);
+  }, [currentUser]);
 
   const addHistoryEntry = (type: HistoryEntry['type'], details: string, payload?: HistoryEntry['payload']) => {
+    if (!currentUser) return;
+    
     const newEntry: HistoryEntry = {
       id: crypto.randomUUID(),
       type,
@@ -36,13 +38,14 @@ export const HistoryProvider: React.FC<{ children: ReactNode }> = ({ children })
       timestamp: Date.now(),
       payload,
     };
-    // Add to the beginning of the array and limit to 100 entries
-    setHistory(prev => [newEntry, ...prev].slice(0, 100));
+    
+    const newHistory = [newEntry, ...history].slice(0, 100);
+    updateUserData(currentUser.uid, { history: newHistory });
   };
   
   const clearHistory = () => {
-      if(window.confirm("Bạn có chắc muốn xóa toàn bộ lịch sử học tập không? Hành động này không thể hoàn tác.")) {
-          setHistory([]);
+      if(currentUser && window.confirm("Bạn có chắc muốn xóa toàn bộ lịch sử học tập không? Hành động này không thể hoàn tác.")) {
+          updateUserData(currentUser.uid, { history: [] });
       }
   }
 
