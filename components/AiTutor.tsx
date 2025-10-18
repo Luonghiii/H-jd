@@ -105,10 +105,22 @@ const AiTutor: React.FC<AiTutorProps> = ({ onBack }) => {
     const nextStartTimeRef = useRef(0);
     const sourcesRef = useRef(new Set<AudioBufferSourceNode>());
     
-    // Use refs for callbacks to get latest values without re-triggering effects
     const currentInputTranscriptionRef = useRef('');
     const currentOutputTranscriptionRef = useRef('');
     const liveTranscriptRef = useRef<HTMLDivElement>(null);
+
+    // Ref to hold the latest turns state for use in callbacks, preventing stale state
+    const turnsRef = useRef(currentTurns);
+    useEffect(() => {
+        turnsRef.current = currentTurns;
+    }, [currentTurns]);
+
+    // Effect to auto-scroll the chat view
+    useEffect(() => {
+        if (liveTranscriptRef.current) {
+            liveTranscriptRef.current.scrollTop = liveTranscriptRef.current.scrollHeight;
+        }
+    }, [currentTurns, liveInput, liveOutput]);
 
     useEffect(() => {
         try {
@@ -139,10 +151,9 @@ const AiTutor: React.FC<AiTutorProps> = ({ onBack }) => {
         nextStartTimeRef.current = 0;
         
         if (saveSession) {
-            // Combine final live transcript parts with completed turns for a full history
             const finalInput = currentInputTranscriptionRef.current.trim();
             const finalOutput = currentOutputTranscriptionRef.current.trim();
-            let allTurns = [...currentTurns];
+            let allTurns = [...turnsRef.current];
             if (finalInput || finalOutput) {
                 allTurns.push({ user: finalInput, model: finalOutput });
             }
@@ -169,7 +180,7 @@ const AiTutor: React.FC<AiTutorProps> = ({ onBack }) => {
         setLiveOutput('');
         currentInputTranscriptionRef.current = '';
         currentOutputTranscriptionRef.current = '';
-    }, [currentTurns]);
+    }, []);
 
     const stopSession = useCallback(async () => {
         await cleanup(true);
@@ -188,7 +199,7 @@ const AiTutor: React.FC<AiTutorProps> = ({ onBack }) => {
     const startSession = useCallback(async () => {
         if (connectionState !== 'idle' && connectionState !== 'error') return;
         
-        await cleanup(true);
+        await cleanup(false); // Clean up any previous session state before starting
         setConnectionState('connecting');
         setError('');
 
@@ -206,8 +217,8 @@ const AiTutor: React.FC<AiTutorProps> = ({ onBack }) => {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 
-                const historySummary = currentTurns.map(t => `User: ${t.user}\nAI: ${t.model}`).join('\n\n');
-                const systemInstruction = `You are a friendly language tutor... (Context: ${historySummary})`;
+                const historySummary = turnsRef.current.map(t => `User: ${t.user}\nAI: ${t.model}`).join('\n\n');
+                const systemInstruction = `You are a friendly language tutor. The user is learning ${learningLanguage}. Converse with them in ${learningLanguage} to help them practice. Keep your responses concise. The user's native language is ${targetLanguage}. This is the conversation so far for context:\n${historySummary}`;
 
                 const ai = new GoogleGenAI({ apiKey: key });
                 const inputCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
@@ -232,15 +243,19 @@ const AiTutor: React.FC<AiTutorProps> = ({ onBack }) => {
                         },
                         onmessage: async (msg) => {
                             if (msg.serverContent?.inputTranscription) {
-                                currentInputTranscriptionRef.current += msg.serverContent.inputTranscription.text;
-                                setLiveInput(currentInputTranscriptionRef.current);
+                                const text = msg.serverContent.inputTranscription.text;
+                                currentInputTranscriptionRef.current += text;
+                                setLiveInput(prev => prev + text);
                             }
                             if (msg.serverContent?.outputTranscription) {
-                                currentOutputTranscriptionRef.current += msg.serverContent.outputTranscription.text;
-                                setLiveOutput(currentOutputTranscriptionRef.current);
+                                const text = msg.serverContent.outputTranscription.text;
+                                currentOutputTranscriptionRef.current += text;
+                                setLiveOutput(prev => prev + text);
                             }
                             if (msg.serverContent?.turnComplete) {
-                                setCurrentTurns(prev => [...prev, { user: currentInputTranscriptionRef.current, model: currentOutputTranscriptionRef.current }]);
+                                const userInput = currentInputTranscriptionRef.current;
+                                const modelOutput = currentOutputTranscriptionRef.current;
+                                setCurrentTurns(prev => [...prev, { user: userInput, model: modelOutput }]);
                                 currentInputTranscriptionRef.current = ''; setLiveInput('');
                                 currentOutputTranscriptionRef.current = ''; setLiveOutput('');
                             }
@@ -253,23 +268,35 @@ const AiTutor: React.FC<AiTutorProps> = ({ onBack }) => {
                             const audioData = msg.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
                             if (audioData && audioResourcesRef.current?.outputCtx) {
                                 const outCtx = audioResourcesRef.current.outputCtx;
-                                await outCtx.resume();
-                                const nextStart = Math.max(nextStartTimeRef.current, outCtx.currentTime);
+                                
+                                // If the queue has run dry, reset the start time to now.
+                                if (nextStartTimeRef.current < outCtx.currentTime) {
+                                    nextStartTimeRef.current = outCtx.currentTime;
+                                }
+
                                 const buffer = await decodeAudioData(decode(audioData), outCtx, 24000, 1);
                                 const source = outCtx.createBufferSource();
                                 source.buffer = buffer;
                                 source.connect(outCtx.destination);
-                                source.start(nextStart);
+                                
+                                // Schedule the sound to start at the calculated time.
+                                source.start(nextStartTimeRef.current);
                                 sourcesRef.current.add(source);
                                 source.onended = () => sourcesRef.current.delete(source);
-                                nextStartTimeRef.current = nextStart + buffer.duration;
+                                
+                                // Add the new buffer's duration to the running total for the next chunk.
+                                nextStartTimeRef.current += buffer.duration;
                             }
                         },
                         onclose: () => {
-                            stopSession();
+                            if (connectionState !== 'idle' && connectionState !== 'error') {
+                                stopSession();
+                            }
                         },
                         onerror: (e) => { 
-                           throw new Error("Live session error");
+                           console.error("Live session error:", e);
+                           setError("Lỗi kết nối. Vui lòng thử lại.");
+                           setConnectionState('error');
                         },
                     },
                 });
@@ -286,22 +313,22 @@ const AiTutor: React.FC<AiTutorProps> = ({ onBack }) => {
             setError("Tất cả các khóa API đều không hoạt động hoặc không thể truy cập micro.");
             setConnectionState('error');
         }
-    }, [cleanup, learningLanguage, targetLanguage, userApiKeys, isMuted, stopSession, connectionState, currentTurns]);
+    }, [cleanup, learningLanguage, targetLanguage, userApiKeys, isMuted, stopSession, connectionState]);
     
     const handleSendText = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!textInput.trim() || isTextLoading) return;
         
-        await stopSession();
+        if (connectionState === 'connected') await stopSession();
         
         const userMessage = textInput.trim();
         setTextInput('');
         setIsTextLoading(true);
-        const newTurnsWithUser = [...currentTurns, { user: userMessage, model: '...' }];
-        setCurrentTurns(newTurnsWithUser);
+        const historyForApi = [...currentTurns];
+        setCurrentTurns(prev => [...prev, { user: userMessage, model: '...' }]);
 
         try {
-            const modelResponse = await getChatResponseForTutor(currentTurns, userMessage, learningLanguage, targetLanguage);
+            const modelResponse = await getChatResponseForTutor(historyForApi, userMessage, learningLanguage, targetLanguage);
             setCurrentTurns(prev => {
                 const updatedTurns = [...prev];
                 updatedTurns[updatedTurns.length - 1].model = modelResponse;
