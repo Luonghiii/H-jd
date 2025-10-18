@@ -3,14 +3,13 @@ import { VocabularyWord, WordInfo, TargetLanguage, LearningLanguage, ChatMessage
 import eventBus from '../utils/eventBus';
 
 let currentApiIndex = 0;
+let userApiKeys: string[] = [];
+
+export const setApiKeys = (keys: string[]) => {
+    userApiKeys = keys;
+};
 
 const executeWithKeyRotation = async <T>(apiCall: (ai: GoogleGenAI) => Promise<T>): Promise<T> => {
-    let userApiKeys: string[] = [];
-    try {
-        const savedKeys = localStorage.getItem('userApiKeys');
-        if (savedKeys) userApiKeys = JSON.parse(savedKeys);
-    } catch {}
-
     const systemApiKey = process.env.API_KEY;
     
     // If user has provided keys, use them exclusively. Otherwise, fall back to the system key.

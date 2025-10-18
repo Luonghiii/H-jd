@@ -4,6 +4,7 @@ import { useSettings } from '../hooks/useSettings';
 import { getChatResponseForTutor } from '../services/geminiService';
 import { ArrowLeft, Mic, MicOff, Loader2, Play, StopCircle, Trash2, ChevronDown, Send } from 'lucide-react';
 import eventBus from '../utils/eventBus';
+import { Turn, ConversationSession } from '../types';
 
 // Audio utility functions from @google/genai documentation
 function decode(base64: string): Uint8Array {
@@ -70,15 +71,8 @@ interface AiTutorProps {
   onBack: () => void;
 }
 
-type Turn = { user: string; model: string };
-type ConversationSession = {
-    id: number;
-    startTime: number;
-    turns: Turn[];
-};
-
 const AiTutor: React.FC<AiTutorProps> = ({ onBack }) => {
-    const { learningLanguage, targetLanguage, userApiKeys } = useSettings();
+    const { learningLanguage, targetLanguage, userApiKeys, aiTutorHistory, saveTutorSession, clearTutorHistory } = useSettings();
     const [connectionState, setConnectionState] = useState<'idle' | 'connecting' | 'connected' | 'error'>('idle');
     
     // Full completed turns
@@ -87,7 +81,6 @@ const AiTutor: React.FC<AiTutorProps> = ({ onBack }) => {
     const [liveInput, setLiveInput] = useState('');
     const [liveOutput, setLiveOutput] = useState('');
 
-    const [pastSessions, setPastSessions] = useState<ConversationSession[]>([]);
     const [isMuted, setIsMuted] = useState(false);
     const [error, setError] = useState('');
     const [textInput, setTextInput] = useState('');
@@ -121,13 +114,6 @@ const AiTutor: React.FC<AiTutorProps> = ({ onBack }) => {
             liveTranscriptRef.current.scrollTop = liveTranscriptRef.current.scrollHeight;
         }
     }, [currentTurns, liveInput, liveOutput]);
-
-    useEffect(() => {
-        try {
-            const savedHistory = localStorage.getItem('aiTutorHistory');
-            if (savedHistory) setPastSessions(JSON.parse(savedHistory));
-        } catch (e) { console.error("Failed to load AI Tutor history:", e); }
-    }, []);
 
     const cleanup = useCallback(async (saveSession: boolean) => {
         window.speechSynthesis.cancel();
@@ -164,14 +150,7 @@ const AiTutor: React.FC<AiTutorProps> = ({ onBack }) => {
                     startTime: Date.now(),
                     turns: allTurns,
                 };
-
-                try {
-                    const savedHistory = localStorage.getItem('aiTutorHistory');
-                    const past = savedHistory ? JSON.parse(savedHistory) : [];
-                    const newHistory = [newSession, ...past];
-                    localStorage.setItem('aiTutorHistory', JSON.stringify(newHistory));
-                    setPastSessions(newHistory);
-                } catch (e) { console.error("Failed to save AI Tutor history:", e); }
+                saveTutorSession(newSession);
             }
         }
 
@@ -180,7 +159,7 @@ const AiTutor: React.FC<AiTutorProps> = ({ onBack }) => {
         setLiveOutput('');
         currentInputTranscriptionRef.current = '';
         currentOutputTranscriptionRef.current = '';
-    }, []);
+    }, [saveTutorSession]);
 
     const stopSession = useCallback(async () => {
         await cleanup(true);
@@ -348,10 +327,9 @@ const AiTutor: React.FC<AiTutorProps> = ({ onBack }) => {
         }
     }
 
-    const clearHistory = () => {
+    const handleClearHistory = () => {
         if (window.confirm("Bạn có chắc muốn xóa toàn bộ lịch sử trò chuyện?")) {
-            setPastSessions([]);
-            localStorage.removeItem('aiTutorHistory');
+            clearTutorHistory();
         }
     }
 
@@ -421,14 +399,14 @@ const AiTutor: React.FC<AiTutorProps> = ({ onBack }) => {
             </div>
             {error && <p className="text-center text-sm text-red-400">{error}</p>}
             
-            {pastSessions.length > 0 && (
+            {aiTutorHistory.length > 0 && (
                 <details className="flex-shrink-0 rounded-2xl border border-slate-700 bg-slate-800/50">
                     <summary className="p-3 cursor-pointer flex justify-between items-center font-semibold">
-                        Lịch sử trò chuyện ({pastSessions.length})
+                        Lịch sử trò chuyện ({aiTutorHistory.length})
                         <ChevronDown className="w-5 h-5 transition-transform group-open:rotate-180" />
                     </summary>
                     <div className="p-3 border-t border-slate-700 max-h-48 overflow-y-auto space-y-4">
-                        {pastSessions.map(session => (
+                        {aiTutorHistory.map(session => (
                             <div key={session.id} className="p-2 bg-slate-900/50 rounded-lg">
                                 <p className="text-xs text-gray-400 mb-2">{new Date(session.startTime).toLocaleString()}</p>
                                 {session.turns.map((turn, i) => (
@@ -440,7 +418,7 @@ const AiTutor: React.FC<AiTutorProps> = ({ onBack }) => {
                             </div>
                         ))}
                     </div>
-                     <button onClick={clearHistory} className="w-full text-center text-xs p-2 text-red-400 hover:bg-red-500/10 border-t border-slate-700">
+                     <button onClick={handleClearHistory} className="w-full text-center text-xs p-2 text-red-400 hover:bg-red-500/10 border-t border-slate-700">
                         <Trash2 className="w-3 h-3 inline mr-1" /> Xóa lịch sử
                     </button>
                 </details>

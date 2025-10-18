@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { TargetLanguage, LearningLanguage } from '../types';
+import { TargetLanguage, LearningLanguage, ConversationSession } from '../types';
 import { useAuth } from './useAuth';
 import { onUserDataSnapshot, updateUserData } from '../services/firestoreService';
+import { setApiKeys } from '../services/geminiService';
 
 export type BackgroundSetting = {
   type: 'image' | 'gradient';
@@ -26,50 +27,55 @@ interface SettingsContextType {
   addUserApiKey: (key: string) => boolean;
   removeUserApiKey: (keyToRemove: string) => void;
   hasApiKey: boolean;
+  stats: { luckyWheelBestStreak: number };
+  updateBestStreak: (streak: number) => void;
+  aiTutorHistory: ConversationSession[];
+  saveTutorSession: (session: ConversationSession) => void;
+  clearTutorHistory: () => void;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
-const defaultSettings = {
+const defaultState = {
     targetLanguage: 'vietnamese' as TargetLanguage,
     learningLanguage: 'german' as LearningLanguage,
     backgroundSetting: null as BackgroundSetting,
     customGradients: [] as string[],
     userApiKeys: [] as string[],
+    stats: { luckyWheelBestStreak: 0 },
+    aiTutorHistory: [] as ConversationSession[],
 };
 
 export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { currentUser, isLoading: isAuthLoading } = useAuth();
-  const [settings, setSettings] = useState(defaultSettings);
+  const [appState, setAppState] = useState(defaultState);
 
   // Effect to listen for Firestore updates
   useEffect(() => {
-    // Wait for authentication to resolve before doing anything.
     if (isAuthLoading) {
       return;
     }
 
     if (currentUser?.uid) {
       const unsubscribe = onUserDataSnapshot(currentUser.uid, (data) => {
-        if (data?.settings) {
-          const newSettings = { ...defaultSettings, ...data.settings };
-          setSettings(newSettings);
-          // Sync API keys to localStorage for immediate use by geminiService
-          try {
-            localStorage.setItem('userApiKeys', JSON.stringify(newSettings.userApiKeys || []));
-          } catch (e) { console.error("Failed to sync API keys to localStorage", e); }
-        } else {
-          // If no settings exist in Firestore, initialize them
-          updateUserData(currentUser.uid, { settings: defaultSettings });
+        if (data) {
+          const combinedState = {
+            targetLanguage: data.settings?.targetLanguage || defaultState.targetLanguage,
+            learningLanguage: data.settings?.learningLanguage || defaultState.learningLanguage,
+            backgroundSetting: data.settings?.backgroundSetting !== undefined ? data.settings.backgroundSetting : defaultState.backgroundSetting,
+            customGradients: data.settings?.customGradients || defaultState.customGradients,
+            userApiKeys: data.settings?.userApiKeys || defaultState.userApiKeys,
+            stats: data.stats || defaultState.stats,
+            aiTutorHistory: data.aiTutorHistory || defaultState.aiTutorHistory,
+          };
+          setAppState(combinedState);
+          setApiKeys(combinedState.userApiKeys);
         }
       });
       return () => unsubscribe();
     } else {
-      // Reset to defaults only when auth is resolved and there's definitely no user.
-      setSettings(defaultSettings);
-      try {
-        localStorage.removeItem('userApiKeys');
-      } catch (e) { console.error("Failed to clear API keys from localStorage", e); }
+      setAppState(defaultState);
+      setApiKeys([]);
     }
   }, [currentUser, isAuthLoading]);
 
@@ -102,57 +108,73 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
   
   const addCustomGradient = useCallback((gradient: string) => {
     if (!currentUser) return;
-    const newGradients = [gradient, ...settings.customGradients];
+    const newGradients = [gradient, ...appState.customGradients];
     updateUserData(currentUser.uid, { settings: { customGradients: newGradients } });
-  }, [currentUser, settings.customGradients]);
+  }, [currentUser, appState.customGradients]);
   
   const removeCustomGradient = useCallback((gradient: string) => {
     if (!currentUser) return;
-    const newGradients = settings.customGradients.filter(g => g !== gradient);
+    const newGradients = appState.customGradients.filter(g => g !== gradient);
     updateUserData(currentUser.uid, { settings: { customGradients: newGradients } });
-  }, [currentUser, settings.customGradients]);
+  }, [currentUser, appState.customGradients]);
 
   const addUserApiKey = useCallback((key: string): boolean => {
     if (!currentUser) return false;
     const trimmedKey = key.trim();
-    if (settings.userApiKeys.length >= MAX_API_KEYS || settings.userApiKeys.includes(trimmedKey)) {
+    if (appState.userApiKeys.length >= MAX_API_KEYS || appState.userApiKeys.includes(trimmedKey)) {
         return false;
     }
-    const newKeys = [...settings.userApiKeys, trimmedKey];
-    try {
-        localStorage.setItem('userApiKeys', JSON.stringify(newKeys));
-    } catch (e) { console.error("Failed to save API keys to localStorage", e); }
+    const newKeys = [...appState.userApiKeys, trimmedKey];
     updateUserData(currentUser.uid, { settings: { userApiKeys: newKeys } });
     return true;
-  }, [currentUser, settings.userApiKeys]);
+  }, [currentUser, appState.userApiKeys]);
 
   const removeUserApiKey = useCallback((keyToRemove: string) => {
     if (!currentUser) return;
-    const newKeys = settings.userApiKeys.filter(k => k !== keyToRemove);
-    try {
-        localStorage.setItem('userApiKeys', JSON.stringify(newKeys));
-    } catch (e) { console.error("Failed to save API keys to localStorage", e); }
+    const newKeys = appState.userApiKeys.filter(k => k !== keyToRemove);
     updateUserData(currentUser.uid, { settings: { userApiKeys: newKeys } });
-  }, [currentUser, settings.userApiKeys]);
+  }, [currentUser, appState.userApiKeys]);
 
-  const hasApiKey = !!process.env.API_KEY || settings.userApiKeys.length > 0;
+  const updateBestStreak = useCallback((streak: number) => {
+    if (!currentUser) return;
+    updateUserData(currentUser.uid, { stats: { luckyWheelBestStreak: streak } });
+  }, [currentUser]);
+
+  const saveTutorSession = useCallback((session: ConversationSession) => {
+    if (!currentUser) return;
+    const newHistory = [session, ...appState.aiTutorHistory].slice(0, 50); // Limit history size
+    updateUserData(currentUser.uid, { aiTutorHistory: newHistory });
+  }, [currentUser, appState.aiTutorHistory]);
+
+  const clearTutorHistory = useCallback(() => {
+    if (!currentUser) return;
+    updateUserData(currentUser.uid, { aiTutorHistory: [] });
+  }, [currentUser]);
+
+
+  const hasApiKey = !!process.env.API_KEY || appState.userApiKeys.length > 0;
 
   const contextValue = {
-    targetLanguage: settings.targetLanguage,
+    targetLanguage: appState.targetLanguage,
     setTargetLanguage,
-    learningLanguage: settings.learningLanguage,
+    learningLanguage: appState.learningLanguage,
     setLearningLanguage,
-    backgroundSetting: settings.backgroundSetting,
+    backgroundSetting: appState.backgroundSetting,
     setBackgroundImage,
     setBackgroundGradient,
     clearBackgroundSetting,
-    customGradients: settings.customGradients,
+    customGradients: appState.customGradients,
     addCustomGradient,
     removeCustomGradient,
-    userApiKeys: settings.userApiKeys,
+    userApiKeys: appState.userApiKeys,
     addUserApiKey,
     removeUserApiKey,
     hasApiKey,
+    stats: appState.stats,
+    updateBestStreak,
+    aiTutorHistory: appState.aiTutorHistory,
+    saveTutorSession,
+    clearTutorHistory,
   };
 
   return (

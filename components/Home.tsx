@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { useVocabulary } from '../hooks/useVocabulary';
 import { View } from '../types';
 import { PenSquare, Layers, Dices, ArrowRight, Book, Star, Gamepad2, Sparkles } from 'lucide-react';
+import { useSettings } from '../hooks/useSettings';
 
 interface HomeProps {
   setCurrentView: (view: View) => void;
@@ -9,15 +10,8 @@ interface HomeProps {
 
 const Home: React.FC<HomeProps> = ({ setCurrentView }) => {
   const { words } = useVocabulary();
+  const { stats } = useSettings();
 
-  const bestStreak = useMemo(() => {
-    try {
-      return localStorage.getItem('luckyWheelBestStreak') || '0';
-    } catch {
-      return '0';
-    }
-  }, []);
-  
   const featureCards = [
     {
       view: View.Practice,
@@ -75,7 +69,7 @@ const Home: React.FC<HomeProps> = ({ setCurrentView }) => {
                 <Star className="w-7 h-7 text-yellow-400" />
             </div>
             <div>
-                <div className="text-3xl font-bold">{bestStreak}</div>
+                <div className="text-3xl font-bold">{stats.luckyWheelBestStreak}</div>
                 <div className="text-sm text-gray-400">Chuỗi thắng dài nhất</div>
             </div>
         </div>

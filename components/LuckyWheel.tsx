@@ -18,7 +18,7 @@ interface LuckyWheelProps {
 
 const LuckyWheel: React.FC<LuckyWheelProps> = ({ onBack }) => {
   const { words, getAvailableThemes } = useVocabulary();
-  const { targetLanguage, learningLanguage } = useSettings();
+  const { targetLanguage, learningLanguage, stats, updateBestStreak } = useSettings();
   const { openInspector } = useInspector();
   
   const availableThemes = useMemo(() => getAvailableThemes(), [getAvailableThemes]);
@@ -43,18 +43,6 @@ const LuckyWheel: React.FC<LuckyWheelProps> = ({ onBack }) => {
   const [score, setScore] = useState(0);
   const [view, setView] = useState<'setup' | 'game'>('setup');
   const [currentStreak, setCurrentStreak] = useState(0);
-  const [bestStreak, setBestStreak] = useState(0);
-
-  useEffect(() => {
-    try {
-      const savedBestStreak = localStorage.getItem('luckyWheelBestStreak');
-      if (savedBestStreak) {
-        setBestStreak(Number(savedBestStreak));
-      }
-    } catch (error) {
-      console.error("Could not load best streak from localStorage", error);
-    }
-  }, []);
   
   useEffect(() => {
     setSelectedIds(new Set(filteredWordsByTheme.map(w => w.id)));
@@ -138,13 +126,8 @@ const LuckyWheel: React.FC<LuckyWheelProps> = ({ onBack }) => {
       setScore(prev => prev + 1);
       const newStreak = currentStreak + 1;
       setCurrentStreak(newStreak);
-      if (newStreak > bestStreak) {
-        setBestStreak(newStreak);
-        try {
-          localStorage.setItem('luckyWheelBestStreak', String(newStreak));
-        } catch (error) {
-          console.error("Could not save best streak to localStorage", error);
-        }
+      if (newStreak > stats.luckyWheelBestStreak) {
+        updateBestStreak(newStreak);
       }
     } else {
       setCurrentStreak(0);
@@ -328,7 +311,7 @@ const LuckyWheel: React.FC<LuckyWheelProps> = ({ onBack }) => {
             </div>
              <div className="flex items-center gap-2 bg-slate-800/50 px-3 py-1 rounded-full border border-slate-700" title="Chuỗi tốt nhất">
                 <Star className="w-5 h-5 text-cyan-400" />
-                <span className="font-bold text-white text-lg">{bestStreak}</span>
+                <span className="font-bold text-white text-lg">{stats.luckyWheelBestStreak}</span>
             </div>
         </div>
         

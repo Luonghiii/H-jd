@@ -62,3 +62,10 @@ export interface Quiz {
     options: string[];
     correctAnswer: string;
 }
+
+export type Turn = { user: string; model: string };
+export type ConversationSession = {
+    id: number;
+    startTime: number;
+    turns: Turn[];
+};

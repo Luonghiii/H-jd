@@ -30,18 +30,21 @@ const PrivacyPolicyModal: React.FC<ModalProps> = ({ isOpen, onClose }) => {
             <p>Welcome to LBWL ("we", "us"). We are committed to protecting your privacy. This Privacy Policy explains how we handle your information when you use our application.</p>
 
             <h3 className="font-semibold text-white">Information We Handle</h3>
-            <p>Our application is designed to function without collecting your personal data on our servers. All data is stored locally on your device within your web browser's storage.</p>
+            <p>Your application data is stored securely in your personal Cloud Firestore database, which is linked to your Firebase Authentication account. We do not store your data on our own servers.</p>
             <ul className="list-disc list-inside space-y-2 pl-4">
-                <li><strong>Vocabulary Words:</strong> The vocabulary lists you create are stored in your browser's localStorage. This data is not transmitted to us.</li>
-                <li><strong>API Key:</strong> Your Google Gemini API Key is stored exclusively in your browser's localStorage. It is used to make direct calls from your browser to the Google Gemini API. We never see, collect, or store your API key on our servers.</li>
-                <li><strong>Application Settings:</strong> Your preferences, such as target language and background settings, are also stored locally in your browser's localStorage.</li>
+                <li><strong>Vocabulary Words & History:</strong> The vocabulary lists and activity history you create are stored in your Firestore document.</li>
+                <li><strong>User API Keys:</strong> Your Google Gemini API Keys are stored in your Firestore document. They are used to make direct calls from the application to the Google Gemini API. We never see or collect your API keys on our servers.</li>
+                <li><strong>Application Settings:</strong> Your preferences, such as target language and background settings, are also stored in your Firestore document.</li>
             </ul>
 
             <h3 className="font-semibold text-white">Third-Party Services</h3>
-            <p>The application uses the Google Gemini API to provide its AI-powered features. When you use these features, your prompts and API key are sent directly to Google. Your use of these features is subject to <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline">Google's Privacy Policy</a>.</p>
+            <p>The application uses Firebase for authentication and database services, and the Google Gemini API for its AI features. Your use of these features is subject to their respective privacy policies:</p>
+             <ul className="list-disc list-inside space-y-1 pl-4">
+                <li><a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline">Google's Privacy Policy</a></li>
+            </ul>
 
             <h3 className="font-semibold text-white">Data Security</h3>
-            <p>We rely on the security features of your web browser to protect the data stored locally. You are responsible for the security of your device and for keeping your API key confidential.</p>
+            <p>We leverage Firebase Security Rules to ensure that only you, as the authenticated user, can read or write to your own data document in Firestore. You are responsible for the security of your account and for keeping your API keys confidential.</p>
             
             <h3 className="font-semibold text-white">Changes to This Privacy Policy</h3>
             <p>We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy in this modal. You are advised to review this Privacy Policy periodically for any changes.</p>

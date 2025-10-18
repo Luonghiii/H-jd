@@ -12,16 +12,17 @@ import {
   Unsubscribe,
 } from 'firebase/firestore';
 import { User } from 'firebase/auth';
+import { ConversationSession } from '../types';
 
 // =====================
 // Types
 // =====================
 export interface UserSettings {
-  targetLanguage: string;          // e.g. 'vietnamese'
-  learningLanguage: string;        // e.g. 'german'
+  targetLanguage: string;
+  learningLanguage: string;
   backgroundSetting: { type: 'image' | 'gradient'; value: string } | null;
   customGradients: string[];
-  userApiKeys: string[];           // ⚠️ Nếu là key thật, cân nhắc mã hoá/không lưu trực tiếp
+  userApiKeys: string[];
 }
 
 export interface UserDoc {
@@ -29,10 +30,14 @@ export interface UserDoc {
   email: string | null;
   displayName: string | null;
   photoURL: string | null;
-  createdAt: any;                  // Firestore Timestamp (serverTimestamp), hoặc Date khi đã resolve
+  createdAt: any;
   words: Record<string, unknown>;
   settings: UserSettings;
   history: unknown[];
+  stats: {
+    luckyWheelBestStreak: number;
+  };
+  aiTutorHistory: ConversationSession[];
 }
 
 // =====================
@@ -66,6 +71,10 @@ export const createUserDocument = async (user: User): Promise<void> => {
           userApiKeys: [],
         },
         history: [],
+        stats: {
+          luckyWheelBestStreak: 0,
+        },
+        aiTutorHistory: [],
       };
       tx.set(userRef, initialData);
     }
@@ -111,7 +120,6 @@ export const onUserDataSnapshot = (
     userRef,
     (snapshot) => {
       if (snapshot.exists()) {
-        // Có thể cast về UserDoc (nếu bạn đảm bảo schema), hoặc để DocumentData
         callback(snapshot.data() as UserDoc);
       } else {
         callback(null);
