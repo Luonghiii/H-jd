@@ -14,6 +14,9 @@ import LuckyWheel from './components/LuckyWheel';
 import Login from './components/Login';
 import Home from './components/Home';
 import BackgroundCustomizer from './components/BackgroundCustomizer';
+import Footer from './components/Footer';
+import PrivacyPolicyModal from './components/PrivacyPolicyModal';
+import TermsOfServiceModal from './components/TermsOfServiceModal';
 import { View } from './types';
 import { Home as HomeIcon, BookOpen, Feather, PenSquare, Sparkles, MessageSquarePlus, Layers, Dices } from 'lucide-react';
 import ApiKeySetup from './components/ApiKeySetup';
@@ -23,6 +26,8 @@ const AppLayout: React.FC<{ onLogout: () => void; onOpenSettings: () => void; }>
   const [currentView, setCurrentView] = useState<View>(View.Home);
   const { inspectingWord, closeInspector } = useInspector();
   const { backgroundSetting } = useSettings();
+  const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
+  const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
 
   const renderView = () => {
     switch (currentView) {
@@ -77,11 +82,11 @@ const AppLayout: React.FC<{ onLogout: () => void; onOpenSettings: () => void; }>
   return (
     <>
       <div 
-        className={`min-h-screen text-gray-200 font-sans ${backgroundClasses}`}
+        className={`min-h-screen text-gray-200 font-sans flex flex-col ${backgroundClasses}`}
         style={backgroundStyle}
       >
         <Header onLogout={onLogout} onOpenSettings={onOpenSettings} />
-        <main className="container mx-auto p-4 md:p-6 lg:p-8">
+        <main className="container mx-auto p-4 md:p-6 lg:p-8 flex-grow">
           <div className="max-w-5xl mx-auto">
             <div className={`${contentContainerClasses} rounded-3xl shadow-2xl shadow-slate-900/50 border border-slate-700/60`}>
               <nav className="p-2 border-b border-slate-700/80 flex justify-center">
@@ -109,6 +114,7 @@ const AppLayout: React.FC<{ onLogout: () => void; onOpenSettings: () => void; }>
             </div>
           </div>
         </main>
+        <Footer onOpenPrivacy={() => setIsPrivacyModalOpen(true)} onOpenTerms={() => setIsTermsModalOpen(true)} />
         <BackgroundCustomizer />
       </div>
       {inspectingWord && (
@@ -118,6 +124,8 @@ const AppLayout: React.FC<{ onLogout: () => void; onOpenSettings: () => void; }>
           onClose={closeInspector}
         />
       )}
+      <PrivacyPolicyModal isOpen={isPrivacyModalOpen} onClose={() => setIsPrivacyModalOpen(false)} />
+      <TermsOfServiceModal isOpen={isTermsModalOpen} onClose={() => setIsTermsModalOpen(false)} />
     </>
   );
 };

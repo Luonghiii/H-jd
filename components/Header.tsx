@@ -1,7 +1,7 @@
 import React from 'react';
-import { BotMessageSquare, LogOut, Settings } from 'lucide-react';
+import { BookOpen, LogOut, Settings } from 'lucide-react';
 import { useSettings } from '../hooks/useSettings';
-import { TargetLanguage, LearningLanguage } from '../types';
+import { TargetLanguage } from '../types';
 
 const TargetLanguageSelector: React.FC = () => {
   const { targetLanguage, setTargetLanguage } = useSettings();
@@ -28,46 +28,17 @@ const TargetLanguageSelector: React.FC = () => {
   );
 };
 
-const LearningLanguageSelector: React.FC = () => {
-  const { learningLanguage, setLearningLanguage } = useSettings();
-
-  const baseClasses = "px-3 py-1 text-sm font-semibold rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-indigo-500";
-  const activeClasses = "bg-indigo-600 text-white";
-  const inactiveClasses = "bg-slate-700 text-gray-300 hover:bg-slate-600";
-  
-  const languages: { key: LearningLanguage; label: string }[] = [
-    { key: 'german', label: 'DEU' },
-    { key: 'english', label: 'ENG' },
-    { key: 'chinese', label: 'CHN' },
-  ];
-
-  return (
-    <div className="flex items-center p-1 bg-slate-800 rounded-lg">
-      {languages.map(({ key, label }) => (
-        <button 
-          key={key}
-          onClick={() => setLearningLanguage(key)}
-          className={`${baseClasses} ${learningLanguage === key ? activeClasses : inactiveClasses}`}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
-  );
-};
-
 const Header: React.FC<{ onLogout: () => void; onOpenSettings: () => void; }> = ({ onLogout, onOpenSettings }) => {
   return (
     <header className="py-4 px-4 sm:px-8">
       <div className="container mx-auto flex items-center justify-between">
-        <div className="flex items-center">
-          <BotMessageSquare className="w-8 h-8 text-indigo-400 mr-3" />
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight bg-gradient-to-r from-indigo-400 to-cyan-300 text-transparent bg-clip-text">
-            Learn language with Luong
+        <div className="flex items-center min-w-0">
+          <BookOpen className="w-8 h-8 text-indigo-400 mr-3 flex-shrink-0" />
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight bg-gradient-to-r from-indigo-400 to-cyan-300 text-transparent bg-clip-text truncate">
+            LBWL
           </h1>
         </div>
-        <div className="flex items-center space-x-2 sm:space-x-4">
-          <LearningLanguageSelector />
+        <div className="flex items-center flex-shrink-0 space-x-2 sm:space-x-4">
           <TargetLanguageSelector />
           <button
             onClick={onOpenSettings}
