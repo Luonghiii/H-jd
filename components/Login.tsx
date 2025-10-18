@@ -12,7 +12,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (username === 'admin' && password === 'admin') {
+    if (username === 'test' && password === 'test') {
       setError('');
       onLoginSuccess();
     } else {
