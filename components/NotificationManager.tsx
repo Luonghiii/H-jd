@@ -19,13 +19,20 @@ const ICONS: { [key in NotificationType]: React.ElementType } = {
 
 const STYLES: { [key in NotificationType]: string } = {
     info: 'bg-blue-500/80 border-blue-400 text-white',
-    success: 'bg-green-500/80 border-green-400 text-white',
+    success: 'bg-green-600/80 border-green-500 text-white',
     warning: 'bg-yellow-500/80 border-yellow-400 text-black',
     error: 'bg-red-600/80 border-red-500 text-white',
 };
 
 const NotificationToast: React.FC<{ notification: Notification; onDismiss: (id: number) => void }> = ({ notification, onDismiss }) => {
     const Icon = ICONS[notification.type];
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            onDismiss(notification.id);
+        }, 5000); // Auto-dismiss after 5 seconds
+        return () => clearTimeout(timer);
+    }, [notification.id, onDismiss]);
 
     return (
         <div 
@@ -40,7 +47,7 @@ const NotificationToast: React.FC<{ notification: Notification; onDismiss: (id: 
             </div>
             <button 
                 onClick={() => onDismiss(notification.id)} 
-                className="ml-4 p-1 rounded-full hover:bg-black/20"
+                className="ml-4 -mr-2 -mt-2 p-2 rounded-full hover:bg-black/20"
                 aria-label="Dismiss notification"
             >
                 <X className="w-4 h-4" />
@@ -66,17 +73,13 @@ const NotificationManager: React.FC = () => {
       message,
     };
 
-    setNotifications(prev => [...prev, newNotification]);
-    
-    setTimeout(() => {
-      removeNotification(newNotification.id);
-    }, 8000); // Auto-dismiss after 8 seconds
-  }, [removeNotification]);
+    setNotifications(prev => [newNotification, ...prev].slice(0, 5)); // Keep max 5 notifications
+  }, []);
 
   useEffect(() => {
-    eventBus.on('apiKeyNotification', handleNotification);
+    eventBus.on('notification', handleNotification);
     return () => {
-      eventBus.remove('apiKeyNotification', handleNotification);
+      eventBus.remove('notification', handleNotification);
     };
   }, [handleNotification]);
 

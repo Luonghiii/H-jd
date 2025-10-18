@@ -13,6 +13,7 @@ import {
 } from 'firebase/firestore';
 import { User } from 'firebase/auth';
 import { ConversationSession } from '../types';
+import eventBus from '../utils/eventBus';
 
 // =====================
 // Types
@@ -95,8 +96,17 @@ export const updateUserData = async (uid: string, data: DocumentData): Promise<v
 
   try {
     await setDoc(userRef, data, { merge: true });
+    // Bỏ qua thông báo cho các cập nhật nhỏ như stats để tránh làm phiền
+    if (!data.stats) {
+       eventBus.dispatch('notification', { type: 'success', message: 'Dữ liệu đã được đồng bộ.' });
+    }
   } catch (err: any) {
     console.error('Error updating user data:', err);
+    let errorMessage = 'Không thể lưu dữ liệu.';
+    if (err.code === 'permission-denied') {
+        errorMessage = 'Lỗi quyền truy cập. Vui lòng kiểm tra Security Rules của Firestore.';
+    }
+    eventBus.dispatch('notification', { type: 'error', message: errorMessage });
   }
 };
 

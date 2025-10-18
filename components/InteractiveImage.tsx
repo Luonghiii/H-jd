@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { useVocabulary } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
@@ -95,7 +96,6 @@ const InteractiveImage: React.FC<{onBack: () => void;}> = ({onBack}) => {
 
     const handleAddWord = async () => {
         if (!lastResult) return;
-        // FIX: Make the function async and await addMultipleWords.
         const count = await addMultipleWords([lastResult]);
         if (count > 0) {
             setFeedback(`Đã thêm "${lastResult.word}" vào danh sách!`);

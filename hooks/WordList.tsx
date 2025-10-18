@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { useVocabulary } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { X, KeyRound, Trash2 } from 'lucide-react';
 import { useSettings } from '../hooks/useSettings';
@@ -41,9 +42,10 @@ const ApiKeyManager: React.FC = () => {
     const [newApiKey, setNewApiKey] = useState('');
     const [feedback, setFeedback] = useState('');
 
-    const handleAdd = () => {
+    const handleAdd = async () => {
         if (newApiKey.trim()) {
-            const success = addUserApiKey(newApiKey.trim());
+            // FIX: Await the async function to get the boolean result
+            const success = await addUserApiKey(newApiKey.trim());
             if (success) {
                 setNewApiKey('');
                 setFeedback('Đã thêm khóa API thành công!');
