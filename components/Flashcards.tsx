@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useCallback } from 'react';
 import { useVocabulary, themeTranslationMap } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
@@ -64,17 +65,17 @@ const Flashcards: React.FC = () => {
     return (
       <div className="space-y-6 animate-fade-in">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Thẻ ghi nhớ</h2>
-          <p className="text-slate-500 dark:text-gray-400 mt-1">Chọn chủ đề để bắt đầu ôn tập.</p>
+          <h2 className="text-2xl font-bold text-white">Thẻ ghi nhớ</h2>
+          <p className="text-gray-400 mt-1">Chọn chủ đề để bắt đầu ôn tập.</p>
         </div>
         <div>
-          <h3 className="font-semibold text-slate-800 dark:text-white mb-2">Chọn chủ đề</h3>
-          <div className="flex flex-wrap gap-2 p-3 bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl">
-            <button onClick={() => handleThemeToggle('all')} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has('all') ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600'}`}>
+          <h3 className="font-semibold text-white mb-2">Chọn chủ đề</h3>
+          <div className="flex flex-wrap gap-2 p-3 bg-slate-800/50 border border-slate-700 rounded-2xl">
+            <button onClick={() => handleThemeToggle('all')} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has('all') ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 hover:bg-slate-600'}`}>
               Tất cả ({words.length})
             </button>
             {availableThemes.map(theme => (
-              <button key={theme} onClick={() => handleThemeToggle(theme)} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has(theme) ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600'}`}>
+              <button key={theme} onClick={() => handleThemeToggle(theme)} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has(theme) ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 hover:bg-slate-600'}`}>
                 {targetLanguage === 'english' ? (themeTranslationMap[theme] || theme) : theme} ({words.filter(w => w.theme === theme).length})
               </button>
             ))}
@@ -92,8 +93,8 @@ const Flashcards: React.FC = () => {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex justify-between items-center">
-        <h2 className="text-lg font-bold text-slate-900 dark:text-white">Thẻ {currentIndex + 1} / {cardWords.length}</h2>
-        <button onClick={() => setView('setup')} className="text-sm text-indigo-500 dark:text-indigo-400 hover:underline">Thay đổi lựa chọn</button>
+        <h2 className="text-lg font-bold text-white">Thẻ {currentIndex + 1} / {cardWords.length}</h2>
+        <button onClick={() => setView('setup')} className="text-sm text-indigo-400 hover:underline">Thay đổi lựa chọn</button>
       </div>
       
       <div className="[perspective:1000px]" onClick={() => setIsFlipped(!isFlipped)}>
@@ -101,8 +102,8 @@ const Flashcards: React.FC = () => {
           className="relative w-full h-64 rounded-2xl shadow-xl [transform-style:preserve-3d] transition-transform duration-500 cursor-pointer"
           style={{ transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'}}
         >
-          <div className="absolute w-full h-full [backface-visibility:hidden] flex items-center justify-center p-4 bg-white dark:bg-slate-700 rounded-2xl border border-slate-200 dark:border-slate-600">
-            <p className="text-3xl font-bold text-slate-800 dark:text-white text-center">{currentWord.word}</p>
+          <div className="absolute w-full h-full [backface-visibility:hidden] flex items-center justify-center p-4 bg-slate-700 rounded-2xl border border-slate-600">
+            <p className="text-3xl font-bold text-white text-center">{currentWord.word}</p>
           </div>
           <div className="absolute w-full h-full [backface-visibility:hidden] [transform:rotateY(180deg)] flex items-center justify-center p-4 bg-indigo-500 rounded-2xl">
             <p className="text-3xl font-bold text-white text-center">{currentWord.translation[targetLanguage]}</p>
@@ -110,19 +111,19 @@ const Flashcards: React.FC = () => {
         </div>
       </div>
       
-      <p className="text-center text-sm text-slate-500 dark:text-gray-400">Nhấn vào thẻ để lật.</p>
+      <p className="text-center text-sm text-gray-400">Nhấn vào thẻ để lật.</p>
       
       <div className="flex justify-center items-center gap-4">
-        <button onClick={handlePrev} className="p-4 bg-slate-200 dark:bg-slate-700/80 hover:bg-slate-300 dark:hover:bg-slate-700 rounded-full text-slate-800 dark:text-white">
+        <button onClick={handlePrev} className="p-4 bg-slate-700/80 hover:bg-slate-700 rounded-full text-white">
           <ArrowLeft className="w-6 h-6"/>
         </button>
-        <button onClick={handleShuffle} className="p-3 bg-slate-200 dark:bg-slate-700/80 hover:bg-slate-300 dark:hover:bg-slate-700 rounded-full text-slate-800 dark:text-white">
+        <button onClick={handleShuffle} className="p-3 bg-slate-700/80 hover:bg-slate-700 rounded-full text-white">
           <Shuffle className="w-5 h-5"/>
         </button>
-        <button onClick={() => setIsFlipped(!isFlipped)} className="p-3 bg-slate-200 dark:bg-slate-700/80 hover:bg-slate-300 dark:hover:bg-slate-700 rounded-full text-slate-800 dark:text-white">
+        <button onClick={() => setIsFlipped(!isFlipped)} className="p-3 bg-slate-700/80 hover:bg-slate-700 rounded-full text-white">
           <RotateCcw className="w-5 h-5"/>
         </button>
-        <button onClick={handleNext} className="p-4 bg-slate-200 dark:bg-slate-700/80 hover:bg-slate-300 dark:hover:bg-slate-700 rounded-full text-slate-800 dark:text-white">
+        <button onClick={handleNext} className="p-4 bg-slate-700/80 hover:bg-slate-700 rounded-full text-white">
           <ArrowRight className="w-6 h-6"/>
         </button>
       </div>

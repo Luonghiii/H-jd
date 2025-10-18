@@ -68,7 +68,7 @@ const AddWord: React.FC = () => {
       setIsManualLoading(true);
       setFeedback(null);
       await addWord(word.trim(), translation.trim(), targetLanguage, manualTheme.trim());
-      addHistoryEntry('WORDS_ADDED', `Đã thêm thủ công từ "${word.trim()}"`);
+      addHistoryEntry('WORDS_ADDED', `Đã thêm thủ công 1 từ.`, { wordCount: 1 });
       setWord('');
       setTranslation('');
       setManualTheme('');
@@ -88,7 +88,7 @@ const AddWord: React.FC = () => {
         const generatedWords = await generateWordsFromPrompt(aiPrompt.trim(), existingWords, learningLanguage);
         const count = addMultipleWords(generatedWords);
         if (count > 0) {
-            addHistoryEntry('WORDS_ADDED', `Đã thêm ${count} từ mới bằng AI`);
+            addHistoryEntry('WORDS_ADDED', `Đã thêm ${count} từ mới bằng AI`, { wordCount: count });
         }
         setFeedback({ type: 'success', message: `Đã thêm ${count} từ mới!` });
         setAiPrompt('');
@@ -120,7 +120,7 @@ const AddWord: React.FC = () => {
               const generatedWords = await getWordsFromImage(base64, mimeType, existingWords, learningLanguage);
               const count = addMultipleWords(generatedWords);
               if (count > 0) {
-                addHistoryEntry('WORDS_ADDED', `Đã thêm ${count} từ mới từ ảnh`);
+                addHistoryEntry('WORDS_ADDED', `Đã thêm ${count} từ mới từ ảnh`, { wordCount: count });
               }
               setFeedback({ type: 'success', message: `Tìm thấy và đã thêm ${count} từ mới từ ảnh!` });
               setImageFile(null);
@@ -152,7 +152,7 @@ const AddWord: React.FC = () => {
               const generatedWords = await getWordsFromFile(base64, mimeType, existingWords, learningLanguage);
               const count = addMultipleWords(generatedWords);
               if (count > 0) {
-                addHistoryEntry('WORDS_ADDED', `Đã thêm ${count} từ mới từ file`);
+                addHistoryEntry('WORDS_ADDED', `Đã thêm ${count} từ mới từ file`, { wordCount: count });
               }
               setFeedback({ type: 'success', message: `Tìm thấy và đã thêm ${count} từ mới từ file!` });
               setTextFile(null);
@@ -166,11 +166,11 @@ const AddWord: React.FC = () => {
   }
 
   const renderTabs = () => (
-    <div className="flex justify-center p-1 bg-slate-100 dark:bg-slate-800/60 rounded-full mb-6 overflow-x-auto">
-        <button onClick={() => setMode('manual')} className={`px-4 py-1.5 text-sm rounded-full font-medium transition-all flex-shrink-0 ${mode === 'manual' ? 'bg-indigo-600 text-white' : 'text-slate-600 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`}>Thêm thủ công</button>
-        <button onClick={() => setMode('ai')} className={`px-4 py-1.5 text-sm rounded-full font-medium transition-all flex-shrink-0 ${mode === 'ai' ? 'bg-indigo-600 text-white' : 'text-slate-600 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`}>Tạo bằng AI</button>
-        <button onClick={() => setMode('image')} className={`px-4 py-1.5 text-sm rounded-full font-medium transition-all flex-shrink-0 ${mode === 'image' ? 'bg-indigo-600 text-white' : 'text-slate-600 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`}>Thêm từ ảnh</button>
-        <button onClick={() => setMode('file')} className={`px-4 py-1.5 text-sm rounded-full font-medium transition-all flex-shrink-0 ${mode === 'file' ? 'bg-indigo-600 text-white' : 'text-slate-600 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`}>Thêm từ file</button>
+    <div className="flex justify-center p-1 bg-slate-800/60 rounded-full mb-6 overflow-x-auto">
+        <button onClick={() => setMode('manual')} className={`px-4 py-1.5 text-sm rounded-full font-medium transition-all flex-shrink-0 ${mode === 'manual' ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-slate-700'}`}>Thêm thủ công</button>
+        <button onClick={() => setMode('ai')} className={`px-4 py-1.5 text-sm rounded-full font-medium transition-all flex-shrink-0 ${mode === 'ai' ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-slate-700'}`}>Tạo bằng AI</button>
+        <button onClick={() => setMode('image')} className={`px-4 py-1.5 text-sm rounded-full font-medium transition-all flex-shrink-0 ${mode === 'image' ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-slate-700'}`}>Thêm từ ảnh</button>
+        <button onClick={() => setMode('file')} className={`px-4 py-1.5 text-sm rounded-full font-medium transition-all flex-shrink-0 ${mode === 'file' ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-slate-700'}`}>Thêm từ file</button>
     </div>
   );
 
@@ -183,16 +183,16 @@ const AddWord: React.FC = () => {
     return (
         <form onSubmit={handleManualSubmit} className="space-y-4 animate-fade-in">
             <div>
-              <label htmlFor="word-input" className="block text-sm font-medium text-slate-600 dark:text-gray-300 mb-1">{wordLabel}</label>
-              <input id="word-input" type="text" value={word} onChange={(e) => setWord(e.target.value)} placeholder={wordPlaceholder} className="w-full px-4 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" required disabled={isManualLoading} />
+              <label htmlFor="word-input" className="block text-sm font-medium text-gray-300 mb-1">{wordLabel}</label>
+              <input id="word-input" type="text" value={word} onChange={(e) => setWord(e.target.value)} placeholder={wordPlaceholder} className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" required disabled={isManualLoading} />
             </div>
             <div>
-              <label htmlFor="translation" className="block text-sm font-medium text-slate-600 dark:text-gray-300 mb-1">{translationLabel}</label>
-              <input id="translation" type="text" value={translation} onChange={(e) => setTranslation(e.target.value)} placeholder={translationPlaceholder} className="w-full px-4 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" required disabled={isManualLoading} />
+              <label htmlFor="translation" className="block text-sm font-medium text-gray-300 mb-1">{translationLabel}</label>
+              <input id="translation" type="text" value={translation} onChange={(e) => setTranslation(e.target.value)} placeholder={translationPlaceholder} className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" required disabled={isManualLoading} />
             </div>
             <div>
-              <label htmlFor="theme" className="block text-sm font-medium text-slate-600 dark:text-gray-300 mb-1">Chủ đề (tùy chọn)</label>
-              <input id="theme" type="text" list="themes" value={manualTheme} onChange={(e) => setManualTheme(e.target.value)} placeholder="ví dụ: Food, Travel..." className="w-full px-4 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" disabled={isManualLoading} />
+              <label htmlFor="theme" className="block text-sm font-medium text-gray-300 mb-1">Chủ đề (tùy chọn)</label>
+              <input id="theme" type="text" list="themes" value={manualTheme} onChange={(e) => setManualTheme(e.target.value)} placeholder="ví dụ: Food, Travel..." className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" disabled={isManualLoading} />
               <datalist id="themes">{getAvailableThemes().map(t => <option key={t} value={t} />)}</datalist>
             </div>
             <button type="submit" className="w-full flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98] disabled:bg-indigo-400 disabled:cursor-not-allowed" disabled={!word.trim() || !translation.trim() || isManualLoading}>
@@ -205,8 +205,8 @@ const AddWord: React.FC = () => {
   const renderAiForm = () => (
     <form onSubmit={handleAiSubmit} className="space-y-4 animate-fade-in">
         <div>
-            <label htmlFor="ai-prompt" className="block text-sm font-medium text-slate-600 dark:text-gray-300 mb-1">Yêu cầu</label>
-            <input id="ai-prompt" type="text" value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} placeholder="ví dụ: 10 động từ thông dụng về nấu ăn" className="w-full px-4 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" required disabled={isAiLoading} />
+            <label htmlFor="ai-prompt" className="block text-sm font-medium text-gray-300 mb-1">Yêu cầu</label>
+            <input id="ai-prompt" type="text" value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} placeholder="ví dụ: 10 động từ thông dụng về nấu ăn" className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" required disabled={isAiLoading} />
         </div>
         <button type="submit" className="w-full flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98] disabled:bg-indigo-400 disabled:cursor-not-allowed" disabled={!aiPrompt.trim() || isAiLoading}>
             {isAiLoading ? <><RefreshCw className="w-5 h-5 mr-2 animate-spin" />Đang tạo...</> : <><Sparkles className="w-5 h-5 mr-2" />Tạo từ vựng</>}
@@ -217,7 +217,7 @@ const AddWord: React.FC = () => {
   const renderImageForm = () => (
       <div className="space-y-4 animate-fade-in">
         <input type="file" ref={fileInputRef} onChange={handleImageFileChange} accept="image/*" className="hidden" />
-        <button onClick={() => fileInputRef.current?.click()} className="w-full flex flex-col items-center justify-center px-4 py-10 bg-slate-100 dark:bg-slate-800 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl text-slate-500 dark:text-gray-400 hover:border-indigo-500 hover:text-indigo-600 dark:hover:text-white transition-colors">
+        <button onClick={() => fileInputRef.current?.click()} className="w-full flex flex-col items-center justify-center px-4 py-10 bg-slate-800 border-2 border-dashed border-slate-600 rounded-xl text-gray-400 hover:border-indigo-500 hover:text-white transition-colors">
             <UploadCloud className="w-8 h-8 mb-2" />
             <span className="font-semibold">Nhấp để tải ảnh lên</span>
             <span className="text-sm">PNG, JPG, WEBP</span>
@@ -241,15 +241,15 @@ const AddWord: React.FC = () => {
   const renderFileForm = () => (
     <div className="space-y-4 animate-fade-in">
         <input type="file" ref={textFileInputRef} onChange={handleTextFileChange} accept=".pdf,.txt,.md" className="hidden" />
-        <button onClick={() => textFileInputRef.current?.click()} className="w-full flex flex-col items-center justify-center px-4 py-10 bg-slate-100 dark:bg-slate-800 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl text-slate-500 dark:text-gray-400 hover:border-indigo-500 hover:text-indigo-600 dark:hover:text-white transition-colors">
+        <button onClick={() => textFileInputRef.current?.click()} className="w-full flex flex-col items-center justify-center px-4 py-10 bg-slate-800 border-2 border-dashed border-slate-600 rounded-xl text-gray-400 hover:border-indigo-500 hover:text-white transition-colors">
             <FileText className="w-8 h-8 mb-2" />
             <span className="font-semibold">Nhấp để tải file lên</span>
             <span className="text-sm">PDF, TXT, MD</span>
         </button>
         {textFile && (
-            <div className="text-center bg-slate-100 dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
-                <p className="text-sm text-slate-500 dark:text-gray-400">Đã chọn file:</p>
-                <p className="font-semibold text-slate-800 dark:text-white truncate">{textFile.name}</p>
+            <div className="text-center bg-slate-800 p-3 rounded-xl border border-slate-700">
+                <p className="text-sm text-gray-400">Đã chọn file:</p>
+                <p className="font-semibold text-white truncate">{textFile.name}</p>
             </div>
         )}
         <button onClick={handleFileSubmit} className="w-full flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98] disabled:bg-indigo-400 disabled:cursor-not-allowed" disabled={!textFile || isFileLoading}>
@@ -261,14 +261,14 @@ const AddWord: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Thêm từ mới</h2>
-        <p className="text-slate-500 dark:text-gray-400 mt-1">Xây dựng từ điển cá nhân của bạn theo cách bạn muốn.</p>
+        <h2 className="text-2xl font-bold text-white">Thêm từ mới</h2>
+        <p className="text-gray-400 mt-1">Xây dựng từ điển cá nhân của bạn theo cách bạn muốn.</p>
       </div>
       
       {renderTabs()}
 
       {feedback && (
-          <div className={`p-3 rounded-xl text-center text-sm font-medium ${feedback.type === 'success' ? 'bg-green-500/20 text-green-400 dark:text-green-300' : 'bg-red-500/20 text-red-400 dark:text-red-300'}`}>
+          <div className={`p-3 rounded-xl text-center text-sm font-medium ${feedback.type === 'success' ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'}`}>
               {feedback.message}
           </div>
       )}

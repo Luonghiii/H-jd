@@ -1,9 +1,8 @@
 
 import React, { useState, useRef } from 'react';
-import { GoogleGenAI, Modality } from "@google/genai";
 import { VocabularyWord } from '../types';
 import { X, Sparkles, Upload, Trash2, RefreshCw, Image as ImageIcon } from 'lucide-react';
-import { generateImageForWord } from '../services/geminiService';
+import { generateImageForWord, editImage } from '../services/geminiService';
 
 interface ImageEditModalProps {
     isOpen: boolean;
@@ -52,32 +51,12 @@ const ImageEditModal: React.FC<ImageEditModalProps> = ({ isOpen, word, onClose, 
         if (!editPrompt.trim() || !currentImage) return;
         setIsLoading(true);
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             const base64Data = currentImage.split(',')[1];
             const mimeType = currentImage.match(/data:(.*);base64,/)?.[1] || 'image/png';
             
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash-image',
-                contents: {
-                    parts: [
-                        { inlineData: { data: base64Data, mimeType: mimeType } },
-                        { text: editPrompt }
-                    ],
-                },
-                config: {
-                    responseModalities: [Modality.IMAGE],
-                },
-            });
-
-            for (const part of response.candidates[0].content.parts) {
-                if (part.inlineData) {
-                    const newBase64 = part.inlineData.data;
-                    const newMimeType = part.inlineData.mimeType;
-                    setCurrentImage(`data:${newMimeType};base64,${newBase64}`);
-                    setEditPrompt('');
-                    break;
-                }
-            }
+            const newImageUrl = await editImage(base64Data, mimeType, editPrompt);
+            setCurrentImage(newImageUrl);
+            setEditPrompt('');
         } catch (error) {
              console.error("Error editing image:", error);
             alert("Failed to edit image.");
@@ -109,20 +88,20 @@ const ImageEditModal: React.FC<ImageEditModalProps> = ({ isOpen, word, onClose, 
 
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
                 <div className="p-6">
                     <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-xl font-bold text-slate-900 dark:text-white">Ảnh cho "{word.word}"</h2>
-                        <button onClick={onClose} className="p-2 text-slate-500 dark:text-gray-400 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full">
+                        <h2 className="text-xl font-bold text-white">Ảnh cho "{word.word}"</h2>
+                        <button onClick={onClose} className="p-2 text-gray-400 hover:bg-slate-700 rounded-full">
                             <X className="w-5 h-5" />
                         </button>
                     </div>
 
-                    <div className="relative w-full aspect-square bg-slate-100 dark:bg-slate-700/50 rounded-xl flex items-center justify-center mb-4">
+                    <div className="relative w-full aspect-square bg-slate-700/50 rounded-xl flex items-center justify-center mb-4">
                         {currentImage ? (
                             <img src={currentImage} alt={word.word} className="w-full h-full object-contain rounded-xl" />
                         ) : (
-                            <ImageIcon className="w-16 h-16 text-slate-400 dark:text-gray-500" />
+                            <ImageIcon className="w-16 h-16 text-gray-500" />
                         )}
                         {isLoading && (
                             <div className="absolute inset-0 bg-black/60 flex items-center justify-center rounded-xl">
@@ -138,7 +117,7 @@ const ImageEditModal: React.FC<ImageEditModalProps> = ({ isOpen, word, onClose, 
                                 value={editPrompt}
                                 onChange={(e) => setEditPrompt(e.target.value)}
                                 placeholder="Chỉnh sửa ảnh với AI (vd: 'thêm một chiếc mũ')"
-                                className="flex-grow px-3 py-2 bg-slate-100 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-md text-sm"
+                                className="flex-grow px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-md text-sm text-white"
                                 disabled={isLoading}
                             />
                             <button onClick={handleEdit} disabled={!editPrompt.trim() || isLoading} className="px-3 py-2 bg-indigo-600 text-white rounded-md text-sm font-semibold disabled:bg-indigo-400">Sửa</button>
@@ -146,10 +125,10 @@ const ImageEditModal: React.FC<ImageEditModalProps> = ({ isOpen, word, onClose, 
                     )}
                     
                     <div className="grid grid-cols-2 gap-3 mb-4">
-                         <button onClick={handleGenerate} disabled={isLoading} className="flex items-center justify-center gap-2 px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 font-semibold rounded-lg disabled:opacity-50">
+                         <button onClick={handleGenerate} disabled={isLoading} className="flex items-center justify-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 font-semibold rounded-lg disabled:opacity-50 text-white">
                             <Sparkles className="w-4 h-4"/> Tạo bằng AI
                         </button>
-                        <button onClick={handleUploadClick} disabled={isLoading} className="flex items-center justify-center gap-2 px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 font-semibold rounded-lg disabled:opacity-50">
+                        <button onClick={handleUploadClick} disabled={isLoading} className="flex items-center justify-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 font-semibold rounded-lg disabled:opacity-50 text-white">
                             <Upload className="w-4 h-4"/> Tải lên
                         </button>
                         <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />

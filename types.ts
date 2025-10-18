@@ -1,52 +1,60 @@
+export type TargetLanguage = 'vietnamese' | 'english';
 export type LearningLanguage = 'german' | 'english' | 'chinese';
+
+export interface Translation {
+  vietnamese: string;
+  english: string;
+}
 
 export interface VocabularyWord {
   id: string;
-  word: string; // Changed from 'german'
-  translation: {
-    vietnamese: string;
-    english: string;
-  };
-  createdAt: number;
-  imageUrl?: string;
+  word: string; // The word in the learning language
+  translation: Translation;
   theme?: string;
-  isStarred?: boolean;
+  createdAt: number;
+  isStarred: boolean;
+  imageUrl?: string;
+}
+
+export interface GeneratedWord {
+    word: string;
+    translation_vi: string;
+    translation_en: string;
+    theme: string;
 }
 
 export interface WordInfo {
-  partOfSpeech: string;
-  gender?: string;
-  definition: string;
+    partOfSpeech: string;
+    gender?: string; // e.g., for German
+    definition: string;
 }
 
 export interface ChatMessage {
-  role: 'user' | 'model';
-  text: string;
-}
-
-export enum View {
-  Home = 'HOME',
-  Practice = 'PRACTICE',
-  Flashcards = 'FLASHCARDS',
-  Games = 'GAMES',
-  AiTools = 'AI_TOOLS',
-  Add = 'ADD',
-  List = 'LIST',
-  History = 'HISTORY',
-}
-
-export type TargetLanguage = 'vietnamese' | 'english';
-
-export interface GeneratedWord {
-  word: string;
-  translation_vi: string;
-  translation_en: string;
-  theme: string;
+    role: 'user' | 'model';
+    text: string;
 }
 
 export interface HistoryEntry {
-  id: string;
-  type: 'QUIZ_COMPLETED' | 'MEMORY_MATCH_WON' | 'MEMORY_MATCH_LOST' | 'WORDS_ADDED' | 'STORY_GENERATED' | 'LOGIN';
-  timestamp: number;
-  details: string;
+    id: string;
+    type: 'LOGIN' | 'WORDS_ADDED' | 'STORY_GENERATED' | 'QUIZ_COMPLETED' | 'MEMORY_MATCH_WON' | 'MEMORY_MATCH_LOST' | 'SENTENCE_SCRAMBLE_WON' | 'WORD_GUESS_WON' | 'WORD_GUESS_LOST' | 'WORD_LINK_COMPLETED' | 'GRAMMAR_CHECK_COMPLETED';
+    details: string;
+    timestamp: number;
+    payload?: any;
+}
+
+export enum View {
+  Home = 'home',
+  Add = 'add',
+  List = 'list',
+  Practice = 'practice',
+  Flashcards = 'flashcards',
+  Games = 'games',
+  AiTools = 'aitools',
+  History = 'history'
+}
+
+export interface Quiz {
+    question: string;
+    options: string[];
+    correctAnswer: string;
 }

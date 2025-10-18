@@ -17,7 +17,7 @@ interface VocabularyContextType {
   undoDelete: () => void;
 }
 
-// FIX: Defined VocabularyContext to be used by the provider and hook.
+// FIX: Defined VocabularyContext outside the component to be used by the provider and hook.
 const VocabularyContext = createContext<VocabularyContextType | undefined>(undefined);
 
 export const themeTranslationMap: Record<string, string> = {

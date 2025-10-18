@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { TargetLanguage, LearningLanguage } from '../types';
 
@@ -7,9 +8,8 @@ export type BackgroundSetting = {
 } | null;
 
 interface SettingsContextType {
-  apiKey: string;
+  apiKey: string | null;
   setApiKey: (key: string) => void;
-  clearApiKey: () => void;
   targetLanguage: TargetLanguage;
   setTargetLanguage: (language: TargetLanguage) => void;
   learningLanguage: LearningLanguage;
@@ -18,8 +18,6 @@ interface SettingsContextType {
   setBackgroundImage: (imageDataUrl: string) => void;
   setBackgroundGradient: (cssGradient: string) => void;
   clearBackgroundSetting: () => void;
-  theme: 'light' | 'dark';
-  setTheme: (theme: 'light' | 'dark') => void;
   customGradients: string[];
   addCustomGradient: (gradient: string) => void;
   removeCustomGradient: (gradient: string) => void;
@@ -28,11 +26,11 @@ interface SettingsContextType {
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [apiKey, setApiKeyState] = useState<string>(() => {
+  const [apiKey, setApiKeyState] = useState<string | null>(() => {
     try {
-      return localStorage.getItem('geminiApiKey') || '';
+      return localStorage.getItem('geminiApiKey');
     } catch {
-      return '';
+      return null;
     }
   });
 
@@ -66,15 +64,6 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
   });
   
-  const [theme, setThemeState] = useState<'light' | 'dark'>(() => {
-    try {
-        const savedTheme = localStorage.getItem('appTheme');
-        return savedTheme === 'light' ? 'light' : 'dark';
-    } catch {
-        return 'dark';
-    }
-  });
-  
   const [customGradients, setCustomGradients] = useState<string[]>(() => {
     try {
         const savedGradients = localStorage.getItem('customGradients');
@@ -83,24 +72,18 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
         return [];
     }
   });
-
-  const setApiKey = (key: string) => {
+  
+  useEffect(() => {
     try {
-      localStorage.setItem('geminiApiKey', key);
-      setApiKeyState(key);
+      if (apiKey) {
+        localStorage.setItem('geminiApiKey', apiKey);
+      } else {
+        localStorage.removeItem('geminiApiKey');
+      }
     } catch (error) {
       console.error("Could not save API key to localStorage", error);
     }
-  };
-
-  const clearApiKey = () => {
-    try {
-      localStorage.removeItem('geminiApiKey');
-      setApiKeyState('');
-    } catch (error) {
-      console.error("Could not clear API key from localStorage", error);
-    }
-  };
+  }, [apiKey]);
   
   useEffect(() => {
     try {
@@ -132,20 +115,16 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
   
   useEffect(() => {
     try {
-        localStorage.setItem('appTheme', theme);
-    } catch (error) {
-        console.error("Could not save theme to localStorage", error);
-    }
-  }, [theme]);
-  
-  useEffect(() => {
-    try {
         localStorage.setItem('customGradients', JSON.stringify(customGradients));
     } catch (error) {
         console.error("Could not save custom gradients to localStorage", error);
     }
   }, [customGradients]);
 
+  const setApiKey = (key: string) => {
+    setApiKeyState(key);
+  };
+  
   const setLearningLanguage = (language: LearningLanguage) => {
     setLearningLanguageState(language);
   };
@@ -162,10 +141,6 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     setBackgroundSettingState(null);
   };
   
-  const setTheme = (newTheme: 'light' | 'dark') => {
-      setThemeState(newTheme);
-  };
-
   const addCustomGradient = (gradient: string) => {
     setCustomGradients(prev => [gradient, ...prev]);
   };
@@ -175,7 +150,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
   };
 
   return (
-    <SettingsContext.Provider value={{ apiKey, setApiKey, clearApiKey, targetLanguage, setTargetLanguage, learningLanguage, setLearningLanguage, backgroundSetting, setBackgroundImage, setBackgroundGradient, clearBackgroundSetting, theme, setTheme, customGradients, addCustomGradient, removeCustomGradient }}>
+    <SettingsContext.Provider value={{ apiKey, setApiKey, targetLanguage, setTargetLanguage, learningLanguage, setLearningLanguage, backgroundSetting, setBackgroundImage, setBackgroundGradient, clearBackgroundSetting, customGradients, addCustomGradient, removeCustomGradient }}>
       {children}
     </SettingsContext.Provider>
   );

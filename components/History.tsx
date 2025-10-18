@@ -1,72 +1,101 @@
-
 import React from 'react';
 import { useHistory } from '../hooks/useHistory';
-import { History as HistoryIcon, Trash2, CheckCircle, Gamepad2, Feather, FileText, LogIn } from 'lucide-react';
+import { HistoryEntry } from '../types';
+import { LogIn, PlusSquare, BookOpen, CheckSquare, Award, XCircle, Trash2, Link, Puzzle, Shuffle } from 'lucide-react';
+
+const ICONS: { [key in HistoryEntry['type']]: React.ElementType } = {
+    LOGIN: LogIn,
+    WORDS_ADDED: PlusSquare,
+    STORY_GENERATED: BookOpen,
+    QUIZ_COMPLETED: CheckSquare,
+    MEMORY_MATCH_WON: Award,
+    MEMORY_MATCH_LOST: XCircle,
+    SENTENCE_SCRAMBLE_WON: Shuffle,
+    WORD_GUESS_WON: Puzzle,
+    WORD_GUESS_LOST: XCircle,
+    WORD_LINK_COMPLETED: Link,
+    GRAMMAR_CHECK_COMPLETED: CheckSquare,
+};
+
+const formatTimeAgo = (timestamp: number) => {
+    const seconds = Math.floor((Date.now() - timestamp) / 1000);
+    if (seconds < 60) return "vài giây trước";
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes} phút trước`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} giờ trước`;
+    const days = Math.floor(hours / 24);
+    if (days < 30) return `${days} ngày trước`;
+    const months = Math.floor(days / 30);
+    if (months < 12) return `${months} tháng trước`;
+    const years = Math.floor(months / 12);
+    return `${years} năm trước`;
+};
 
 const History: React.FC = () => {
-  const { history, clearHistory } = useHistory();
+    const { history, clearHistory } = useHistory();
 
-  const getIcon = (type: string) => {
-    switch(type) {
-      case 'QUIZ_COMPLETED': return <CheckCircle className="w-5 h-5 text-green-500" />;
-      case 'MEMORY_MATCH_WON':
-      case 'MEMORY_MATCH_LOST': return <Gamepad2 className="w-5 h-5 text-blue-500" />;
-      case 'WORDS_ADDED': return <Feather className="w-5 h-5 text-purple-500" />;
-      case 'STORY_GENERATED': return <FileText className="w-5 h-5 text-yellow-500" />;
-      case 'LOGIN': return <LogIn className="w-5 h-5 text-cyan-500" />;
-      default: return <HistoryIcon className="w-5 h-5 text-slate-500" />;
+    const renderPayload = (entry: HistoryEntry) => {
+        if (!entry.payload) return null;
+
+        if (entry.type === 'QUIZ_COMPLETED' && entry.payload.score) {
+            return <span className="text-sm text-indigo-400">({entry.payload.score.correct}/{entry.payload.score.total})</span>
+        }
+        if (entry.type === 'WORDS_ADDED' && entry.payload.wordCount) {
+             return <span className="text-sm text-gray-400">({entry.payload.wordCount} từ)</span>
+        }
+        if (entry.type === 'MEMORY_MATCH_WON' && entry.payload.moves) {
+            return <span className="text-sm text-gray-400">({entry.payload.moves} lượt)</span>
+        }
+        if ((entry.type === 'WORD_GUESS_WON' || entry.type === 'WORD_GUESS_LOST') && entry.payload.word) {
+            return <span className="text-sm text-gray-400">(Từ: {entry.payload.word})</span>
+        }
+        return null;
     }
-  };
-  
-  const formatTimestamp = (timestamp: number) => {
-      const date = new Date(timestamp);
-      return date.toLocaleString('vi-VN', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-      });
-  };
 
-  return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div className="text-center sm:text-left">
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Lịch sử hoạt động</h2>
-          <p className="text-slate-500 dark:text-gray-400 mt-1">Xem lại các hoạt động học tập gần đây của bạn.</p>
-        </div>
-        {history.length > 0 && (
-          <button onClick={clearHistory} className="flex-shrink-0 flex items-center gap-2 px-3 py-2 text-sm bg-red-500/10 hover:bg-red-500/20 text-red-500 font-semibold rounded-xl transition-colors">
-            <Trash2 className="w-4 h-4" />
-            <span>Xóa lịch sử</span>
-          </button>
-        )}
-      </div>
-      
-      <div className="max-h-[60vh] overflow-y-auto pr-2">
-        {history.length > 0 ? (
-          <ul className="space-y-3">
-            {history.map(entry => (
-              <li key={entry.id} className="flex items-start gap-4 p-3 bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700">
-                <div className="flex-shrink-0 pt-1">{getIcon(entry.type)}</div>
-                <div className="flex-grow">
-                    <p className="font-medium text-slate-700 dark:text-gray-200">{entry.details}</p>
-                    <p className="text-sm text-slate-500 dark:text-gray-400">{formatTimestamp(entry.timestamp)}</p>
+    return (
+        <div className="space-y-6">
+            <div className="flex justify-between items-center">
+                <div className="text-center sm:text-left">
+                    <h2 className="text-2xl font-bold text-white">Lịch sử hoạt động</h2>
+                    <p className="text-gray-400 mt-1">Xem lại các hoạt động học tập gần đây của bạn.</p>
                 </div>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <div className="text-center py-12">
-            <HistoryIcon className="w-12 h-12 mx-auto text-slate-400 dark:text-gray-600" />
-            <h3 className="mt-4 text-lg font-semibold text-slate-800 dark:text-white">Không có hoạt động nào</h3>
-            <p className="mt-1 text-slate-500 dark:text-gray-400">Lịch sử học tập của bạn sẽ xuất hiện ở đây.</p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
+                <button 
+                    onClick={clearHistory}
+                    disabled={history.length === 0}
+                    className="flex-shrink-0 flex items-center gap-2 px-3 py-2 text-sm bg-red-600/20 hover:bg-red-600/40 text-red-400 font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Xóa lịch sử</span>
+                </button>
+            </div>
+            
+            <div className="max-h-[60vh] overflow-y-auto pr-2">
+                {history.length > 0 ? (
+                    <ul className="space-y-3">
+                        {history.map(entry => {
+                            const Icon = ICONS[entry.type] || BookOpen;
+                            return (
+                                <li key={entry.id} className="flex items-start gap-4 bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+                                    <div className="p-2 bg-slate-700/50 rounded-full">
+                                        <Icon className="w-5 h-5 text-gray-300" />
+                                    </div>
+                                    <div className="flex-grow">
+                                        <p className="font-medium text-white">{entry.details} {renderPayload(entry)}</p>
+                                        <p className="text-sm text-gray-500">
+                                            {formatTimeAgo(entry.timestamp)}
+                                        </p>
+                                    </div>
+                                </li>
+                            )
+                        })}
+                    </ul>
+                ) : (
+                    <p className="text-center text-gray-400 py-16">Chưa có hoạt động nào được ghi lại.</p>
+                )}
+            </div>
+        </div>
+    );
 };
 
 export default History;

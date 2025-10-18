@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { VocabularyProvider } from './hooks/useVocabulary';
 import { SettingsProvider, useSettings } from './hooks/useSettings';
@@ -66,10 +65,10 @@ const AppLayout: React.FC<{ onLogout: () => void; onOpenSettings: () => void; }>
   ];
   
   let backgroundStyle: React.CSSProperties = {};
-  let backgroundClasses = 'dark:bg-gradient-to-br dark:from-gray-900 dark:via-slate-900 dark:to-indigo-900 bg-slate-50';
+  let backgroundClasses = 'bg-gradient-to-br from-gray-900 via-slate-900 to-indigo-900';
   const contentContainerClasses = backgroundSetting?.type === 'image'
     ? 'bg-black/40 backdrop-blur-xl'
-    : 'bg-white/60 dark:bg-slate-900/60 backdrop-blur-lg';
+    : 'bg-slate-900/60 backdrop-blur-lg';
 
   if (backgroundSetting) {
     if (backgroundSetting.type === 'image') {
@@ -84,24 +83,24 @@ const AppLayout: React.FC<{ onLogout: () => void; onOpenSettings: () => void; }>
   return (
     <>
       <div 
-        className={`min-h-screen text-slate-800 dark:text-gray-200 font-sans flex flex-col ${backgroundClasses}`}
+        className={`min-h-screen text-gray-200 font-sans flex flex-col ${backgroundClasses}`}
         style={backgroundStyle}
       >
         <Header onLogout={onLogout} onOpenSettings={onOpenSettings} />
         <main className="container mx-auto p-4 md:p-6 lg:p-8 flex-grow">
           <div className="max-w-5xl mx-auto">
-            <div className={`${contentContainerClasses} rounded-3xl shadow-2xl shadow-slate-900/20 dark:shadow-slate-900/50 border border-slate-200 dark:border-slate-700/60`}>
-              <nav className="p-2 border-b border-slate-200 dark:border-slate-700/80 flex justify-center">
-                <div className="bg-slate-100/80 dark:bg-slate-800/60 p-1 rounded-full overflow-x-auto">
+            <div className={`${contentContainerClasses} rounded-3xl shadow-2xl shadow-slate-900/50 border border-slate-700/60`}>
+              <nav className="p-2 border-b border-slate-700/80 flex justify-center">
+                <div className="bg-slate-800/60 p-1 rounded-full overflow-x-auto">
                   <ul className="flex items-center justify-start space-x-1">
                     {navItems.map((item) => (
                       <li key={item.view}>
                         <button
                           onClick={() => setCurrentView(item.view)}
-                          className={`flex-shrink-0 flex items-center space-x-2 px-3 py-1.5 text-sm sm:px-4 sm:text-base rounded-full font-medium transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-100 dark:focus:ring-offset-slate-900 focus:ring-indigo-500 ${
+                          className={`flex-shrink-0 flex items-center space-x-2 px-3 py-1.5 text-sm sm:px-4 sm:text-base rounded-full font-medium transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-indigo-500 ${
                             currentView === item.view
                               ? 'bg-indigo-600 text-white shadow-lg'
-                              : 'text-slate-600 dark:text-gray-300 hover:bg-slate-200/80 dark:hover:bg-slate-700/50 hover:text-slate-900 dark:hover:text-white'
+                              : 'text-gray-300 hover:bg-slate-700/50 hover:text-white'
                           }`}
                         >
                           <item.icon className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -133,8 +132,8 @@ const AppLayout: React.FC<{ onLogout: () => void; onOpenSettings: () => void; }>
 };
 
 const AppContent: React.FC = () => {
-  const { apiKey, setApiKey, clearApiKey, theme } = useSettings();
   const { addHistoryEntry } = useHistory();
+  const { apiKey, setApiKey } = useSettings();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     try {
@@ -143,12 +142,6 @@ const AppContent: React.FC = () => {
       return false;
     }
   });
-
-  useEffect(() => {
-    const root = window.document.documentElement;
-    root.classList.remove('light', 'dark');
-    root.classList.add(theme);
-  }, [theme]);
   
   const handleLoginSuccess = () => {
     try {
@@ -172,9 +165,9 @@ const AppContent: React.FC = () => {
   if (!isAuthenticated) {
     return <Login onLoginSuccess={handleLoginSuccess} />;
   }
-
+  
   if (!apiKey) {
-    return <ApiKeySetup onKeySaved={setApiKey} />;
+    return <ApiKeySetup onKeySaved={setApiKey} />
   }
 
   return (
@@ -184,9 +177,7 @@ const AppContent: React.FC = () => {
         <SettingsModal 
             isOpen={isSettingsOpen}
             onClose={() => setIsSettingsOpen(false)}
-            onKeySave={(key) => { setApiKey(key); setIsSettingsOpen(false); }}
-            onKeyClear={() => { clearApiKey(); setIsSettingsOpen(false); }}
-            currentApiKey={apiKey}
+            onKeySaved={setApiKey}
         />
       </InspectorProvider>
     </VocabularyProvider>

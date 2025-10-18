@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { VocabularyWord, WordInfo, ChatMessage } from '../types';
 import { useSettings } from '../hooks/useSettings';
@@ -111,21 +112,21 @@ const WordInspectorModal: React.FC<WordInspectorModalProps> = ({ isOpen, word, o
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
-        <div className="p-4 sm:p-6 flex-shrink-0 border-b border-slate-200 dark:border-slate-600">
+      <div className="bg-slate-800 border border-slate-700 rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="p-4 sm:p-6 flex-shrink-0 border-b border-slate-600">
             <div className="flex items-start justify-between">
                 <div>
-                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{word.word}</h2>
-                    <p className="text-slate-500 dark:text-gray-400">{word.translation[targetLanguage]}</p>
+                    <h2 className="text-2xl font-bold text-white">{word.word}</h2>
+                    <p className="text-gray-400">{word.translation[targetLanguage]}</p>
                 </div>
-                <button onClick={onClose} className="p-2 text-slate-500 dark:text-gray-400 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full">
+                <button onClick={onClose} className="p-2 text-gray-400 hover:bg-slate-700 rounded-full">
                     <X className="w-5 h-5" />
                 </button>
             </div>
-            <div className="mt-4 flex border-b border-slate-200 dark:border-slate-700">
-                <button onClick={() => setActiveTab('info')} className={`px-4 py-2 text-sm font-medium border-b-2 ${activeTab === 'info' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-gray-200'}`}><Info className="w-4 h-4 inline mr-1"/> Thông tin</button>
-                <button onClick={() => setActiveTab('examples')} className={`px-4 py-2 text-sm font-medium border-b-2 ${activeTab === 'examples' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-gray-200'}`}><BookOpen className="w-4 h-4 inline mr-1"/> Ví dụ</button>
-                <button onClick={() => setActiveTab('chat')} className={`px-4 py-2 text-sm font-medium border-b-2 ${activeTab === 'chat' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-gray-200'}`}><MessageSquare className="w-4 h-4 inline mr-1"/> Hỏi đáp</button>
+            <div className="mt-4 flex border-b border-slate-700">
+                <button onClick={() => setActiveTab('info')} className={`px-4 py-2 text-sm font-medium border-b-2 ${activeTab === 'info' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-500 hover:text-gray-200'}`}><Info className="w-4 h-4 inline mr-1"/> Thông tin</button>
+                <button onClick={() => setActiveTab('examples')} className={`px-4 py-2 text-sm font-medium border-b-2 ${activeTab === 'examples' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-500 hover:text-gray-200'}`}><BookOpen className="w-4 h-4 inline mr-1"/> Ví dụ</button>
+                <button onClick={() => setActiveTab('chat')} className={`px-4 py-2 text-sm font-medium border-b-2 ${activeTab === 'chat' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-500 hover:text-gray-200'}`}><MessageSquare className="w-4 h-4 inline mr-1"/> Hỏi đáp</button>
             </div>
         </div>
         <div className="p-4 sm:p-6 overflow-y-auto">
@@ -133,7 +134,7 @@ const WordInspectorModal: React.FC<WordInspectorModalProps> = ({ isOpen, word, o
                 <div className="space-y-4">
                     {isInfoLoading ? <p>Đang tải thông tin...</p> : wordInfo ? (
                         <>
-                           {word.imageUrl && <img src={word.imageUrl} alt={word.word} className="w-full h-48 object-contain rounded-xl bg-slate-100 dark:bg-slate-700/50 p-2"/>}
+                           {word.imageUrl && <img src={word.imageUrl} alt={word.word} className="w-full h-48 object-contain rounded-xl bg-slate-700/50 p-2"/>}
                            <p><strong>Loại từ:</strong> {wordInfo.partOfSpeech}</p>
                            {wordInfo.gender && <p><strong>Giống:</strong> {wordInfo.gender}</p>}
                            <p><strong>Định nghĩa:</strong> {wordInfo.definition}</p>
@@ -144,24 +145,24 @@ const WordInspectorModal: React.FC<WordInspectorModalProps> = ({ isOpen, word, o
             {activeTab === 'examples' && (
                 <div className="space-y-6">
                     <div>
-                        <button onClick={handleGenerateExample} disabled={isExampleLoading} className="text-sm font-semibold text-indigo-600 dark:text-indigo-400 hover:underline disabled:opacity-50 flex items-center">
+                        <button onClick={handleGenerateExample} disabled={isExampleLoading} className="text-sm font-semibold text-indigo-400 hover:underline disabled:opacity-50 flex items-center">
                             {isExampleLoading && <RefreshCw className="w-4 h-4 mr-2 animate-spin"/>} Tạo câu ví dụ
                         </button>
-                        {exampleSentence && <div className="mt-2 p-3 bg-slate-100 dark:bg-slate-700/50 rounded-lg">
+                        {exampleSentence && <div className="mt-2 p-3 bg-slate-700/50 rounded-lg">
                             <p className="font-semibold">{exampleSentence}</p>
-                            <p className="text-sm text-slate-500 dark:text-gray-400">{exampleTranslation}</p>
+                            <p className="text-sm text-gray-400">{exampleTranslation}</p>
                         </div>}
                     </div>
                      <div className="space-y-4">
-                        <textarea value={userSentence} onChange={e => setUserSentence(e.target.value)} placeholder={`Viết câu của bạn với từ "${word.word}"`} className="w-full p-2 border rounded-lg bg-transparent border-slate-300 dark:border-slate-600" rows={2}></textarea>
+                        <textarea value={userSentence} onChange={e => setUserSentence(e.target.value)} placeholder={`Viết câu của bạn với từ "${word.word}"`} className="w-full p-2 border rounded-lg bg-transparent border-slate-600" rows={2}></textarea>
                         <div className="flex gap-2">
-                            <button onClick={handleCheckSentence} disabled={!userSentence.trim() || isCheckingSentence} className="text-sm flex-1 font-semibold text-indigo-600 dark:text-indigo-400 p-2 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 disabled:opacity-50">Kiểm tra câu</button>
-                            <button onClick={handleRewriteSentence} disabled={!userSentence.trim() || isRewriting} className="text-sm flex-1 font-semibold text-purple-600 dark:text-purple-400 p-2 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 disabled:opacity-50">Viết lại câu</button>
+                            <button onClick={handleCheckSentence} disabled={!userSentence.trim() || isCheckingSentence} className="text-sm flex-1 font-semibold text-indigo-400 p-2 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 disabled:opacity-50">Kiểm tra câu</button>
+                            <button onClick={handleRewriteSentence} disabled={!userSentence.trim() || isRewriting} className="text-sm flex-1 font-semibold text-purple-400 p-2 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 disabled:opacity-50">Viết lại câu</button>
                         </div>
                         {isCheckingSentence && <p>Đang kiểm tra...</p>}
-                        {sentenceFeedback && <div className="mt-2 p-3 bg-slate-100 dark:bg-slate-700/50 rounded-lg whitespace-pre-wrap">{sentenceFeedback}</div>}
+                        {sentenceFeedback && <div className="mt-2 p-3 bg-slate-700/50 rounded-lg whitespace-pre-wrap">{sentenceFeedback}</div>}
                         {isRewriting && <p>Đang viết lại...</p>}
-                        {rewrittenSentence && <div className="mt-2 p-3 bg-slate-100 dark:bg-slate-700/50 rounded-lg whitespace-pre-wrap">{rewrittenSentence}</div>}
+                        {rewrittenSentence && <div className="mt-2 p-3 bg-slate-700/50 rounded-lg whitespace-pre-wrap">{rewrittenSentence}</div>}
                     </div>
                 </div>
             )}
@@ -170,13 +171,13 @@ const WordInspectorModal: React.FC<WordInspectorModalProps> = ({ isOpen, word, o
                    <div ref={chatContainerRef} className="flex-grow space-y-4 overflow-y-auto pr-2">
                         {chatHistory.map((msg, i) => (
                             <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                <div className={`max-w-xs md:max-w-md p-3 rounded-2xl ${msg.role === 'user' ? 'bg-indigo-500 text-white rounded-br-none' : 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-white rounded-bl-none'}`}>{msg.text}</div>
+                                <div className={`max-w-xs md:max-w-md p-3 rounded-2xl ${msg.role === 'user' ? 'bg-indigo-500 text-white rounded-br-none' : 'bg-slate-700 text-white rounded-bl-none'}`}>{msg.text}</div>
                             </div>
                         ))}
-                        {isChatLoading && <div className="flex justify-start"><div className="p-3 rounded-2xl bg-slate-200 dark:bg-slate-700 rounded-bl-none">...</div></div>}
+                        {isChatLoading && <div className="flex justify-start"><div className="p-3 rounded-2xl bg-slate-700 rounded-bl-none">...</div></div>}
                    </div>
-                   <form onSubmit={handleChatSubmit} className="mt-4 flex gap-2 pt-4 border-t border-slate-200 dark:border-slate-600">
-                        <input type="text" value={userQuestion} onChange={e => setUserQuestion(e.target.value)} placeholder="Hỏi AI về từ này..." className="flex-grow p-2 border rounded-lg bg-transparent border-slate-300 dark:border-slate-600" />
+                   <form onSubmit={handleChatSubmit} className="mt-4 flex gap-2 pt-4 border-t border-slate-600">
+                        <input type="text" value={userQuestion} onChange={e => setUserQuestion(e.target.value)} placeholder="Hỏi AI về từ này..." className="flex-grow p-2 border rounded-lg bg-transparent border-slate-600" />
                         <button type="submit" disabled={!userQuestion.trim() || isChatLoading} className="p-2 bg-indigo-500 text-white rounded-lg disabled:bg-indigo-400"><Send className="w-5 h-5"/></button>
                    </form>
                 </div>

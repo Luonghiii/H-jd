@@ -163,13 +163,13 @@ const LuckyWheel: React.FC<LuckyWheelProps> = ({ onBack }) => {
   const renderWheel = () => (
     <div className="relative w-64 h-64 sm:w-72 sm:h-72 mx-auto">
       <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-3 z-10" style={{ filter: 'drop-shadow(0 2px 2px rgba(0,0,0,0.5))'}}>
-          <svg width="30" height="45" viewBox="0 0 24 36" className="text-cyan-400 dark:text-cyan-300" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+          <svg width="30" height="45" viewBox="0 0 24 36" className="text-cyan-300" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
               <path d="M12 36C12 36 24 19.8636 24 12C24 4.5 18.6274 0 12 0C5.37258 0 0 4.5 0 12C0 19.8636 12 36 12 36Z"/>
           </svg>
       </div>
       
       <div 
-        className="w-full h-full rounded-full border-8 border-slate-200 dark:border-slate-800/60 shadow-lg relative transition-transform"
+        className="w-full h-full rounded-full border-8 border-slate-800/60 shadow-lg relative transition-transform"
         style={{ 
           transform: `rotate(${rotation}deg)`, 
           transitionDuration: `${isSpinning ? duration : 0}s`,
@@ -195,7 +195,7 @@ const LuckyWheel: React.FC<LuckyWheelProps> = ({ onBack }) => {
             )`
           }}
         ></div>
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-white dark:bg-slate-700 rounded-full border-4 border-slate-300 dark:border-slate-600 shadow-inner"></div>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-slate-700 rounded-full border-4 border-slate-600 shadow-inner"></div>
       </div>
     </div>
   );
@@ -206,23 +206,23 @@ const LuckyWheel: React.FC<LuckyWheelProps> = ({ onBack }) => {
         <div className="w-full max-w-md text-center min-h-[17rem] mt-8 flex flex-col justify-center">
         {quiz && resultWord ? (
             <div className="space-y-4 animate-fade-in">
-                <p className="text-slate-500 dark:text-gray-400">Từ cần dịch là:</p>
+                <p className="text-gray-400">Từ cần dịch là:</p>
                 <div 
                   className="inline-block cursor-pointer hover:underline" 
                   onClick={() => openInspector(resultWord)}
                   title="Nhấp để phân tích từ"
                 >
-                    <p className="text-4xl font-bold text-cyan-600 dark:text-cyan-300 my-2">{resultWord.word}</p>
+                    <p className="text-4xl font-bold text-cyan-300 my-2">{resultWord.word}</p>
                 </div>
                 <div className="grid grid-cols-1 gap-3 pt-2">
                     {quiz.options.map((option, i) => {
                         const isCorrect = option === quiz.correctAnswer;
                         const isSelected = option === selectedAnswer;
-                        let buttonClass = 'bg-white dark:bg-slate-700/80 hover:bg-slate-200 dark:hover:bg-slate-700 hover:scale-[1.02] text-slate-800 dark:text-white';
+                        let buttonClass = 'bg-slate-700/80 hover:bg-slate-700 hover:scale-[1.02] text-white';
                          if (showResult) {
                             if (isCorrect) buttonClass = 'bg-green-500 ring-2 ring-green-400 text-white scale-105';
                             else if (isSelected && !isCorrect) buttonClass = 'bg-red-500 ring-2 ring-red-400 text-white';
-                            else buttonClass = 'bg-slate-200 dark:bg-slate-700/50 opacity-60';
+                            else buttonClass = 'bg-slate-700/50 opacity-60';
                         }
                         return (
                              <button key={i} onClick={() => handleAnswer(option)} disabled={showResult} className={`w-full text-center py-3 px-4 rounded-2xl font-semibold text-lg transition-all duration-300 ${buttonClass}`}>
@@ -240,8 +240,8 @@ const LuckyWheel: React.FC<LuckyWheelProps> = ({ onBack }) => {
             </div>
         ) : (
              <div className="flex flex-col justify-center items-center p-6 rounded-2xl h-full">
-                 <RefreshCw className="w-8 h-8 mx-auto mb-3 animate-spin text-indigo-500 dark:text-indigo-400" />
-                 <p className="text-slate-800 dark:text-white text-lg">{isSpinning ? "Đang quay..." : `Trúng từ "${resultWord?.word}"! Đang tạo câu hỏi...`}</p>
+                 <RefreshCw className="w-8 h-8 mx-auto mb-3 animate-spin text-indigo-400" />
+                 <p className="text-white text-lg">{isSpinning ? "Đang quay..." : `Trúng từ "${resultWord?.word}"! Đang tạo câu hỏi...`}</p>
              </div>
         )}
         </div>
@@ -251,11 +251,11 @@ const LuckyWheel: React.FC<LuckyWheelProps> = ({ onBack }) => {
   const renderSetupView = () => (
     <div className="space-y-6">
         <div>
-            <h3 className="font-semibold text-slate-800 dark:text-white mb-2">1. Chọn chủ đề</h3>
-            <div className="flex flex-wrap gap-2 p-3 bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl">
+            <h3 className="font-semibold text-white mb-2">1. Chọn chủ đề</h3>
+            <div className="flex flex-wrap gap-2 p-3 bg-slate-800/50 border border-slate-700 rounded-2xl">
                 <button
                     onClick={() => handleThemeToggle('all')}
-                    className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has('all') ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600'}`}
+                    className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has('all') ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 hover:bg-slate-600'}`}
                 >
                     Tất cả
                 </button>
@@ -263,7 +263,7 @@ const LuckyWheel: React.FC<LuckyWheelProps> = ({ onBack }) => {
                     <button
                         key={theme}
                         onClick={() => handleThemeToggle(theme)}
-                        className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has(theme) ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600'}`}
+                        className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has(theme) ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 hover:bg-slate-600'}`}
                     >
                         {targetLanguage === 'english' ? (themeTranslationMap[theme] || theme) : theme}
                     </button>
@@ -271,36 +271,36 @@ const LuckyWheel: React.FC<LuckyWheelProps> = ({ onBack }) => {
             </div>
         </div>
         <div>
-          <h3 className="font-semibold text-slate-800 dark:text-white mb-2">2. Chọn từ ({selectedIds.size} / {filteredWordsByTheme.length} đã chọn)</h3>
+          <h3 className="font-semibold text-white mb-2">2. Chọn từ ({selectedIds.size} / {filteredWordsByTheme.length} đã chọn)</h3>
           <div className="flex gap-2 mb-2">
-              <button onClick={handleSelectAll} className="px-3 py-1 text-xs bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded-lg">Chọn tất cả</button>
-              <button onClick={handleDeselectAll} className="px-3 py-1 text-xs bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded-lg">Bỏ chọn tất cả</button>
+              <button onClick={handleSelectAll} className="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded-lg">Chọn tất cả</button>
+              <button onClick={handleDeselectAll} className="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded-lg">Bỏ chọn tất cả</button>
           </div>
-          <div className="max-h-[25vh] overflow-y-auto pr-2 bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl p-3 space-y-2">
+          <div className="max-h-[25vh] overflow-y-auto pr-2 bg-slate-800/50 border border-slate-700 rounded-2xl p-3 space-y-2">
               {filteredWordsByTheme.length > 0 ? filteredWordsByTheme.map(word => (
-                  <div key={word.id} onClick={() => handleToggleWord(word.id)} className="flex items-center p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700/50 cursor-pointer">
-                      <input type="checkbox" checked={selectedIds.has(word.id)} readOnly className="w-5 h-5 mr-3 bg-slate-100 dark:bg-slate-900 border-slate-300 dark:border-slate-600 text-indigo-500 focus:ring-indigo-600 rounded-md pointer-events-none" />
+                  <div key={word.id} onClick={() => handleToggleWord(word.id)} className="flex items-center p-2 rounded-xl hover:bg-slate-700/50 cursor-pointer">
+                      <input type="checkbox" checked={selectedIds.has(word.id)} readOnly className="w-5 h-5 mr-3 bg-slate-900 border-slate-600 text-indigo-500 focus:ring-indigo-600 rounded-md pointer-events-none" />
                       <div>
-                          <p className="font-medium text-slate-800 dark:text-white">{word.word}</p>
-                          <p className="text-sm text-slate-500 dark:text-gray-400">{word.translation[targetLanguage]}</p>
+                          <p className="font-medium text-white">{word.word}</p>
+                          <p className="text-sm text-gray-400">{word.translation[targetLanguage]}</p>
                       </div>
                   </div>
-              )) : <p className="text-sm text-slate-500 dark:text-gray-400 text-center py-4">Không có từ nào trong chủ đề đã chọn.</p>}
+              )) : <p className="text-sm text-gray-400 text-center py-4">Không có từ nào trong chủ đề đã chọn.</p>}
           </div>
       </div>
        <div className="space-y-4">
           <div>
-              <h3 className="font-semibold text-slate-800 dark:text-white mb-2">3. Thời gian quay</h3>
+              <h3 className="font-semibold text-white mb-2">3. Thời gian quay</h3>
               <div className="flex justify-center gap-2">
                   {[1, 2, 3, 5, 10].map(d => (
-                      <button key={d} onClick={() => setDuration(d)} className={`px-4 py-2 text-sm rounded-xl transition-colors ${duration === d ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600'}`}>{d}s</button>
+                      <button key={d} onClick={() => setDuration(d)} className={`px-4 py-2 text-sm rounded-xl transition-colors ${duration === d ? 'bg-indigo-600 text-white' : 'bg-slate-700 hover:bg-slate-600'}`}>{d}s</button>
                   ))}
               </div>
           </div>
           <button onClick={handleSpin} className="w-full flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98] disabled:bg-indigo-400 disabled:cursor-not-allowed" disabled={isSpinning || wordsForWheel.length < 2}>
               {isSpinning ? <><RefreshCw className="w-5 h-5 mr-2 animate-spin" />Đang quay...</> : <><Dices className="w-5 h-5 mr-2"/>Bắt đầu quay</>}
           </button>
-          {wordsForWheel.length < 2 && <p className="text-center text-sm text-amber-500 dark:text-amber-400">Vui lòng chọn ít nhất 2 từ cho vòng quay.</p>}
+          {wordsForWheel.length < 2 && <p className="text-center text-sm text-amber-400">Vui lòng chọn ít nhất 2 từ cho vòng quay.</p>}
        </div>
     </div>
   );
@@ -309,26 +309,26 @@ const LuckyWheel: React.FC<LuckyWheelProps> = ({ onBack }) => {
     <div className="space-y-4 animate-fade-in">
         <div className="flex justify-between items-start flex-wrap gap-2">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Vòng Quay Từ Vựng</h2>
-              {view === 'game' && <button onClick={() => setView('setup')} className="text-sm text-indigo-500 dark:text-indigo-400 hover:underline mt-1">Thay đổi cài đặt</button>}
+              <h2 className="text-2xl font-bold text-white">Vòng Quay Từ Vựng</h2>
+              {view === 'game' && <button onClick={() => setView('setup')} className="text-sm text-indigo-400 hover:underline mt-1">Thay đổi cài đặt</button>}
             </div>
-            <button onClick={onBack} className="flex-shrink-0 flex items-center gap-2 px-3 py-2 text-sm bg-slate-200/80 dark:bg-slate-700/50 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-gray-200 font-semibold rounded-xl transition-colors">
+            <button onClick={onBack} className="flex-shrink-0 flex items-center gap-2 px-3 py-2 text-sm bg-slate-700/50 hover:bg-slate-700 text-gray-200 font-semibold rounded-xl transition-colors">
               <ArrowLeft className="w-4 h-4" />
               <span>Quay lại</span>
             </button>
         </div>
          <div className="flex items-center justify-center sm:justify-end gap-3">
-            <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/50 px-3 py-1 rounded-full border border-slate-200 dark:border-slate-700" title="Điểm">
-                <Trophy className="w-5 h-5 text-yellow-500 dark:text-yellow-400" />
-                <span className="font-bold text-slate-800 dark:text-white text-lg">{score}</span>
+            <div className="flex items-center gap-2 bg-slate-800/50 px-3 py-1 rounded-full border border-slate-700" title="Điểm">
+                <Trophy className="w-5 h-5 text-yellow-400" />
+                <span className="font-bold text-white text-lg">{score}</span>
             </div>
-             <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/50 px-3 py-1 rounded-full border border-slate-200 dark:border-slate-700" title="Chuỗi hiện tại">
-                <Flame className="w-5 h-5 text-orange-500 dark:text-orange-400" />
-                <span className="font-bold text-slate-800 dark:text-white text-lg">{currentStreak}</span>
+             <div className="flex items-center gap-2 bg-slate-800/50 px-3 py-1 rounded-full border border-slate-700" title="Chuỗi hiện tại">
+                <Flame className="w-5 h-5 text-orange-400" />
+                <span className="font-bold text-white text-lg">{currentStreak}</span>
             </div>
-             <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/50 px-3 py-1 rounded-full border border-slate-200 dark:border-slate-700" title="Chuỗi tốt nhất">
-                <Star className="w-5 h-5 text-cyan-500 dark:text-cyan-400" />
-                <span className="font-bold text-slate-800 dark:text-white text-lg">{bestStreak}</span>
+             <div className="flex items-center gap-2 bg-slate-800/50 px-3 py-1 rounded-full border border-slate-700" title="Chuỗi tốt nhất">
+                <Star className="w-5 h-5 text-cyan-400" />
+                <span className="font-bold text-white text-lg">{bestStreak}</span>
             </div>
         </div>
         

@@ -3,7 +3,7 @@ import { HistoryEntry } from '../types';
 
 interface HistoryContextType {
   history: HistoryEntry[];
-  addHistoryEntry: (type: HistoryEntry['type'], details: string) => void;
+  addHistoryEntry: (type: HistoryEntry['type'], details: string, payload?: HistoryEntry['payload']) => void;
   clearHistory: () => void;
 }
 
@@ -28,12 +28,13 @@ export const HistoryProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
   }, [history]);
 
-  const addHistoryEntry = (type: HistoryEntry['type'], details: string) => {
+  const addHistoryEntry = (type: HistoryEntry['type'], details: string, payload?: HistoryEntry['payload']) => {
     const newEntry: HistoryEntry = {
       id: crypto.randomUUID(),
       type,
       details,
       timestamp: Date.now(),
+      payload,
     };
     // Add to the beginning of the array and limit to 100 entries
     setHistory(prev => [newEntry, ...prev].slice(0, 100));
