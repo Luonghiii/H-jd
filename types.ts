@@ -30,6 +30,7 @@ export enum View {
   Flashcards = 'FLASHCARDS',
   LuckyWheel = 'LUCKY_WHEEL',
   Quiz = 'QUIZ',
+  Minigames = 'MINIGAMES',
   Add = 'ADD',
   List = 'LIST',
   Story = 'STORY',

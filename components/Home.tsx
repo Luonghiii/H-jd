@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { useVocabulary } from '../hooks/useVocabulary';
 import { View } from '../types';
-import { PenSquare, Layers, Dices, ArrowRight, Book, Star, FileQuestion } from 'lucide-react';
+import { PenSquare, Layers, Dices, ArrowRight, Book, Star, Gamepad2 } from 'lucide-react';
 
 interface HomeProps {
   setCurrentView: (view: View) => void;
@@ -34,18 +34,18 @@ const Home: React.FC<HomeProps> = ({ setCurrentView }) => {
       color: 'from-purple-500 to-purple-400',
     },
     {
-      view: View.Quiz,
-      icon: FileQuestion,
-      title: 'Đố vui Trắc nghiệm',
-      description: 'Thử thách kiến thức của bạn với các câu hỏi do AI tạo ra.',
-      color: 'from-green-500 to-green-400',
-    },
-    {
       view: View.LuckyWheel,
       icon: Dices,
       title: 'Vòng Quay May Mắn',
       description: 'Kiểm tra kiến thức một cách vui nhộn và nhận điểm thưởng.',
       color: 'from-teal-500 to-teal-400',
+    },
+    {
+      view: View.Minigames,
+      icon: Gamepad2,
+      title: 'Lật thẻ Cặp đôi',
+      description: 'Rèn luyện trí nhớ và tìm các cặp từ-nghĩa tương ứng.',
+      color: 'from-rose-500 to-rose-400',
     }
   ];
 
