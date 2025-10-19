@@ -5,6 +5,8 @@ import { useSettings } from '../hooks/useSettings';
 import { useHistory } from '../hooks/useHistory';
 import { PlusCircle, RefreshCw, Sparkles, Image as ImageIcon, FileText } from 'lucide-react';
 import { generateWordsFromPrompt, getWordsFromImage, getWordsFromFile } from '../services/geminiService';
+import AddWordsReviewModal from './AddWordsReviewModal';
+import { GeneratedWord } from '../types';
 
 const fileToBase64 = (file: File): Promise<{base64: string, mimeType: string}> => {
   return new Promise((resolve, reject) => {
@@ -40,7 +42,9 @@ const AddWord: React.FC = () => {
   const uploadInputRef = useRef<HTMLInputElement>(null);
 
   // General state
-  const [feedback, setFeedback] = useState<{type: 'success' | 'error', message: string} | null>(null);
+  const [feedback, setFeedback] = useState<{type: 'success' | 'error' | 'info', message: string} | null>(null);
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [wordsForReview, setWordsForReview] = useState<GeneratedWord[]>([]);
 
   const { words, addWord, addMultipleWords, getAvailableThemes } = useVocabulary();
   const { addHistoryEntry } = useHistory();
@@ -82,12 +86,13 @@ const AddWord: React.FC = () => {
       try {
         const existingWords = words.map(w => w.word);
         const generatedWords = await generateWordsFromPrompt(aiPrompt.trim(), existingWords, learningLanguage);
-        // FIX: Await the result of addMultipleWords, as it is an async function.
-        const count = await addMultipleWords(generatedWords);
-        if (count > 0) {
-            addHistoryEntry('WORDS_ADDED', `Đã thêm ${count} từ mới bằng AI`, { wordCount: count });
+        if (generatedWords && generatedWords.length > 0) {
+            setWordsForReview(generatedWords);
+            setIsReviewModalOpen(true);
+        } else {
+            setFeedback({ type: 'info', message: `Không tìm thấy từ mới nào khớp với yêu cầu.` });
+            clearFeedback();
         }
-        setFeedback({ type: 'success', message: `Đã thêm ${count} từ mới!` });
         setAiPrompt('');
       } catch (error: any) {
         if (error.message === "All API keys failed.") {
@@ -95,9 +100,9 @@ const AddWord: React.FC = () => {
         } else {
              setFeedback({ type: 'error', message: "Lỗi không xác định khi tạo từ." });
         }
+        clearFeedback();
       } finally {
         setIsAiLoading(false);
-        clearFeedback();
       }
     }
   };
@@ -133,12 +138,13 @@ const AddWord: React.FC = () => {
                 generatedWords = await getWordsFromFile(base64, mimeType, existingWords, learningLanguage);
             }
 
-            // FIX: Await the result of addMultipleWords, as it is an async function.
-            const count = await addMultipleWords(generatedWords);
-            if (count > 0) {
-              addHistoryEntry('WORDS_ADDED', `Đã thêm ${count} từ mới từ ${sourceText}`, { wordCount: count });
+            if (generatedWords && generatedWords.length > 0) {
+                setWordsForReview(generatedWords);
+                setIsReviewModalOpen(true);
+            } else {
+                setFeedback({ type: 'info', message: `Không tìm thấy từ mới nào từ ${sourceText}.` });
+                clearFeedback();
             }
-            setFeedback({ type: 'success', message: `Tìm thấy và đã thêm ${count} từ mới từ ${sourceText}!` });
             setUploadedFile(null);
             setFilePreview(null);
         } catch(error: any) {
@@ -147,12 +153,25 @@ const AddWord: React.FC = () => {
             } else {
                 setFeedback({ type: 'error', message: "Lỗi không xác định khi phân tích file." });
             }
+            clearFeedback();
         } finally {
             setIsUploading(false);
-            clearFeedback();
         }
     }
   }
+
+  const handleConfirmReview = async (wordsToAdd: GeneratedWord[]) => {
+      const count = await addMultipleWords(wordsToAdd);
+      if (count > 0) {
+          addHistoryEntry('WORDS_ADDED', `Đã thêm ${count} từ mới.`, { wordCount: count });
+          setFeedback({ type: 'success', message: `Đã thêm ${count} từ mới!` });
+      } else {
+          setFeedback({ type: 'info', message: 'Không có từ mới nào được thêm.' });
+      }
+      setIsReviewModalOpen(false);
+      setWordsForReview([]);
+      clearFeedback();
+  };
 
   const renderTabs = () => (
     <div className="flex justify-center p-1 bg-slate-800/60 rounded-full mb-6 overflow-x-auto">
@@ -254,7 +273,11 @@ const AddWord: React.FC = () => {
       {renderTabs()}
 
       {feedback && (
-          <div className={`p-3 rounded-xl text-center text-sm font-medium ${feedback.type === 'success' ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'}`}>
+          <div className={`p-3 rounded-xl text-center text-sm font-medium ${
+              feedback.type === 'success' ? 'bg-green-500/20 text-green-300' 
+              : feedback.type === 'error' ? 'bg-red-500/20 text-red-300'
+              : 'bg-blue-500/20 text-blue-300'
+            }`}>
               {feedback.message}
           </div>
       )}
@@ -262,6 +285,13 @@ const AddWord: React.FC = () => {
       {mode === 'manual' && renderManualForm()}
       {mode === 'ai' && renderAiForm()}
       {mode === 'upload' && renderUploadForm()}
+
+      <AddWordsReviewModal
+          isOpen={isReviewModalOpen}
+          onClose={() => setIsReviewModalOpen(false)}
+          generatedWords={wordsForReview}
+          onConfirm={handleConfirmReview}
+      />
     </div>
   );
 };

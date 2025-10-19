@@ -4,7 +4,9 @@ import { useSettings } from '../hooks/useSettings';
 import { getWordInfo, generateSentence, checkSentence, rewriteSentence, getChatResponseForWord, generateSpeech } from '../services/geminiService';
 import { useAudioPlayer } from '../hooks/useAudioPlayer';
 import { useHistory } from '../hooks/useHistory';
-import { X, Info, MessageSquare, BookOpen, Send, RefreshCw, Volume2, Loader2 } from 'lucide-react';
+import { X, Info, MessageSquare, BookOpen, Send, RefreshCw, Volume2, Loader2, Edit, Save } from 'lucide-react';
+import { useVocabulary } from '../hooks/useVocabulary';
+import { useInspector } from '../hooks/useInspector';
 
 interface WordInspectorModalProps {
   isOpen: boolean;
@@ -16,8 +18,18 @@ type Tab = 'info' | 'examples' | 'chat';
 
 const WordInspectorModal: React.FC<WordInspectorModalProps> = ({ isOpen, word, onClose }) => {
   const { targetLanguage, learningLanguage } = useSettings();
+  const { updateWord } = useVocabulary();
+  const { updateInspectingWord } = useInspector();
+
   const [activeTab, setActiveTab] = useState<Tab>('info');
   
+  // Edit State
+  const [isEditing, setIsEditing] = useState(false);
+  const [editableWord, setEditableWord] = useState('');
+  const [editableTranslationVI, setEditableTranslationVI] = useState('');
+  const [editableTranslationEN, setEditableTranslationEN] = useState('');
+  const [editableTheme, setEditableTheme] = useState('');
+
   // Info Tab State
   const [wordInfo, setWordInfo] = useState<WordInfo | null>(null);
   const [isInfoLoading, setIsInfoLoading] = useState(false);
@@ -43,6 +55,13 @@ const WordInspectorModal: React.FC<WordInspectorModalProps> = ({ isOpen, word, o
   const { addHistoryEntry } = useHistory();
   const [isSpeechLoading, setIsSpeechLoading] = useState(false);
 
+  const setEditableStateFromWord = (w: VocabularyWord) => {
+    setEditableWord(w.word);
+    setEditableTranslationVI(w.translation.vietnamese);
+    setEditableTranslationEN(w.translation.english);
+    setEditableTheme(w.theme || '');
+  };
+
   useEffect(() => {
     if (isOpen) {
       // Reset state when modal opens or word changes
@@ -54,6 +73,8 @@ const WordInspectorModal: React.FC<WordInspectorModalProps> = ({ isOpen, word, o
       setUserSentence('');
       setSentenceFeedback('');
       setRewrittenSentence('');
+      setIsEditing(false);
+      setEditableStateFromWord(word);
     }
   }, [isOpen, word]);
 
@@ -129,6 +150,40 @@ const WordInspectorModal: React.FC<WordInspectorModalProps> = ({ isOpen, word, o
     setIsChatLoading(false);
   }
 
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditableStateFromWord(word);
+  };
+
+  const handleSave = async () => {
+      const updates: Partial<VocabularyWord> = {
+          word: editableWord.trim(),
+          translation: {
+              vietnamese: editableTranslationVI.trim(),
+              english: editableTranslationEN.trim(),
+          },
+          theme: editableTheme.trim(),
+      };
+      
+      if (!updates.theme) {
+          delete updates.theme;
+      }
+
+      await updateWord(word.id, updates);
+
+      const updatedInspectingWord: VocabularyWord = {
+          ...word,
+          ...updates,
+          translation: updates.translation!,
+      };
+      if (!updates.theme) {
+          delete updatedInspectingWord.theme;
+      }
+
+      updateInspectingWord(updatedInspectingWord);
+      setIsEditing(false);
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -145,9 +200,16 @@ const WordInspectorModal: React.FC<WordInspectorModalProps> = ({ isOpen, word, o
                     </h2>
                     <p className="text-gray-400">{word.translation[targetLanguage]}</p>
                 </div>
-                <button onClick={onClose} className="p-2 text-gray-400 hover:bg-slate-700 rounded-full">
-                    <X className="w-5 h-5" />
-                </button>
+                <div className="flex items-center gap-1">
+                  {!isEditing && (
+                    <button onClick={() => setIsEditing(true)} className="p-2 text-gray-400 hover:bg-slate-700 rounded-full" title="Sửa từ">
+                      <Edit className="w-5 h-5" />
+                    </button>
+                  )}
+                  <button onClick={onClose} className="p-2 text-gray-400 hover:bg-slate-700 rounded-full">
+                      <X className="w-5 h-5" />
+                  </button>
+                </div>
             </div>
             <div className="mt-4 flex border-b border-slate-700">
                 <button onClick={() => setActiveTab('info')} className={`px-4 py-2 text-sm font-medium border-b-2 ${activeTab === 'info' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-500 hover:text-gray-200'}`}><Info className="w-4 h-4 inline mr-1"/> Thông tin</button>
@@ -157,16 +219,38 @@ const WordInspectorModal: React.FC<WordInspectorModalProps> = ({ isOpen, word, o
         </div>
         <div className="p-4 sm:p-6 overflow-y-auto">
             {activeTab === 'info' && (
-                <div className="space-y-4">
-                    {isInfoLoading ? <p>Đang tải thông tin...</p> : wordInfo ? (
-                        <>
-                           {word.imageUrl && <img src={word.imageUrl} alt={word.word} className="w-full h-48 object-contain rounded-xl bg-slate-700/50 p-2"/>}
-                           <p><strong>Loại từ:</strong> {wordInfo.partOfSpeech}</p>
-                           {wordInfo.gender && <p><strong>Giống:</strong> {wordInfo.gender}</p>}
-                           <p><strong>Định nghĩa:</strong> {wordInfo.definition}</p>
-                        </>
-                    ) : <p>Không thể tải thông tin.</p>}
-                </div>
+                isEditing ? (
+                  <div className="space-y-4 animate-fade-in">
+                    <div>
+                        <label className="text-sm font-medium text-gray-400">Từ</label>
+                        <input type="text" value={editableWord} onChange={e => setEditableWord(e.target.value)} className="w-full mt-1 px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-md" />
+                    </div>
+                    <div>
+                        <label className="text-sm font-medium text-gray-400">Nghĩa Tiếng Việt</label>
+                        <input type="text" value={editableTranslationVI} onChange={e => setEditableTranslationVI(e.target.value)} className="w-full mt-1 px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-md" />
+                    </div>
+                    <div>
+                        <label className="text-sm font-medium text-gray-400">Nghĩa Tiếng Anh</label>
+                        <input type="text" value={editableTranslationEN} onChange={e => setEditableTranslationEN(e.target.value)} className="w-full mt-1 px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-md" />
+                    </div>
+                    <div>
+                        <label className="text-sm font-medium text-gray-400">Chủ đề</label>
+                        <input type="text" value={editableTheme} onChange={e => setEditableTheme(e.target.value)} className="w-full mt-1 px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-md" />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                      {isInfoLoading ? <p>Đang tải thông tin...</p> : wordInfo ? (
+                          <>
+                            {word.imageUrl && <img src={word.imageUrl} alt={word.word} className="w-full h-48 object-contain rounded-xl bg-slate-700/50 p-2"/>}
+                            {word.theme && <p><strong>Chủ đề:</strong> {word.theme}</p>}
+                            <p><strong>Loại từ:</strong> {wordInfo.partOfSpeech}</p>
+                            {wordInfo.gender && <p><strong>Giống:</strong> {wordInfo.gender}</p>}
+                            <p><strong>Định nghĩa:</strong> {wordInfo.definition}</p>
+                          </>
+                      ) : <p>Không thể tải thông tin.</p>}
+                  </div>
+                )
             )}
             {activeTab === 'examples' && (
                 <div className="space-y-6">
@@ -209,6 +293,14 @@ const WordInspectorModal: React.FC<WordInspectorModalProps> = ({ isOpen, word, o
                 </div>
             )}
         </div>
+        {isEditing && (
+            <div className="p-4 flex-shrink-0 border-t border-slate-600 flex justify-end gap-3">
+                <button onClick={handleCancelEdit} className="px-4 py-2 bg-slate-600 hover:bg-slate-700 font-semibold rounded-lg">Hủy</button>
+                <button onClick={handleSave} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 font-semibold rounded-lg">
+                    <Save className="w-4 h-4" /> Lưu thay đổi
+                </button>
+            </div>
+        )}
       </div>
     </div>
   );

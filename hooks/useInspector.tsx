@@ -5,6 +5,7 @@ interface InspectorContextType {
   inspectingWord: VocabularyWord | null;
   openInspector: (word: VocabularyWord) => void;
   closeInspector: () => void;
+  updateInspectingWord: (word: VocabularyWord) => void;
 }
 
 const InspectorContext = createContext<InspectorContextType | undefined>(undefined);
@@ -19,9 +20,13 @@ export const InspectorProvider: React.FC<{ children: ReactNode }> = ({ children 
   const closeInspector = () => {
     setInspectingWord(null);
   };
+  
+  const updateInspectingWord = (word: VocabularyWord) => {
+    setInspectingWord(word);
+  };
 
   return (
-    <InspectorContext.Provider value={{ inspectingWord, openInspector, closeInspector }}>
+    <InspectorContext.Provider value={{ inspectingWord, openInspector, closeInspector, updateInspectingWord }}>
       {children}
     </InspectorContext.Provider>
   );
