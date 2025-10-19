@@ -3,7 +3,7 @@ import { TargetLanguage, LearningLanguage, ConversationSession, UserStats } from
 import { useAuth } from './useAuth';
 import { onUserDataSnapshot, updateUserData } from '../services/firestoreService';
 import { setApiKeys } from '../services/geminiService';
-import { uploadAvatar } from '../services/storageService';
+import { uploadAvatar, uploadAvatarFrame } from '../services/storageService';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 
@@ -54,6 +54,7 @@ interface SettingsContextType {
   updateAvatarFromFile: (file: File) => Promise<void>;
   updateAvatarFromUrl: (url: string) => Promise<void>;
   updateAvatarFrame: (frameId: string) => Promise<void>;
+  updateAvatarFrameFromFile: (file: File) => Promise<void>;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -278,6 +279,12 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     await updateUserData(currentUser.uid, { avatarFrame: frameId });
   }, [currentUser]);
 
+  const updateAvatarFrameFromFile = useCallback(async (file: File) => {
+    if (!currentUser) return;
+    const newFrameURL = await uploadAvatarFrame(currentUser.uid, file);
+    await updateUserData(currentUser.uid, { avatarFrame: newFrameURL });
+  }, [currentUser]);
+
   const hasApiKey = !!process.env.API_KEY || appState.userApiKeys.length > 0;
 
   const contextValue = {
@@ -312,6 +319,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     updateAvatarFromFile,
     updateAvatarFromUrl,
     updateAvatarFrame,
+    updateAvatarFrameFromFile,
   };
 
   return (

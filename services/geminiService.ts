@@ -300,6 +300,24 @@ export const generateImageForWord = async (word: string): Promise<string> => {
     });
 };
 
+export const generateImageFromPrompt = async (prompt: string): Promise<string> => {
+    return executeWithKeyRotation(async (ai) => {
+        const response = await ai.models.generateImages({
+            model: 'imagen-4.0-generate-001',
+            prompt: prompt,
+            config: {
+              numberOfImages: 1,
+              outputMimeType: 'image/png',
+              aspectRatio: '1:1',
+            },
+        });
+
+        const base64ImageBytes: string = response.generatedImages[0].image.imageBytes;
+        return `data:image/png;base64,${base64ImageBytes}`;
+    });
+};
+
+
 export const editImage = async (base64Data: string, mimeType: string, prompt: string): Promise<string> => {
     return executeWithKeyRotation(async (ai) => {
         const response = await ai.models.generateContent({

@@ -167,7 +167,7 @@ export const getLeaderboardData = async (statField: 'stats.longestStreak' | 'sta
     const usersRef = collection(db, 'users');
     const q = query(
         usersRef,
-        where('leaderboardName', '!=', ''), // Only fetch users who have set a name
+        where('leaderboardName', '>', ''), // Use ">" instead of "!=" for a valid composite query
         orderBy(statField, 'desc'),
         limit(10)
     );
