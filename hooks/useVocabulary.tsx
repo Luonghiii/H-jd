@@ -145,16 +145,23 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
 
     if (uniqueNewWords.length === 0) return 0;
 
-    const wordsToAdd: VocabularyWord[] = uniqueNewWords.map(nw => ({
-        id: crypto.randomUUID(),
-        word: nw.word,
-        translation: { vietnamese: nw.translation_vi, english: nw.translation_en },
-        theme: nw.theme,
-        createdAt: Date.now(),
-        isStarred: false,
-        srsLevel: 0,
-        nextReview: Date.now(),
-    }));
+    const wordsToAdd: VocabularyWord[] = uniqueNewWords.map(nw => {
+        const newWord: VocabularyWord = {
+            id: crypto.randomUUID(),
+            word: nw.word,
+            translation: { vietnamese: nw.translation_vi, english: nw.translation_en },
+            createdAt: Date.now(),
+            isStarred: false,
+            srsLevel: 0,
+            nextReview: Date.now(),
+        };
+        // Firestore does not accept `undefined` values.
+        // Only add the theme property if it exists and is a non-empty string.
+        if (nw.theme) {
+            newWord.theme = nw.theme;
+        }
+        return newWord;
+    });
     
     const newWordsList = [...wordsToAdd, ...words];
     await persistWords(newWordsList);

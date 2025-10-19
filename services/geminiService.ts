@@ -92,22 +92,35 @@ export const translateWord = async (word: string, toLanguage: 'English' | 'Vietn
 const generatedWordSchema = {
     type: Type.OBJECT,
     properties: {
-        word: { type: Type.STRING },
-        translation_vi: { type: Type.STRING },
-        translation_en: { type: Type.STRING },
-        theme: { type: Type.STRING },
-    }
+        word: { 
+            type: Type.STRING,
+            description: "The vocabulary word in the target learning language. For German nouns, include the article (e.g., 'der Tisch'). This field must contain ONLY the word itself in its simplest dictionary form, without any extra metadata like plural forms or translations."
+        },
+        translation_vi: { 
+            type: Type.STRING,
+            description: "The Vietnamese translation of the word."
+        },
+        translation_en: { 
+            type: Type.STRING,
+            description: "The English translation of the word."
+        },
+        theme: { 
+            type: Type.STRING,
+            description: "A concise theme or category for the word, in Vietnamese (e.g., 'Thức ăn', 'Gia đình')."
+        },
+    },
+    required: ["word", "translation_vi", "translation_en", "theme"]
 };
 
 export const generateWordsFromPrompt = async (prompt: string, existingWords: string[], language: LearningLanguage): Promise<GeneratedWord[]> => {
     return executeWithKeyRotation(async (ai) => {
         const systemInstruction = `You are an AI assistant for a language learning app. Your task is to generate a list of vocabulary words based on the user's request.
 The target learning language is ${language}.
-For each word, provide a clean, simple dictionary form. For German nouns, include the article (e.g., 'der Apfel'). Do not include plural forms, conjugations, or other metadata in the word field itself.
-Provide translations in both Vietnamese and English.
-Assign a relevant, concise theme in Vietnamese for each word (can be one or more words).
+For each word, provide a clean, simple dictionary form in the 'word' field. For German nouns, include the article (e.g., 'der Apfel'). The 'word' field MUST NOT contain translations, plural forms, conjugations, or any other metadata.
+Provide translations in both Vietnamese ('translation_vi') and English ('translation_en').
+Assign a relevant, concise theme in Vietnamese for each word in the 'theme' field.
 Do NOT include any of these existing words: ${existingWords.join(', ')}.
-Output a JSON array of objects.`;
+Strictly follow the provided JSON schema. Output a JSON array of objects.`;
 
         const response = await ai.models.generateContent({
             model: textModel,
@@ -131,11 +144,11 @@ export const getWordsFromImage = async (base64: string, mimeType: string, existi
     return executeWithKeyRotation(async (ai) => {
         const systemInstruction = `You are an AI assistant for a language learning app. Identify objects in the image and generate a list of vocabulary words for them.
 The target learning language is ${language}.
-For each word, provide a clean, simple dictionary form. For German nouns, include the article (e.g., 'der Apfel'). Do not include plural forms, conjugations, or other metadata in the word field itself.
-Provide translations in both Vietnamese and English.
-Assign a relevant, concise theme in Vietnamese for each word (can be one or more words).
+For each word, provide a clean, simple dictionary form in the 'word' field. For German nouns, include the article (e.g., 'der Apfel'). The 'word' field MUST NOT contain translations, plural forms, conjugations, or any other metadata.
+Provide translations in both Vietnamese ('translation_vi') and English ('translation_en').
+Assign a relevant, concise theme in Vietnamese for each word in the 'theme' field.
 Do NOT include any of these existing words: ${existingWords.join(', ')}.
-Output a JSON array of objects.`;
+Strictly follow the provided JSON schema. Output a JSON array of objects.`;
 
         const imagePart = { inlineData: { data: base64, mimeType } };
         const textPart = { text: "Identify objects in this image and list them as vocabulary words." };
@@ -162,11 +175,11 @@ export const getWordsFromFile = async (base64: string, mimeType: string, existin
     return executeWithKeyRotation(async (ai) => {
         const systemInstruction = `You are an AI assistant for a language learning app. Analyze the provided document and extract key vocabulary words.
 The target learning language is ${language}.
-For each word, provide a clean, simple dictionary form. For German nouns, include the article (e.g., 'der Apfel'). Do not include plural forms, conjugations, or other metadata in the word field itself.
-Provide translations in both Vietnamese and English, and assign a relevant, concise theme in Vietnamese (can be one or more words).
+For each word, provide a clean, simple dictionary form in the 'word' field. For German nouns, include the article (e.g., 'der Apfel'). The 'word' field MUST NOT contain translations, plural forms, conjugations, or any other metadata.
+Provide translations in both Vietnamese ('translation_vi') and English ('translation_en'), and assign a relevant, concise theme in Vietnamese in the 'theme' field.
 Do NOT include any of these existing words: ${existingWords.join(', ')}.
 Focus on nouns, verbs, and adjectives that are useful for a language learner. Extract around 10-15 words.
-Output a JSON array of objects.`;
+Strictly follow the provided JSON schema. Output a JSON array of objects.`;
 
         const filePart = { inlineData: { data: base64, mimeType } };
         
@@ -192,11 +205,12 @@ export const identifyObjectInImage = async (base64: string, mimeType: string, co
     return executeWithKeyRotation(async (ai) => {
         const systemInstruction = `You are an AI assistant for a language learning app. A user has clicked on an image at normalized coordinates (x: ${coords.x}, y: ${coords.y}). Your task is to identify the object at or very near these coordinates.
 The target learning language is ${language}.
-Provide its name in a clean, simple dictionary form. For German nouns, include the article (e.g., 'der Tisch'). Do not include plural forms or other metadata in the word field.
-Provide translations in both Vietnamese and English, and a relevant, concise theme in Vietnamese (can be one or more words).
+Provide its name in a clean, simple dictionary form in the 'word' field. For German nouns, include the article (e.g., 'der Tisch'). The 'word' field MUST NOT contain translations, plural forms, or any other metadata.
+Provide translations in both Vietnamese ('translation_vi') and English ('translation_en').
+Assign a relevant, concise theme in Vietnamese in the 'theme' field.
 If no specific object is at the coordinates, identify the general area (e.g., 'sky', 'wall').
 If you cannot identify anything, return a JSON object with null values.
-Output a single JSON object.`;
+Strictly follow the provided JSON schema. Output a single JSON object.`;
 
         const imagePart = { inlineData: { data: base64, mimeType } };
         const textPart = { text: `Identify the object at x:${coords.x}, y:${coords.y}.`};

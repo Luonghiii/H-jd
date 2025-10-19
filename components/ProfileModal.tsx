@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSettings } from '../hooks/useSettings';
-import { X, User as UserIcon, Upload, Check, Loader2, UserCheck } from 'lucide-react';
+import { X, User as UserIcon, Upload, Check, Loader2, UserCheck, Sparkles, Camera } from 'lucide-react';
 import eventBus from '../utils/eventBus';
+import ImageGenerationModal from './ImageGenerationModal';
 
 const ANONYMOUS_NAME = 'Người dùng ẩn danh';
 
@@ -11,7 +12,7 @@ interface ProfileModalProps {
 }
 
 const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
-    const { profile, leaderboardName: initialLeaderboardName, updateUserProfile, updateAvatarFromFile, setLeaderboardName } = useSettings();
+    const { profile, leaderboardName: initialLeaderboardName, updateUserProfile, updateAvatarFromFile, setLeaderboardName, updateAvatarFromUrl } = useSettings();
     
     // User profile fields state
     const [displayName, setDisplayName] = useState('');
@@ -24,6 +25,9 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
 
     // Avatar state
     const [localAvatar, setLocalAvatar] = useState<string | null>(null);
+    
+    // Modal state
+    const [isGenerationModalOpen, setIsGenerationModalOpen] = useState(false);
 
     // Control state
     const [isLoading, setIsLoading] = useState(false);
@@ -59,13 +63,26 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
         if (file) {
             setIsAvatarLoading(true);
             try {
-                await updateAvatarFromFile(file);
+                const newUrl = await updateAvatarFromFile(file);
+                setLocalAvatar(newUrl);
                 eventBus.dispatch('notification', { type: 'success', message: 'Cập nhật ảnh đại diện thành công!' });
-            } catch (error) {
-                eventBus.dispatch('notification', { type: 'error', message: 'Tải ảnh lên thất bại.' });
+            } catch (error: any) {
+                eventBus.dispatch('notification', { type: 'error', message: error.message || 'Tải ảnh lên thất bại do lỗi không xác định.' });
             } finally {
                 setIsAvatarLoading(false);
             }
+        }
+    };
+    
+    const handleSaveGeneratedAvatar = async (imageUrl: string) => {
+        setIsAvatarLoading(true);
+        try {
+            await updateAvatarFromUrl(imageUrl);
+            eventBus.dispatch('notification', { type: 'success', message: 'Đã lưu avatar do AI tạo!' });
+        } catch (error) {
+            eventBus.dispatch('notification', { type: 'error', message: 'Lưu avatar thất bại.' });
+        } finally {
+            setIsAvatarLoading(false);
         }
     };
 
@@ -98,19 +115,36 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                     <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
                         {/* Avatar Section */}
                         <div className="flex flex-col items-center gap-4">
-                            <div className="relative w-28 h-28">
-                                 {localAvatar ? (
-                                    <img src={localAvatar} alt="Avatar" className="w-full h-full object-cover rounded-full" />
-                                ) : (
-                                    <div className="w-full h-full rounded-full bg-slate-700 flex items-center justify-center">
-                                        <UserIcon className="w-12 h-12 text-gray-400" />
+                            <div className="relative w-28 h-28 group">
+                                <button
+                                    onClick={() => !isAvatarLoading && fileInputRef.current?.click()}
+                                    className="w-full h-full rounded-full overflow-hidden focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 focus:ring-indigo-500"
+                                    disabled={isAvatarLoading}
+                                >
+                                    {localAvatar ? (
+                                        <img src={localAvatar} alt="Avatar" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <div className="w-full h-full bg-slate-700 flex items-center justify-center">
+                                            <UserIcon className="w-12 h-12 text-gray-400" />
+                                        </div>
+                                    )}
+                                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Camera className="w-8 h-8 text-white"/>
                                     </div>
-                                )}
-                                {isAvatarLoading && <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin"/></div>}
+                                    {isAvatarLoading && (
+                                        <div className="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center">
+                                            <Loader2 className="w-8 h-8 animate-spin text-white"/>
+                                        </div>
+                                    )}
+                                </button>
                             </div>
+
                             <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
-                            <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 px-3 py-1.5 text-sm bg-slate-700 hover:bg-slate-600 rounded-lg">
-                                <Upload className="w-4 h-4"/> Tải ảnh mới
+                             <button 
+                                onClick={() => setIsGenerationModalOpen(true)}
+                                className="flex items-center gap-2 px-3 py-1.5 text-sm bg-slate-700 hover:bg-slate-600 rounded-lg"
+                            >
+                                <Sparkles className="w-4 h-4 text-amber-400"/> Tạo bằng AI
                             </button>
                         </div>
 
@@ -160,6 +194,11 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                     </div>
                 </div>
             </div>
+            <ImageGenerationModal
+                isOpen={isGenerationModalOpen}
+                onClose={() => setIsGenerationModalOpen(false)}
+                onSave={handleSaveGeneratedAvatar}
+            />
         </>
     );
 };

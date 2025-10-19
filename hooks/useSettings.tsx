@@ -50,7 +50,7 @@ interface SettingsContextType {
   updateWordCountStat: (count: number) => Promise<void>;
   profile: UserProfile;
   updateUserProfile: (updates: Partial<UserProfile>) => Promise<void>;
-  updateAvatarFromFile: (file: File) => Promise<void>;
+  updateAvatarFromFile: (file: File) => Promise<string>;
   updateAvatarFromUrl: (url: string) => Promise<void>;
 }
 
@@ -67,7 +67,7 @@ const defaultState = {
       currentStreak: 0,
       longestStreak: 0,
       lastActivityDate: '',
-      wordOfTheDay: undefined,
+      // wordOfTheDay: undefined, // REMOVED to prevent Firestore error with undefined
       totalWords: 0,
     } as UserStats,
     aiTutorHistory: [] as ConversationSession[],
@@ -151,14 +151,13 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     
     const newLongestStreak = Math.max(longestStreak, newCurrentStreak);
 
-    const newStats: UserStats = {
-      ...appState.stats,
-      currentStreak: newCurrentStreak,
-      longestStreak: newLongestStreak,
-      lastActivityDate: today,
-    };
+    const userRef = doc(db, 'users', currentUser.uid);
+    await updateDoc(userRef, {
+        'stats.currentStreak': newCurrentStreak,
+        'stats.longestStreak': newLongestStreak,
+        'stats.lastActivityDate': today,
+    });
     
-    await updateUserData(currentUser.uid, { stats: newStats });
     await updateUserLeaderboardEntry(currentUser.uid);
     
   }, [currentUser, appState.stats]);
@@ -166,41 +165,48 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const setTargetLanguage = useCallback(async (language: TargetLanguage) => {
     if (!currentUser) return;
-    await updateUserData(currentUser.uid, { settings: { targetLanguage: language } });
+    const userRef = doc(db, 'users', currentUser.uid);
+    await updateDoc(userRef, { 'settings.targetLanguage': language });
   }, [currentUser]);
   
   const setLearningLanguage = useCallback(async (language: LearningLanguage) => {
     if (!currentUser) return;
-    await updateUserData(currentUser.uid, { settings: { learningLanguage: language } });
+    const userRef = doc(db, 'users', currentUser.uid);
+    await updateDoc(userRef, { 'settings.learningLanguage': language });
   }, [currentUser]);
 
   const setBackgroundImage = useCallback(async (imageDataUrl: string) => {
     if (!currentUser) return;
     const newBg = { type: 'image' as const, value: imageDataUrl };
-    await updateUserData(currentUser.uid, { settings: { backgroundSetting: newBg } });
+    const userRef = doc(db, 'users', currentUser.uid);
+    await updateDoc(userRef, { 'settings.backgroundSetting': newBg });
   }, [currentUser]);
   
   const setBackgroundGradient = useCallback(async (cssGradient: string) => {
     if (!currentUser) return;
     const newBg = { type: 'gradient' as const, value: cssGradient };
-    await updateUserData(currentUser.uid, { settings: { backgroundSetting: newBg } });
+    const userRef = doc(db, 'users', currentUser.uid);
+    await updateDoc(userRef, { 'settings.backgroundSetting': newBg });
   }, [currentUser]);
 
   const clearBackgroundSetting = useCallback(async () => {
     if (!currentUser) return;
-    await updateUserData(currentUser.uid, { settings: { backgroundSetting: null } });
+    const userRef = doc(db, 'users', currentUser.uid);
+    await updateDoc(userRef, { 'settings.backgroundSetting': null });
   }, [currentUser]);
   
   const addCustomGradient = useCallback(async (gradient: string) => {
     if (!currentUser) return;
     const newGradients = [gradient, ...appState.customGradients];
-    await updateUserData(currentUser.uid, { settings: { customGradients: newGradients } });
+    const userRef = doc(db, 'users', currentUser.uid);
+    await updateDoc(userRef, { 'settings.customGradients': newGradients });
   }, [currentUser, appState.customGradients]);
   
   const removeCustomGradient = useCallback(async (gradient: string) => {
     if (!currentUser) return;
     const newGradients = appState.customGradients.filter(g => g !== gradient);
-    await updateUserData(currentUser.uid, { settings: { customGradients: newGradients } });
+    const userRef = doc(db, 'users', currentUser.uid);
+    await updateDoc(userRef, { 'settings.customGradients': newGradients });
   }, [currentUser, appState.customGradients]);
 
   const addUserApiKey = useCallback(async (key: string): Promise<boolean> => {
@@ -210,25 +216,29 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
         return false;
     }
     const newKeys = [...appState.userApiKeys, trimmedKey];
-    await updateUserData(currentUser.uid, { settings: { userApiKeys: newKeys } });
+    const userRef = doc(db, 'users', currentUser.uid);
+    await updateDoc(userRef, { 'settings.userApiKeys': newKeys });
     return true;
   }, [currentUser, appState.userApiKeys]);
 
   const removeUserApiKey = useCallback(async (keyToRemove: string) => {
     if (!currentUser) return;
     const newKeys = appState.userApiKeys.filter(k => k !== keyToRemove);
-    await updateUserData(currentUser.uid, { settings: { userApiKeys: newKeys } });
+    const userRef = doc(db, 'users', currentUser.uid);
+    await updateDoc(userRef, { 'settings.userApiKeys': newKeys });
   }, [currentUser, appState.userApiKeys]);
 
   const updateBestStreak = useCallback(async (streak: number) => {
     if (!currentUser) return;
-    await updateUserData(currentUser.uid, { stats: { luckyWheelBestStreak: streak } });
+    const userRef = doc(db, 'users', currentUser.uid);
+    await updateDoc(userRef, { 'stats.luckyWheelBestStreak': streak });
   }, [currentUser]);
 
   const setWordOfTheDay = useCallback(async (wordId: string) => {
     if (!currentUser) return;
     const today = new Date().toISOString().split('T')[0];
-    await updateUserData(currentUser.uid, { stats: { wordOfTheDay: { wordId, date: today } } });
+    const userRef = doc(db, 'users', currentUser.uid);
+    await updateDoc(userRef, { 'stats.wordOfTheDay': { wordId, date: today } });
   }, [currentUser]);
 
   const saveTutorSession = useCallback(async (session: ConversationSession) => {
@@ -262,11 +272,12 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     await updateUserLeaderboardEntry(currentUser.uid);
   }, [currentUser]);
 
-  const updateAvatarFromFile = useCallback(async (file: File) => {
-      if (!currentUser) return;
+  const updateAvatarFromFile = useCallback(async (file: File): Promise<string> => {
+      if (!currentUser) throw new Error("User not authenticated.");
       const newPhotoURL = await uploadAvatar(currentUser.uid, file);
       await updateUserData(currentUser.uid, { photoURL: newPhotoURL });
       await updateUserLeaderboardEntry(currentUser.uid);
+      return newPhotoURL;
   }, [currentUser]);
 
   const updateAvatarFromUrl = useCallback(async (url: string) => {
