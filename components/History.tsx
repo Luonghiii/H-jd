@@ -3,7 +3,7 @@ import { useHistory } from '../hooks/useHistory';
 import { HistoryEntry } from '../types';
 import { useInspector } from '../hooks/useInspector';
 import { useVocabulary } from '../hooks/useVocabulary';
-import { LogIn, LogOut, PlusSquare, BookOpen, CheckSquare, Award, XCircle, Trash2, Link, Puzzle, Shuffle, BrainCircuit, Volume2, Wand2, Image as ImageIcon, Search, PenSquare, Layers, ChevronDown, Dices, RefreshCw } from 'lucide-react';
+import { LogIn, LogOut, PlusSquare, BookOpen, CheckSquare, Award, XCircle, Trash2, Link, Puzzle, Shuffle, BrainCircuit, Volume2, Wand2, Image as ImageIcon, Search, PenSquare, Layers, ChevronDown, Dices, RefreshCw, Library, MessageCircle } from 'lucide-react';
 
 const ICONS: { [key in HistoryEntry['type']]: React.ElementType } = {
     LOGIN: LogIn,
@@ -25,6 +25,8 @@ const ICONS: { [key in HistoryEntry['type']]: React.ElementType } = {
     REVIEW_SESSION_COMPLETED: BrainCircuit,
     SPEECH_GENERATED: Volume2,
     LUCKY_WHEEL_CORRECT_ANSWER: Dices,
+    AI_LESSON_GENERATED: Library,
+    AI_TUTOR_SESSION_COMPLETED: MessageCircle,
 };
 
 const formatTimeAgo = (timestamp: number) => {
@@ -146,6 +148,9 @@ const History: React.FC = () => {
         }
         if ((entry.type === 'WORD_GUESS_WON' || entry.type === 'WORD_GUESS_LOST') && entry.payload.word) {
             return <span className="text-sm text-gray-400">(Từ: {entry.payload.word})</span>
+        }
+        if (entry.type === 'AI_TUTOR_SESSION_COMPLETED' && entry.payload.turnCount) {
+             return <span className="text-sm text-gray-400">({entry.payload.turnCount} lượt)</span>
         }
         return null;
     }

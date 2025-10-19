@@ -5,6 +5,7 @@ import { getChatResponseForTutor } from '../services/geminiService';
 import { ArrowLeft, Mic, MicOff, Loader2, Play, StopCircle, Trash2, ChevronDown, Send } from 'lucide-react';
 import eventBus from '../utils/eventBus';
 import { Turn, ConversationSession } from '../types';
+import { useHistory } from '../hooks/useHistory';
 
 // Audio utility functions from @google/genai documentation
 function decode(base64: string): Uint8Array {
@@ -73,6 +74,7 @@ interface AiTutorProps {
 
 const AiTutor: React.FC<AiTutorProps> = ({ onBack }) => {
     const { learningLanguage, targetLanguage, userApiKeys, aiTutorHistory, saveTutorSession, clearTutorHistory } = useSettings();
+    const { addHistoryEntry } = useHistory();
     const [connectionState, setConnectionState] = useState<'idle' | 'connecting' | 'connected' | 'error'>('idle');
     
     // Full completed turns
@@ -151,6 +153,7 @@ const AiTutor: React.FC<AiTutorProps> = ({ onBack }) => {
                     turns: allTurns,
                 };
                 saveTutorSession(newSession);
+                addHistoryEntry('AI_TUTOR_SESSION_COMPLETED', `Hoàn thành phiên trò chuyện với Gia sư AI.`, { turnCount: allTurns.length });
             }
         }
 
@@ -159,7 +162,7 @@ const AiTutor: React.FC<AiTutorProps> = ({ onBack }) => {
         setLiveOutput('');
         currentInputTranscriptionRef.current = '';
         currentOutputTranscriptionRef.current = '';
-    }, [saveTutorSession]);
+    }, [saveTutorSession, addHistoryEntry]);
 
     const stopSession = useCallback(async () => {
         await cleanup(true);

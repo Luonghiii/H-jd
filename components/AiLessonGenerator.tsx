@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useSettings } from '../hooks/useSettings';
 import { useVocabulary } from '../hooks/useVocabulary';
+import { useHistory } from '../hooks/useHistory';
 import { generateAiLesson } from '../services/geminiService';
 import { AiLesson } from '../types';
 import { ArrowLeft, RefreshCw, Sparkles, BookOpen, MessageCircle, GraduationCap, PlusCircle } from 'lucide-react';
@@ -13,6 +14,7 @@ interface AiLessonGeneratorProps {
 const AiLessonGenerator: React.FC<AiLessonGeneratorProps> = ({ onBack }) => {
     const { learningLanguage, targetLanguage } = useSettings();
     const { addMultipleWords } = useVocabulary();
+    const { addHistoryEntry } = useHistory();
     const [theme, setTheme] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [lesson, setLesson] = useState<AiLesson | null>(null);
@@ -26,6 +28,7 @@ const AiLessonGenerator: React.FC<AiLessonGeneratorProps> = ({ onBack }) => {
             const result = await generateAiLesson(theme, learningLanguage, targetLanguage);
             if (result) {
                 setLesson(result);
+                addHistoryEntry('AI_LESSON_GENERATED', `Đã tạo bài học về chủ đề: "${theme}"`, { theme });
             } else {
                 eventBus.dispatch('notification', { type: 'error', message: 'Không thể tạo bài học. Vui lòng thử lại.' });
             }
