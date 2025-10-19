@@ -86,13 +86,12 @@ export const createUserDocument = async (user: User): Promise<void> => {
     const snap = await tx.get(userRef);
     if (!snap.exists()) {
       const { email, displayName, photoURL } = user;
-      const defaultAvatarUrl = 'https://storage.googleapis.com/lbwl-e99a9.appspot.com/premade-avatars/avatar1.png';
       const initialGermanWords = generatedWordsToVocabulary(defaultGermanWords);
       const initialData: Omit<UserDoc, 'history'> = {
         uid: user.uid,
         email: email ?? null,
         displayName: displayName ?? '',
-        photoURL: photoURL ?? defaultAvatarUrl,
+        photoURL: photoURL ?? null,
         username: '',
         dob: '',
         createdAt: serverTimestamp(),
@@ -127,7 +126,7 @@ export const createUserDocument = async (user: User): Promise<void> => {
         name: '',
         longestStreak: 0,
         totalWords: initialGermanWords.length,
-        photoURL: photoURL ?? defaultAvatarUrl,
+        photoURL: photoURL ?? null,
       };
       tx.set(leaderboardRef, initialPublicData);
     }

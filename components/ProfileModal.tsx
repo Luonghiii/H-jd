@@ -3,15 +3,6 @@ import { useSettings } from '../hooks/useSettings';
 import { X, User as UserIcon, Upload, Check, Loader2, UserCheck } from 'lucide-react';
 import eventBus from '../utils/eventBus';
 
-const PREMADE_AVATARS = [
-    'https://storage.googleapis.com/lbwl-e99a9.appspot.com/premade-avatars/avatar1.png',
-    'https://storage.googleapis.com/lbwl-e99a9.appspot.com/premade-avatars/avatar2.png',
-    'https://storage.googleapis.com/lbwl-e99a9.appspot.com/premade-avatars/avatar3.png',
-    'https://storage.googleapis.com/lbwl-e99a9.appspot.com/premade-avatars/avatar4.png',
-    'https://storage.googleapis.com/lbwl-e99a9.appspot.com/premade-avatars/avatar5.png',
-    'https://storage.googleapis.com/lbwl-e99a9.appspot.com/premade-avatars/avatar6.png',
-];
-
 const ANONYMOUS_NAME = 'Người dùng ẩn danh';
 
 interface ProfileModalProps {
@@ -20,7 +11,7 @@ interface ProfileModalProps {
 }
 
 const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
-    const { profile, leaderboardName: initialLeaderboardName, updateUserProfile, updateAvatarFromFile, updateAvatarFromUrl, setLeaderboardName } = useSettings();
+    const { profile, leaderboardName: initialLeaderboardName, updateUserProfile, updateAvatarFromFile, setLeaderboardName } = useSettings();
     
     // User profile fields state
     const [displayName, setDisplayName] = useState('');
@@ -75,13 +66,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
         }
     };
 
-    const handlePremadeAvatarSelect = async (url: string) => {
-        setLocalAvatar(url); // Optimistic UI update
-        setIsLoading(true);
-        await updateAvatarFromUrl(url);
-        setIsLoading(false);
-    };
-
     const handleSave = async () => {
         setIsLoading(true);
         const nameToSave = isAnonymous ? ANONYMOUS_NAME : leaderboardName.trim();
@@ -125,18 +109,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                             <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 px-3 py-1.5 text-sm bg-slate-700 hover:bg-slate-600 rounded-lg">
                                 <Upload className="w-4 h-4"/> Tải ảnh mới
                             </button>
-                        </div>
-
-                        {/* Premade Avatars */}
-                        <div>
-                            <p className="text-sm font-medium text-gray-300 mb-2">Hoặc chọn avatar có sẵn</p>
-                            <div className="flex flex-wrap gap-2 justify-center">
-                                {PREMADE_AVATARS.map(url => (
-                                    <button key={url} onClick={() => handlePremadeAvatarSelect(url)} className={`w-14 h-14 rounded-full p-0.5 ${localAvatar === url ? 'bg-indigo-500' : 'bg-transparent'}`}>
-                                        <img src={url} alt="Premade Avatar" className="w-full h-full rounded-full object-cover"/>
-                                    </button>
-                                ))}
-                            </div>
                         </div>
 
                         {/* Profile Fields */}
