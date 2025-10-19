@@ -30,8 +30,8 @@ const AiTools: React.FC = () => {
     if (words.length === 0 && toolsRequiringWords.includes(activeTool)) {
         return (
           <div className="text-center py-10">
-            <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Công cụ AI</h2>
-            <p className="text-gray-600 dark:text-gray-400 mt-2">Công cụ này yêu cầu bạn có ít nhất một từ trong danh sách. Hãy thêm từ trước nhé.</p>
+            <h2 className="text-2xl font-bold text-slate-800">Công cụ AI</h2>
+            <p className="text-gray-600 mt-2">Công cụ này yêu cầu bạn có ít nhất một từ trong danh sách. Hãy thêm từ trước nhé.</p>
             <button onClick={handleBack} className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg">Quay lại</button>
           </div>
         );
@@ -52,22 +52,22 @@ const AiTools: React.FC = () => {
                 <div className="inline-block p-3 bg-amber-500/10 rounded-full mb-3">
                     <Sparkles className="w-8 h-8 text-amber-500" />
                 </div>
-                <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Công cụ AI</h2>
-                <p className="text-gray-600 dark:text-gray-400 mt-1">Khai phá sức mạnh của AI để học ngôn ngữ hiệu quả hơn.</p>
+                <h2 className="text-2xl font-bold text-slate-800">Công cụ AI</h2>
+                <p className="text-gray-600 mt-1">Khai phá sức mạnh của AI để học ngôn ngữ hiệu quả hơn.</p>
             </div>
             <div className="grid grid-cols-1 gap-4">
                 {toolOptions.map(tool => (
                     <div
                         key={tool.id}
                         onClick={() => setActiveTool(tool.id as AiTool)}
-                        className="group bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 flex items-center gap-4 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:-translate-y-1 hover:shadow-xl hover:shadow-indigo-500/10 dark:hover:shadow-indigo-500/10 transition-all duration-300 cursor-pointer"
+                        className="group bg-white/50 border border-slate-200 rounded-2xl p-4 flex items-center gap-4 transition-all duration-300 cursor-pointer neu-button-light"
                     >
                        <tool.icon className="w-8 h-8 text-indigo-500 flex-shrink-0" />
                        <div className="flex-grow">
-                            <h3 className="text-lg font-bold text-slate-800 dark:text-white">{tool.title}</h3>
-                            <p className="mt-1 text-gray-500 dark:text-gray-400 text-sm">{tool.description}</p>
+                            <h3 className="text-lg font-bold text-slate-800">{tool.title}</h3>
+                            <p className="mt-1 text-gray-500 text-sm">{tool.description}</p>
                         </div>
-                        <ArrowRight className="w-6 h-6 text-gray-400 group-hover:text-indigo-500 dark:group-hover:text-indigo-400 transition-colors flex-shrink-0" />
+                        <ArrowRight className="w-6 h-6 text-gray-400 group-hover:text-indigo-500 transition-colors flex-shrink-0" />
                     </div>
                 ))}
             </div>

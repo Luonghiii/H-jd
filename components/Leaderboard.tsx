@@ -9,7 +9,7 @@ type LeaderboardTab = 'streak' | 'words';
 const PodiumIcon: React.FC<{ rank: number }> = ({ rank }) => {
     const colors = {
         1: 'text-yellow-400',
-        2: 'text-slate-300',
+        2: 'text-slate-400',
         3: 'text-yellow-600',
     };
     const rankColor = colors[rank as keyof typeof colors] || 'text-gray-500';
@@ -18,9 +18,9 @@ const PodiumIcon: React.FC<{ rank: number }> = ({ rank }) => {
 
 const DisplayNamePrompt: React.FC = () => {
     return (
-        <div className="text-center p-6 bg-slate-800/50 border border-slate-700 rounded-2xl max-w-md mx-auto animate-fade-in">
+        <div className="text-center p-6 bg-slate-800/50 border border-slate-700 rounded-2xl max-w-md mx-auto animate-fade-in text-white">
             <UserCheck className="w-12 h-12 text-indigo-400 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-white mb-2">Tham gia Bảng xếp hạng</h2>
+            <h2 className="text-2xl font-bold mb-2">Tham gia Bảng xếp hạng</h2>
             <p className="text-gray-400 mb-6">
                 Vui lòng thiết lập <strong className="text-white">"Tên hiển thị"</strong> trong Hồ sơ cá nhân của bạn (nhấp vào avatar ở góc trên bên phải) để xuất hiện trên bảng xếp hạng.
             </p>
@@ -67,6 +67,8 @@ const Leaderboard: React.FC = () => {
         return <div className="text-center"><Loader2 className="w-8 h-8 animate-spin" /></div>;
     }
     
+    // The user's profile is on a dark background in this context.
+    // Forcing light text for better readability.
     if (!profile.displayName) {
         return <DisplayNamePrompt />;
     }
@@ -74,10 +76,10 @@ const Leaderboard: React.FC = () => {
     const data = activeTab === 'streak' ? streakData : wordData;
 
     return (
-        <div className="space-y-6 animate-fade-in">
+        <div className="space-y-6 animate-fade-in text-white">
             <div className="text-center">
                 <Trophy className="w-12 h-12 text-yellow-400 mx-auto mb-2" />
-                <h2 className="text-3xl font-bold text-white">Bảng xếp hạng</h2>
+                <h2 className="text-3xl font-bold">Bảng xếp hạng</h2>
                 <p className="text-gray-400 mt-1">Xem ai đang dẫn đầu cuộc đua học tập!</p>
             </div>
             

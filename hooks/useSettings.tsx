@@ -23,7 +23,6 @@ interface UserProfile {
 }
 
 interface SettingsContextType {
-  theme: Theme;
   uiLanguage: TargetLanguage;
   setUiLanguage: (language: TargetLanguage) => void;
   learningLanguage: LearningLanguage;
@@ -62,21 +61,7 @@ const getInitialUiLanguage = (): TargetLanguage => {
     return 'vietnamese';
 };
 
-const getInitialTheme = (): Theme => {
-    const storedTheme = localStorage.getItem('theme');
-    if (storedTheme === 'light' || storedTheme === 'dark') {
-        return storedTheme;
-    }
-    // Respect system preference if available
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        return 'dark';
-    }
-    return 'light';
-};
-
-
 const defaultState = {
-    theme: getInitialTheme(),
     uiLanguage: getInitialUiLanguage(),
     learningLanguage: 'german' as LearningLanguage,
     backgroundSetting: null as BackgroundSetting,
@@ -104,14 +89,6 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [isSettingsLoading, setIsSettingsLoading] = useState(true);
   const initialLoadDoneRef = useRef(false);
 
-  // Apply theme class to HTML element
-  useEffect(() => {
-    const root = window.document.documentElement;
-    root.classList.remove(appState.theme === 'dark' ? 'light' : 'dark');
-    root.classList.add(appState.theme);
-    localStorage.setItem('theme', appState.theme);
-  }, [appState.theme]);
-
   useEffect(() => {
     if (isAuthLoading) {
       return;
@@ -126,11 +103,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
           const storedUiLanguage = data.settings?.uiLanguage || getInitialUiLanguage();
           localStorage.setItem('uiLanguage', storedUiLanguage);
           
-          const storedTheme = data.settings?.theme || getInitialTheme();
-          localStorage.setItem('theme', storedTheme);
-
           const combinedState = {
-            theme: storedTheme,
             uiLanguage: storedUiLanguage,
             learningLanguage: data.settings?.learningLanguage || defaultState.learningLanguage,
             backgroundSetting: data.settings?.backgroundSetting !== undefined ? data.settings.backgroundSetting : defaultState.backgroundSetting,
@@ -148,7 +121,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
           setAppState(combinedState);
           setApiKeys(combinedState.userApiKeys);
         } else {
-            setAppState(prev => ({ ...prev, uiLanguage: getInitialUiLanguage(), theme: getInitialTheme() }));
+            setAppState(prev => ({ ...prev, uiLanguage: getInitialUiLanguage() }));
             setApiKeys([]);
         }
         if (!initialLoadDoneRef.current) {
@@ -158,7 +131,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
       });
       return () => unsubscribe();
     } else {
-      setAppState(prev => ({ ...prev, uiLanguage: getInitialUiLanguage(), theme: getInitialTheme() }));
+      setAppState(prev => ({ ...prev, uiLanguage: getInitialUiLanguage() }));
       setApiKeys([]);
       setIsSettingsLoading(false);
     }
@@ -314,7 +287,6 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
   const hasApiKey = !!process.env.API_KEY || appState.userApiKeys.length > 0;
 
   const contextValue = {
-    theme: appState.theme,
     uiLanguage: appState.uiLanguage,
     setUiLanguage,
     learningLanguage: appState.learningLanguage,

@@ -86,11 +86,11 @@ const AppLayout: React.FC<{ onOpenSettings: () => void; }> = ({ onOpenSettings }
     <>
       <AppBackground />
       <NotificationManager />
-      <div className="min-h-screen text-slate-800 dark:text-slate-200 font-sans flex flex-col">
+      <div className="min-h-screen text-slate-800 font-sans flex flex-col">
         <Header onOpenSettings={onOpenSettings} onOpenProfile={() => setIsProfileModalOpen(true)} />
         <main className="container mx-auto p-4 md:p-6 lg:p-8 flex-grow pb-28">
           <div className="max-w-5xl mx-auto">
-            <div className="bg-white/40 dark:bg-slate-900/60 backdrop-blur-xl rounded-3xl shadow-2xl shadow-slate-300/50 dark:shadow-black/50 border border-white/30 dark:border-slate-700/50">
+            <div className="bg-white/40 backdrop-blur-xl rounded-3xl neu-light border border-white/30">
               <div className={`p-4 sm:p-6 lg:p-8 ${animationClass}`}>{renderView()}</div>
             </div>
           </div>

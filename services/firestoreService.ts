@@ -67,93 +67,73 @@ const generatedWordsToVocabulary = (words: GeneratedWord[]): VocabularyWord[] =>
 };
 
 // =====================
-// Username check
-// =====================
-export const isUsernameTaken = async (username: string): Promise<boolean> => {
-    const q = query(collection(db, "users"), where("username", "==", username));
-    const querySnapshot = await getDocs(q);
-    return !querySnapshot.empty;
-};
-
-// =====================
-// Get Email by Username
-// =====================
-export const getEmailByUsername = async (username: string): Promise<string | null> => {
-    const q = query(collection(db, "users"), where("username", "==", username), limit(1));
-    try {
-        const querySnapshot = await getDocs(q);
-        if (!querySnapshot.empty) {
-            const userDoc = querySnapshot.docs[0].data() as UserDoc;
-            return userDoc.email;
-        }
-        return null;
-    } catch (error) {
-        console.error("Error getting user by username:", error);
-        return null;
-    }
-};
-
-// =====================
 // Create user (first-time only) via transaction
 // =====================
 /**
  * Creates a user document if it doesn't exist, only setting createdAt on the first creation.
  * Called after a user signs up for the first time.
  */
-export const createUserDocument = async (user: User, username?: string): Promise<void> => {
+export const createUserDocument = async (user: User): Promise<void> => {
   if (!user) return;
 
   const userRef = doc(db, 'users', user.uid);
   const leaderboardRef = doc(db, 'leaderboard', user.uid);
 
-  await runTransaction(db, async (tx) => {
-    const snap = await tx.get(userRef);
-    if (!snap.exists()) {
-      const { email, displayName, photoURL } = user;
-      const initialGermanWords = generatedWordsToVocabulary(defaultGermanWords);
-      const initialData: Omit<UserDoc, 'history' | 'leaderboardName'> = {
-        uid: user.uid,
-        email: email ?? null,
-        displayName: displayName ?? '',
-        photoURL: photoURL ?? null,
-        username: username || '',
-        dob: '',
-        createdAt: serverTimestamp(),
-        words: {
-            german: initialGermanWords,
-            english: generatedWordsToVocabulary(defaultEnglishWords),
-            chinese: generatedWordsToVocabulary(defaultChineseWords),
-        },
-        settings: {
-          targetLanguage: 'vietnamese',
-          learningLanguage: 'german',
-          backgroundSetting: null,
-          customGradients: [],
-          userApiKeys: [],
-        },
-        stats: {
-          luckyWheelBestStreak: 0,
-          currentStreak: 0,
-          longestStreak: 0,
-          lastActivityDate: '',
-          wordOfTheDay: undefined,
-          totalWords: initialGermanWords.length,
-        },
-        aiTutorHistory: [],
-      };
-      tx.set(userRef, initialData);
+  try {
+    await runTransaction(db, async (tx) => {
+        const snap = await tx.get(userRef);
+        if (!snap.exists()) {
+        const { email, displayName, photoURL } = user;
+        const initialGermanWords = generatedWordsToVocabulary(defaultGermanWords);
+        
+        const newDisplayName = displayName || '';
 
-      // Create initial public leaderboard entry
-      const initialPublicData: PublicLeaderboardEntry = {
-        uid: user.uid,
-        name: displayName ?? '',
-        longestStreak: 0,
-        totalWords: initialGermanWords.length,
-        photoURL: photoURL ?? null,
-      };
-      tx.set(leaderboardRef, initialPublicData);
-    }
-  });
+        const initialData: UserDoc = {
+            uid: user.uid,
+            email: email ?? null,
+            displayName: newDisplayName,
+            photoURL: photoURL ?? null,
+            dob: '',
+            createdAt: serverTimestamp() as any,
+            words: {
+                german: initialGermanWords,
+                english: generatedWordsToVocabulary(defaultEnglishWords),
+                chinese: generatedWordsToVocabulary(defaultChineseWords),
+            },
+            settings: {
+            targetLanguage: 'vietnamese',
+            learningLanguage: 'german',
+            backgroundSetting: null,
+            customGradients: [],
+            userApiKeys: [],
+            },
+            stats: {
+            luckyWheelBestStreak: 0,
+            currentStreak: 0,
+            longestStreak: 0,
+            lastActivityDate: '',
+            totalWords: initialGermanWords.length,
+            },
+            aiTutorHistory: [],
+        };
+        tx.set(userRef, initialData);
+
+        // Create initial public leaderboard entry
+        const initialPublicData: PublicLeaderboardEntry = {
+            uid: user.uid,
+            name: newDisplayName,
+            longestStreak: 0,
+            totalWords: initialGermanWords.length,
+            photoURL: photoURL ?? null,
+        };
+        tx.set(leaderboardRef, initialPublicData);
+        }
+    });
+  } catch (error) {
+      console.error("User creation transaction failed:", error);
+      // Re-throw the error to be caught by the caller in the UI
+      throw new Error("Failed to create user document in database.");
+  }
 };
 
 // =====================

@@ -93,9 +93,9 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     return (
         <>
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-                <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
+                <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-lg text-white" onClick={e => e.stopPropagation()}>
                     <div className="p-6 border-b border-slate-700 flex items-center justify-between">
-                        <h2 className="text-xl font-bold text-white">Chỉnh sửa hồ sơ</h2>
+                        <h2 className="text-xl font-bold">Chỉnh sửa hồ sơ</h2>
                         <button onClick={onClose}><X className="w-5 h-5" /></button>
                     </div>
                     <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">

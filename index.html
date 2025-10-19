@@ -30,10 +30,30 @@
         background-size: 400% 400%;
         animation: gradient-move 15s ease infinite;
       }
-      .dark .dark-animated-gradient {
-         background: linear-gradient(-45deg, #0f172a, #1e1b4b, #4c1d95, #082f49);
-         background-size: 400% 400%;
-         animation: gradient-move 15s ease infinite;
+
+      /* Animated Gradient Text */
+      .animated-gradient-text {
+        background: linear-gradient(-45deg, #4f46e5, #06b6d4, #f43f5e, #3b82f6);
+        background-size: 400% 400%;
+        animation: gradient-move 8s ease infinite;
+        -webkit-background-clip: text;
+        -moz-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+
+      /* Neumorphic Shadow Styles */
+      .neu-light {
+        box-shadow: 6px 6px 12px rgba(163, 177, 198, 0.6), -6px -6px 12px rgba(255, 255, 255, 0.8);
+      }
+      .neu-inset-light {
+         box-shadow: inset 4px 4px 8px rgba(163, 177, 198, 0.6), inset -4px -4px 8px rgba(255, 255, 255, 0.8);
+      }
+      .neu-button-light {
+        box-shadow: 4px 4px 8px rgba(163, 177, 198, 0.6), -4px -4px 8px rgba(255, 255, 255, 0.8);
+      }
+      .neu-button-light:active {
+        box-shadow: inset 3px 3px 6px rgba(163, 177, 198, 0.6), inset -3px -3px 6px rgba(255, 255, 255, 0.8);
       }
 
       .animate-fade-in {
@@ -43,7 +63,7 @@
         animation: fade-out 0.25s ease-in-out forwards;
       }
       .animate-fade-in-up {
-        animation: fade-in-up 0.6s ease-out forwards;
+        animation: fade-in-up 0.3s ease-out forwards;
       }
     </style>
   <script type="importmap">
@@ -63,7 +83,7 @@
 }
 </script>
 </head>
-  <body class="text-slate-800 dark:text-slate-200 transition-colors duration-300">
+  <body class="text-slate-800 transition-colors duration-300">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>
