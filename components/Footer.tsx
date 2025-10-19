@@ -8,7 +8,7 @@ interface FooterProps {
 
 const Footer: React.FC<FooterProps> = ({ onOpenPrivacy, onOpenTerms }) => {
   return (
-    <footer className="w-full text-center py-8 px-4 text-gray-500 text-sm">
+    <footer className="w-full text-center pt-8 pb-24 px-4 text-gray-500 text-sm">
       <div className="max-w-5xl mx-auto space-y-4">
         <div className="flex flex-col items-center gap-2">
             <p className="font-bold text-gray-300">Learn better with Luong</p>
