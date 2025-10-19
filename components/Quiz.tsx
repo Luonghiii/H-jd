@@ -28,7 +28,7 @@ interface QuizProps {
 
 const Quiz: React.FC<QuizProps> = ({ onBack }) => {
   const { words, getAvailableThemes } = useVocabulary();
-  const { targetLanguage, learningLanguage, recordActivity } = useSettings();
+  const { uiLanguage, learningLanguage, recordActivity } = useSettings();
   const { openInspector } = useInspector();
   const { addHistoryEntry } = useHistory();
 
@@ -76,7 +76,7 @@ const Quiz: React.FC<QuizProps> = ({ onBack }) => {
     
     try {
         const promises = wordsToQuiz.map(word => 
-        generateQuizForWord(word, targetLanguage, learningLanguage).catch(err => {
+        generateQuizForWord(word, uiLanguage, learningLanguage).catch(err => {
             console.error(`Failed to generate quiz for "${word.word}":`, err);
             return null;
         })
@@ -110,7 +110,7 @@ const Quiz: React.FC<QuizProps> = ({ onBack }) => {
         setView('setup');
     }
 
-  }, [wordsForQuiz, numQuestions, targetLanguage, learningLanguage]);
+  }, [wordsForQuiz, numQuestions, uiLanguage, learningLanguage]);
   
   const handleAnswerSelect = (answer: string) => {
     if (selectedAnswer) return;
@@ -223,7 +223,7 @@ const Quiz: React.FC<QuizProps> = ({ onBack }) => {
                   </button>
                   {availableThemes.map(theme => (
                     <button key={theme} onClick={() => handleThemeToggle(theme)} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has(theme) ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 hover:bg-slate-600'}`}>
-                      {targetLanguage === 'english' ? (themeTranslationMap[theme] || theme) : theme} ({words.filter(w => w.theme === theme).length})
+                      {uiLanguage === 'english' ? (themeTranslationMap[theme] || theme) : theme} ({words.filter(w => w.theme === theme).length})
                     </button>
                   ))}
               </div>

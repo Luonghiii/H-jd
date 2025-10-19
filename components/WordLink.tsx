@@ -15,7 +15,7 @@ const PAIR_COUNTS = [5, 8, 10];
 
 const WordLink: React.FC<WordLinkProps> = ({ onBack }) => {
     const { words, getAvailableThemes } = useVocabulary();
-    const { targetLanguage, recordActivity } = useSettings();
+    const { uiLanguage, recordActivity } = useSettings();
     const { addHistoryEntry } = useHistory();
     
     const [gameState, setGameState] = useState<GameState>('setup');
@@ -49,7 +49,7 @@ const WordLink: React.FC<WordLinkProps> = ({ onBack }) => {
             const selected = shuffledWords.slice(0, Math.min(pairCount, wordsForGame.length));
             
             const wordsCol = selected.map(w => ({ id: w.id, content: w.word, type: 'word' as const }));
-            const translationsCol = selected.map(w => ({ id: w.id, content: w.translation[targetLanguage], type: 'translation' as const }));
+            const translationsCol = selected.map(w => ({ id: w.id, content: w.translation[uiLanguage], type: 'translation' as const }));
     
             const newWordItems = wordsCol.sort(() => Math.random() - 0.5);
             const newTranslationItems = translationsCol.sort(() => Math.random() - 0.5);
@@ -63,7 +63,7 @@ const WordLink: React.FC<WordLinkProps> = ({ onBack }) => {
         setSelectedWord(null);
         setScore(0);
         setGameState('playing');
-    }, [wordsForGame, pairCount, targetLanguage, lastGameItems]);
+    }, [wordsForGame, pairCount, uiLanguage, lastGameItems]);
     
     const handleItemClick = (item: Item) => {
         if (correctPairs.includes(item.id)) return;
@@ -135,7 +135,7 @@ const WordLink: React.FC<WordLinkProps> = ({ onBack }) => {
                     <div className="p-3 border-t border-slate-600">
                         <div className="flex flex-wrap gap-2">
                             <button onClick={() => handleThemeToggle('all')} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has('all') ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 hover:bg-slate-600'}`}>Tất cả ({words.length})</button>
-                            {availableThemes.map(theme => <button key={theme} onClick={() => handleThemeToggle(theme)} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has(theme) ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 hover:bg-slate-600'}`}>{targetLanguage === 'english' ? (themeTranslationMap[theme] || theme) : theme} ({words.filter(w => w.theme === theme).length})</button>)}
+                            {availableThemes.map(theme => <button key={theme} onClick={() => handleThemeToggle(theme)} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has(theme) ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 hover:bg-slate-600'}`}>{uiLanguage === 'english' ? (themeTranslationMap[theme] || theme) : theme} ({words.filter(w => w.theme === theme).length})</button>)}
                         </div>
                     </div>
                 </details>
@@ -151,7 +151,7 @@ const WordLink: React.FC<WordLinkProps> = ({ onBack }) => {
                                 <input type="checkbox" checked={selectedIds.has(word.id)} readOnly className="w-5 h-5 mr-3 bg-slate-900 border-slate-600 text-indigo-500 focus:ring-indigo-600 rounded-md pointer-events-none" />
                                 <div>
                                     <p className="font-medium text-white">{word.word}</p>
-                                    <p className="text-sm text-gray-400">{word.translation[targetLanguage]}</p>
+                                    <p className="text-sm text-gray-400">{word.translation[uiLanguage]}</p>
                                 </div>
                             </div>
                         ))}

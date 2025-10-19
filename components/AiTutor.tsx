@@ -73,7 +73,7 @@ interface AiTutorProps {
 }
 
 const AiTutor: React.FC<AiTutorProps> = ({ onBack }) => {
-    const { learningLanguage, targetLanguage, userApiKeys, aiTutorHistory, saveTutorSession, clearTutorHistory, recordActivity } = useSettings();
+    const { learningLanguage, uiLanguage, userApiKeys, aiTutorHistory, saveTutorSession, clearTutorHistory, recordActivity } = useSettings();
     const { addHistoryEntry } = useHistory();
     const [connectionState, setConnectionState] = useState<'idle' | 'connecting' | 'connected' | 'error'>('idle');
     
@@ -201,7 +201,7 @@ const AiTutor: React.FC<AiTutorProps> = ({ onBack }) => {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 
                 const historySummary = turnsRef.current.map(t => `User: ${t.user}\nAI: ${t.model}`).join('\n\n');
-                const systemInstruction = `You are a friendly language tutor. The user is learning ${learningLanguage}. Converse with them in ${learningLanguage} to help them practice. Keep your responses concise. The user's native language is ${targetLanguage}. This is the conversation so far for context:\n${historySummary}`;
+                const systemInstruction = `You are a friendly language tutor. The user is learning ${learningLanguage}. Converse with them in ${learningLanguage} to help them practice. Keep your responses concise. The user's native language is ${uiLanguage}. This is the conversation so far for context:\n${historySummary}`;
 
                 const ai = new GoogleGenAI({ apiKey: key });
                 const inputCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
@@ -296,7 +296,7 @@ const AiTutor: React.FC<AiTutorProps> = ({ onBack }) => {
             setError("Tất cả các khóa API đều không hoạt động hoặc không thể truy cập micro.");
             setConnectionState('error');
         }
-    }, [cleanup, learningLanguage, targetLanguage, userApiKeys, isMuted, stopSession, connectionState]);
+    }, [cleanup, learningLanguage, uiLanguage, userApiKeys, isMuted, stopSession, connectionState]);
     
     const handleSendText = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -311,7 +311,7 @@ const AiTutor: React.FC<AiTutorProps> = ({ onBack }) => {
         setCurrentTurns(prev => [...prev, { user: userMessage, model: '...' }]);
 
         try {
-            const modelResponse = await getChatResponseForTutor(historyForApi, userMessage, learningLanguage, targetLanguage);
+            const modelResponse = await getChatResponseForTutor(historyForApi, userMessage, learningLanguage, uiLanguage);
             setCurrentTurns(prev => {
                 const updatedTurns = [...prev];
                 updatedTurns[updatedTurns.length - 1].model = modelResponse;

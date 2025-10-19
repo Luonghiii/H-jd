@@ -13,7 +13,7 @@ interface StoryGeneratorProps {
 
 const StoryGenerator: React.FC<StoryGeneratorProps> = ({ onBack }) => {
   const { words } = useVocabulary();
-  const { targetLanguage, learningLanguage } = useSettings();
+  const { uiLanguage, learningLanguage, recordActivity } = useSettings();
   const { addHistoryEntry } = useHistory();
   const [selectedWords, setSelectedWords] = useState<VocabularyWord[]>([]);
   const [germanStory, setGermanStory] = useState('');
@@ -39,7 +39,7 @@ const StoryGenerator: React.FC<StoryGeneratorProps> = ({ onBack }) => {
     setGermanStory('');
     setTranslation('');
     const wordsForStory = selectedWords.map(w => w.word);
-    const aiStory = await generateStory(wordsForStory, targetLanguage, learningLanguage);
+    const aiStory = await generateStory(wordsForStory, uiLanguage, learningLanguage);
     
     const parts = aiStory.split('---Translation---');
     if (parts.length === 2) {
@@ -51,6 +51,7 @@ const StoryGenerator: React.FC<StoryGeneratorProps> = ({ onBack }) => {
     }
 
     addHistoryEntry('STORY_GENERATED', `Đã tạo truyện với ${selectedWords.length} từ.`, { wordCount: selectedWords.length });
+    recordActivity();
     setIsLoading(false);
   };
   
@@ -88,7 +89,7 @@ const StoryGenerator: React.FC<StoryGeneratorProps> = ({ onBack }) => {
                     >
                         <div>
                             <p className="font-medium text-white">{word.word}</p>
-                            <p className="text-sm text-gray-400">{word.translation[targetLanguage]}</p>
+                            <p className="text-sm text-gray-400">{word.translation[uiLanguage]}</p>
                         </div>
                         {isSelected && <CheckCircle className="w-5 h-5 text-indigo-400 flex-shrink-0" />}
                     </button>

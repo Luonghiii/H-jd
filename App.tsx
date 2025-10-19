@@ -26,6 +26,7 @@ import Learn from './components/Learn';
 import Vocabulary from './components/Vocabulary';
 import BottomNavBar from './components/BottomNavBar';
 import More from './components/More';
+import { I18nProvider } from './hooks/useI18n';
 
 const AppLayout: React.FC<{ onOpenSettings: () => void; }> = ({ onOpenSettings }) => {
   const [currentView, setCurrentView] = useState<View>(View.Home);
@@ -168,7 +169,9 @@ const App: React.FC = () => {
   return (
     <AuthProvider>
         <SettingsProvider>
+          <I18nProvider>
             <AppContent />
+          </I18nProvider>
         </SettingsProvider>
     </AuthProvider>
   );

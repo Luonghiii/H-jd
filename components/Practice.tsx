@@ -19,7 +19,7 @@ interface PracticeProps {
 
 const Practice: React.FC<PracticeProps> = ({ onBack }) => {
   const { words, getAvailableThemes } = useVocabulary();
-  const { targetLanguage, recordActivity } = useSettings();
+  const { uiLanguage, recordActivity } = useSettings();
   const { openInspector } = useInspector();
   const { addHistoryEntry } = useHistory();
 
@@ -104,7 +104,7 @@ const Practice: React.FC<PracticeProps> = ({ onBack }) => {
     if (!userAnswer.trim() || answerStatus !== 'idle') return;
 
     const currentWord = practiceWords[currentWordIndex];
-    const correctAnswer = currentWord.translation[targetLanguage];
+    const correctAnswer = currentWord.translation[uiLanguage];
     const isCorrect = userAnswer.trim().toLowerCase() === correctAnswer.toLowerCase();
     
     setAnswers(prev => [...prev, { word: currentWord, userAnswer: userAnswer.trim(), isCorrect }]);
@@ -159,7 +159,7 @@ const Practice: React.FC<PracticeProps> = ({ onBack }) => {
                     </button>
                     {availableThemes.map(theme => (
                       <button key={theme} onClick={() => handleThemeToggle(theme)} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has(theme) ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 hover:bg-slate-600'}`}>
-                        {targetLanguage === 'english' ? (themeTranslationMap[theme] || theme) : theme} ({words.filter(w => w.theme === theme).length})
+                        {uiLanguage === 'english' ? (themeTranslationMap[theme] || theme) : theme} ({words.filter(w => w.theme === theme).length})
                       </button>
                     ))}
                 </div>
@@ -191,7 +191,7 @@ const Practice: React.FC<PracticeProps> = ({ onBack }) => {
                   >
                     {word.word}
                   </p>
-                  <p className="text-sm text-gray-400">{word.translation[targetLanguage]}</p>
+                  <p className="text-sm text-gray-400">{word.translation[uiLanguage]}</p>
                 </div>
               </div>
             ))}
@@ -238,7 +238,7 @@ const Practice: React.FC<PracticeProps> = ({ onBack }) => {
                             <span className="text-green-400">Chính xác: {userAnswer}</span> : 
                             <>
                                 <span className="text-red-400 line-through">Bạn trả lời: {userAnswer}</span><br />
-                                <span className="text-green-400">Đáp án đúng: {word.translation[targetLanguage]}</span>
+                                <span className="text-green-400">Đáp án đúng: {word.translation[uiLanguage]}</span>
                             </>
                         }</p>
                     </div>
@@ -275,7 +275,7 @@ const Practice: React.FC<PracticeProps> = ({ onBack }) => {
         >
           {currentWord.word}
         </p>
-        <p className="text-gray-400 mt-1">Dịch sang {targetLanguage === 'vietnamese' ? 'Tiếng Việt' : 'Tiếng Anh'}</p>
+        <p className="text-gray-400 mt-1">Dịch sang {uiLanguage === 'vietnamese' ? 'Tiếng Việt' : 'Tiếng Anh'}</p>
       </div>
       <form onSubmit={handleSubmitAnswer}>
         <div className="relative">

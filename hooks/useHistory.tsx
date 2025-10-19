@@ -41,6 +41,14 @@ export const HistoryProvider: React.FC<{ children: ReactNode }> = ({ children })
   const addHistoryEntry = useCallback(async (type: HistoryEntry['type'], details: string, payload?: HistoryEntry['payload']) => {
     if (!currentUser) return;
     
+    // Prevent logging duplicate login/logout events if they happen close together
+    if ((type === 'LOGIN' || type === 'LOGOUT') && history[0]?.type === type) {
+        const timeDiff = Date.now() - history[0].timestamp;
+        if (timeDiff < 1000 * 10) { // 10 seconds threshold
+            return;
+        }
+    }
+
     const newEntry: HistoryEntry = {
       id: crypto.randomUUID(),
       type,
@@ -55,7 +63,7 @@ export const HistoryProvider: React.FC<{ children: ReactNode }> = ({ children })
     } catch (e) {
         console.error("Failed to add history entry:", e);
     }
-  }, [currentUser]);
+  }, [currentUser, history]);
 
   const loadMoreHistory = useCallback(async () => {
     if (!currentUser || !lastVisible || isLoadingMore || !hasMore) return;
@@ -83,7 +91,7 @@ export const HistoryProvider: React.FC<{ children: ReactNode }> = ({ children })
 export const useHistory = (): HistoryContextType => {
   const context = useContext(HistoryContext);
   if (context === undefined) {
-    throw new Error('useHistory must be used within a HistoryProvider');
+    throw new Error('useHistory must be used within an HistoryProvider');
   }
   return context;
 };

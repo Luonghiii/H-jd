@@ -8,7 +8,8 @@ import { useInspector } from '../hooks/useInspector';
 
 const WordList: React.FC = () => {
   const { words, deleteWord } = useVocabulary();
-  const { targetLanguage } = useSettings();
+  // FIX: Replaced targetLanguage with uiLanguage.
+  const { uiLanguage } = useSettings();
   const [searchTerm, setSearchTerm] = useState('');
   const { openInspector } = useInspector();
 
@@ -16,9 +17,9 @@ const WordList: React.FC = () => {
     return words.filter(word =>
       // FIX: Changed 'word.german' to 'word.word' to match the VocabularyWord type.
       word.word.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      word.translation[targetLanguage].toLowerCase().includes(searchTerm.toLowerCase())
+      word.translation[uiLanguage].toLowerCase().includes(searchTerm.toLowerCase())
     );
-  }, [words, searchTerm, targetLanguage]);
+  }, [words, searchTerm, uiLanguage]);
 
   return (
     <div className="space-y-6">
@@ -50,7 +51,7 @@ const WordList: React.FC = () => {
                 <div className="flex-grow">
                   {/* FIX: Changed 'word.german' to 'word.word' to match the VocabularyWord type. */}
                   <p className="font-semibold text-white">{word.word}</p>
-                  <p className="text-sm text-gray-400">{word.translation[targetLanguage]}</p>
+                  <p className="text-sm text-gray-400">{word.translation[uiLanguage]}</p>
                 </div>
                 <button
                   onClick={(e) => {

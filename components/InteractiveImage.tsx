@@ -27,7 +27,7 @@ const InteractiveImage: React.FC<{onBack: () => void;}> = ({onBack}) => {
     
     const { addMultipleWords } = useVocabulary();
     const { addHistoryEntry } = useHistory();
-    const { learningLanguage } = useSettings();
+    const { learningLanguage, recordActivity } = useSettings();
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const imageRef = useRef<HTMLImageElement>(new Image());
 
@@ -82,6 +82,7 @@ const InteractiveImage: React.FC<{onBack: () => void;}> = ({onBack}) => {
             const result = await identifyObjectInImage(imageFile.base64, imageFile.mimeType, { x: x / canvas.width, y: y / canvas.height }, learningLanguage);
             setLastResult(result);
             if (result) {
+                recordActivity();
                 addHistoryEntry('IMAGE_OBJECT_IDENTIFIED', `Xác định đối tượng "${result.word}" từ ảnh.`, { word: result.word });
             } else {
                 setFeedback("Không thể xác định đối tượng tại vị trí này.");

@@ -12,7 +12,7 @@ interface AiLessonGeneratorProps {
 }
 
 const AiLessonGenerator: React.FC<AiLessonGeneratorProps> = ({ onBack }) => {
-    const { learningLanguage, targetLanguage, recordActivity } = useSettings();
+    const { learningLanguage, uiLanguage, recordActivity } = useSettings();
     const { addMultipleWords } = useVocabulary();
     const { addHistoryEntry } = useHistory();
     const [theme, setTheme] = useState('');
@@ -25,7 +25,7 @@ const AiLessonGenerator: React.FC<AiLessonGeneratorProps> = ({ onBack }) => {
         setIsLoading(true);
         setLesson(null);
         try {
-            const result = await generateAiLesson(theme, learningLanguage, targetLanguage);
+            const result = await generateAiLesson(theme, learningLanguage, uiLanguage);
             if (result) {
                 setLesson(result);
                 addHistoryEntry('AI_LESSON_GENERATED', `Đã tạo bài học về chủ đề: "${theme}"`, { theme });
@@ -43,8 +43,8 @@ const AiLessonGenerator: React.FC<AiLessonGeneratorProps> = ({ onBack }) => {
         if (!lesson?.vocabulary) return;
         const wordsToAdd = lesson.vocabulary.map(v => ({
             word: v.word,
-            translation_vi: targetLanguage === 'vietnamese' ? v.translation : '', // Approximate
-            translation_en: targetLanguage === 'english' ? v.translation : '', // Approximate
+            translation_vi: uiLanguage === 'vietnamese' ? v.translation : '', // Approximate
+            translation_en: uiLanguage === 'english' ? v.translation : '', // Approximate
             theme: theme,
         }));
 

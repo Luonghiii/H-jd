@@ -8,7 +8,8 @@ import { useInspector } from '../hooks/useInspector';
 
 const QuickReview: React.FC = () => {
     const { words, updateWordSrs } = useVocabulary();
-    const { targetLanguage } = useSettings();
+    // FIX: Replaced targetLanguage with uiLanguage.
+    const { uiLanguage } = useSettings();
 
     const wordsToReview = useMemo(() => {
         return words
@@ -54,14 +55,15 @@ const QuickReview: React.FC = () => {
             <div className="flex-grow flex flex-col justify-center">
                 <div className="[perspective:1000px]" onClick={() => setIsFlipped(!isFlipped)}>
                     <div 
-                        className="relative w-full h-32 rounded-lg [transform-style:preserve-d] transition-transform duration-500 cursor-pointer"
+                        // FIX: Changed preserve-d to preserve-3d
+                        className="relative w-full h-32 rounded-lg [transform-style:preserve-3d] transition-transform duration-500 cursor-pointer"
                         style={{ transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'}}
                     >
                         <div className="absolute w-full h-full [backface-visibility:hidden] flex items-center justify-center p-2 bg-slate-700 rounded-lg">
                             <p className="text-xl font-bold text-white text-center">{currentWord.word}</p>
                         </div>
                         <div className="absolute w-full h-full [backface-visibility:hidden] [transform:rotateY(180deg)] flex items-center justify-center p-2 bg-indigo-500 rounded-lg">
-                            <p className="text-xl font-bold text-white text-center">{currentWord.translation[targetLanguage]}</p>
+                            <p className="text-xl font-bold text-white text-center">{currentWord.translation[uiLanguage]}</p>
                         </div>
                     </div>
                 </div>
@@ -83,7 +85,8 @@ const QuickReview: React.FC = () => {
 
 const WordOfTheDay: React.FC = () => {
     const { words, isWordsLoading } = useVocabulary();
-    const { stats, isSettingsLoading, setWordOfTheDay, targetLanguage } = useSettings();
+    // FIX: Replaced targetLanguage with uiLanguage.
+    const { stats, isSettingsLoading, setWordOfTheDay, uiLanguage } = useSettings();
     const { openInspector } = useInspector();
     const [word, setWord] = useState<VocabularyWord | null>(null);
 
@@ -121,7 +124,7 @@ const WordOfTheDay: React.FC = () => {
             <div className="flex-grow flex flex-col items-center justify-center text-center">
                  {word.imageUrl && <img src={word.imageUrl} alt={word.word} className="w-full h-24 object-contain rounded-md mb-3" />}
                 <p className="text-2xl font-bold text-cyan-300">{word.word}</p>
-                <p className="text-gray-400">{word.translation[targetLanguage]}</p>
+                <p className="text-gray-400">{word.translation[uiLanguage]}</p>
             </div>
             <p className="text-xs text-gray-500 text-center mt-2">Nhấn để xem chi tiết</p>
         </div>

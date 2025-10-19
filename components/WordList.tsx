@@ -1,16 +1,17 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { useVocabulary, themeTranslationMap } from '../hooks/useVocabulary';
+import { useVocabulary } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
-import { Trash2, Search, ImageIcon, Sparkles, Star, ChevronDown, Filter, ArrowUpDown, Download, Upload } from 'lucide-react';
+import { Trash2, Search, ImageIcon, Sparkles, Star, ChevronDown, Filter, ArrowUpDown, Download, Upload, ArrowLeft } from 'lucide-react';
 import { VocabularyWord, GeneratedWord } from '../types';
 import ImageEditModal from './ImageEditModal';
 import { generateImageForWord } from '../services/geminiService';
 import { useInspector } from '../hooks/useInspector';
 import eventBus from '../utils/eventBus';
+import { useI18n } from '../hooks/useI18n';
 
 const WordItem: React.FC<{ word: VocabularyWord }> = ({ word }) => {
   const { deleteWord, toggleWordStar, updateWordImage } = useVocabulary();
-  const { targetLanguage } = useSettings();
+  const { uiLanguage } = useSettings();
   const { openInspector } = useInspector();
   const [editingWord, setEditingWord] = useState<VocabularyWord | null>(null);
 
@@ -44,7 +45,7 @@ const WordItem: React.FC<{ word: VocabularyWord }> = ({ word }) => {
           </button>
           <div>
             <p className="font-semibold text-white">{word.word}</p>
-            <p className="text-sm text-gray-400">{word.translation[targetLanguage]}</p>
+            <p className="text-sm text-gray-400">{word.translation[uiLanguage]}</p>
           </div>
         </div>
         <div className="flex items-center flex-shrink-0 ml-2">
@@ -80,9 +81,14 @@ const WordItem: React.FC<{ word: VocabularyWord }> = ({ word }) => {
   );
 };
 
-const WordList: React.FC = () => {
+interface WordListProps {
+    onBack: () => void;
+}
+
+const WordList: React.FC<WordListProps> = ({ onBack }) => {
   const { words, lastDeletedWord, undoDelete, updateWordImage, addMultipleWords } = useVocabulary();
-  const { targetLanguage } = useSettings();
+  const { uiLanguage } = useSettings();
+  const { t } = useI18n();
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState<'all' | 'starred'>('all');
   const [sort, setSort] = useState<'newest' | 'oldest' | 'az' | 'za' | 'review'>('newest');
@@ -102,9 +108,9 @@ const WordList: React.FC = () => {
         const lowerSearch = searchTerm.toLowerCase();
         processed = processed.filter(word => {
             const themeName = word.theme || '';
-            const themeEnName = themeTranslationMap[themeName] || '';
+            const themeEnName = t(`themes.${themeName}`, {});
             return word.word.toLowerCase().includes(lowerSearch) ||
-                   word.translation[targetLanguage].toLowerCase().includes(lowerSearch) ||
+                   word.translation[uiLanguage].toLowerCase().includes(lowerSearch) ||
                    themeName.toLowerCase().includes(lowerSearch) ||
                    themeEnName.toLowerCase().includes(lowerSearch)
         });
@@ -131,13 +137,13 @@ const WordList: React.FC = () => {
     }
 
     return processed;
-  }, [words, filter, sort, searchTerm, targetLanguage]);
+  }, [words, filter, sort, searchTerm, uiLanguage, t]);
   
   const groupedWords = useMemo(() => {
     if (searchTerm) return null; // No grouping when searching
 
     const groups = processedWords.reduce((acc, word) => {
-        const theme = word.theme || 'Chưa phân loại';
+        const theme = word.theme || t('word_list.unclassified');
         if (!acc[theme]) {
             acc[theme] = [];
         }
@@ -146,7 +152,7 @@ const WordList: React.FC = () => {
     }, {} as Record<string, VocabularyWord[]>);
     
     return Object.entries(groups);
-  }, [processedWords, searchTerm]);
+  }, [processedWords, searchTerm, t]);
   
   const wordsWithoutImages = useMemo(() => words.filter(w => !w.imageUrl), [words]);
 
@@ -276,13 +282,28 @@ const WordList: React.FC = () => {
     );
   };
 
+  const renderThemeHeader = (theme: string, count: number) => {
+    const translationKey = `themes.${theme}`;
+    const translatedTheme = t(translationKey);
+    // If translation fails, `t` returns the key. In that case, use the original theme name.
+    const displayTheme = translatedTheme === translationKey ? theme : translatedTheme;
+    return `${displayTheme} (${count})`;
+  };
+
   return (
     <div className="space-y-6">
+       <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-white">Danh sách từ của bạn</h2>
+            <button onClick={onBack} className="flex-shrink-0 flex items-center gap-2 px-3 py-2 text-sm bg-slate-700/50 hover:bg-slate-700 text-gray-200 font-semibold rounded-xl transition-colors">
+                <ArrowLeft className="w-4 h-4" />
+                <span>Quay lại</span>
+            </button>
+        </div>
       <div className="flex flex-col sm:flex-row gap-2">
         <input ref={importFileRef} type="file" className="hidden" accept=".csv, .json" onChange={handleImport} />
-        <button onClick={() => importFileRef.current?.click()} className="flex-1 flex items-center justify-center gap-2 text-sm px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg"> <Upload className="w-4 h-4" /> Nhập</button>
-        <button onClick={() => handleExport('csv')} className="flex-1 flex items-center justify-center gap-2 text-sm px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg"> <Download className="w-4 h-4" /> Xuất CSV</button>
-        <button onClick={() => handleExport('json')} className="flex-1 flex items-center justify-center gap-2 text-sm px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg"> <Download className="w-4 h-4" /> Xuất JSON</button>
+        <button onClick={() => importFileRef.current?.click()} className="flex-1 flex items-center justify-center gap-2 text-sm px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg"> <Upload className="w-4 h-4" /> {t('word_list.import')}</button>
+        <button onClick={() => handleExport('csv')} className="flex-1 flex items-center justify-center gap-2 text-sm px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg"> <Download className="w-4 h-4" /> {t('word_list.export_csv')}</button>
+        <button onClick={() => handleExport('json')} className="flex-1 flex items-center justify-center gap-2 text-sm px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg"> <Download className="w-4 h-4" /> {t('word_list.export_json')}</button>
       </div>
       
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
@@ -290,22 +311,22 @@ const WordList: React.FC = () => {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
             <input
               type="text"
-              placeholder="Tìm kiếm từ hoặc chủ đề..."
+              placeholder={t('word_list.search_placeholder')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-12 pr-4 py-3 bg-slate-800 border border-slate-600 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
           {renderControl('filter-select', 'Lọc từ', Filter, filter, (e) => setFilter(e.target.value as 'all' | 'starred'), <>
-              <option value="all">Tất cả từ</option>
-              <option value="starred">Đã gắn sao</option>
+              <option value="all">{t('word_list.filter_all')}</option>
+              <option value="starred">{t('word_list.filter_starred')}</option>
           </>)}
           {renderControl('sort-select', 'Sắp xếp từ', ArrowUpDown, sort, (e) => setSort(e.target.value as any), <>
-              <option value="newest">Mới nhất</option>
-              <option value="oldest">Cũ nhất</option>
-              <option value="az">A-Z</option>
-              <option value="za">Z-A</option>
-              <option value="review">Cần ôn tập</option>
+              <option value="newest">{t('word_list.sort_newest')}</option>
+              <option value="oldest">{t('word_list.sort_oldest')}</option>
+              <option value="az">{t('word_list.sort_az')}</option>
+              <option value="za">{t('word_list.sort_za')}</option>
+              <option value="review">{t('word_list.sort_review')}</option>
           </>)}
       </div>
 
@@ -316,12 +337,12 @@ const WordList: React.FC = () => {
           title={isBatchGenerating ? 'Đang trong tiến trình...' : 'Tạo ảnh cho tất cả các từ còn thiếu'}
       >
           <Sparkles className={`w-4 h-4 mr-2 ${isBatchGenerating ? 'animate-spin' : ''}`} />
-          <span>Tạo ảnh còn thiếu ({wordsWithoutImages.length})</span>
+          <span>{t('word_list.generate_missing_images', { count: wordsWithoutImages.length })}</span>
       </button>
 
       {isBatchGenerating && (
         <div className="text-center text-gray-300">
-            <p>Đang tạo ảnh... ({batchProgress.current} / {batchProgress.total})</p>
+            <p>{t('word_list.generating_images')} ({batchProgress.current} / {batchProgress.total})</p>
             <div className="w-full bg-slate-700 rounded-full h-2.5 mt-2 overflow-hidden">
                 <div 
                     className="bg-indigo-500 h-2.5 rounded-full transition-all duration-500" 
@@ -339,7 +360,7 @@ const WordList: React.FC = () => {
                 <details key={theme} className="group" open={!searchTerm}>
                   <summary className="list-none flex items-center justify-between cursor-pointer p-3 bg-slate-800/60 rounded-xl sticky top-0 backdrop-blur-sm border-b border-slate-700">
                     <h3 className="font-semibold text-white">
-                      {targetLanguage === 'english' ? (themeTranslationMap[theme] || theme) : theme} ({themeWords.length})
+                      {renderThemeHeader(theme, themeWords.length)}
                     </h3>
                     <ChevronDown className="w-5 h-5 text-gray-400 group-open:rotate-180 transition-transform"/>
                   </summary>
@@ -356,19 +377,19 @@ const WordList: React.FC = () => {
           )
         ) : (
           <p className="text-center text-gray-400 py-8">
-            {words.length === 0 ? "Danh sách từ của bạn trống. Hãy thêm từ để bắt đầu!" : "Không có từ nào khớp với lựa chọn của bạn."}
+            {words.length === 0 ? t('word_list.empty_list') : t('word_list.no_match')}
           </p>
         )}
       </div>
 
       {lastDeletedWord && (
         <div className="bg-slate-700 text-white rounded-xl shadow-lg flex items-center justify-between p-3 animate-fade-in-up">
-            <span>Đã xóa từ <strong>"{lastDeletedWord.word.word}"</strong></span>
+            <span>{t('word_list.deleted_word', { word: lastDeletedWord.word.word })}</span>
             <button
                 onClick={undoDelete}
                 className="font-semibold text-indigo-300 hover:underline px-3 py-1 rounded-md hover:bg-slate-600/50"
             >
-                Hoàn tác
+                {t('word_list.undo')}
             </button>
         </div>
       )}

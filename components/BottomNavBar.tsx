@@ -1,24 +1,26 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View } from '../types';
 import { Home as HomeIcon, BrainCircuit, Gamepad2, BookOpen, LayoutGrid } from 'lucide-react';
+import { useI18n } from '../hooks/useI18n';
 
 interface BottomNavBarProps {
   currentView: View;
   setCurrentView: (view: View) => void;
 }
 
-const navItems = [
-  { view: View.Home, label: 'Trang chủ', icon: HomeIcon },
-  { view: View.Learn, label: 'Ôn luyện', icon: BrainCircuit },
-  { view: View.Vocabulary, label: 'Từ vựng', icon: BookOpen },
-  { view: View.Games, label: 'Trò chơi', icon: Gamepad2 },
-  { view: View.More, label: 'Thêm', icon: LayoutGrid },
-];
-
 const BottomNavBar: React.FC<BottomNavBarProps> = ({ currentView, setCurrentView }) => {
+  const { t } = useI18n();
   const [indicatorStyle, setIndicatorStyle] = useState({});
   const navRef = useRef<HTMLUListElement>(null);
   const itemRefs = useRef<(HTMLLIElement | null)[]>([]);
+
+  const navItems = [
+    { view: View.Home, label: t('bottom_nav.home'), icon: HomeIcon },
+    { view: View.Learn, label: t('bottom_nav.learn'), icon: BrainCircuit },
+    { view: View.Vocabulary, label: t('bottom_nav.vocabulary'), icon: BookOpen },
+    { view: View.Games, label: t('bottom_nav.games'), icon: Gamepad2 },
+    { view: View.More, label: t('bottom_nav.more'), icon: LayoutGrid },
+  ];
 
   useEffect(() => {
     const activeIndex = navItems.findIndex(item => item.view === currentView);
@@ -31,7 +33,7 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ currentView, setCurrentView
         width: `${offsetWidth}px`,
       });
     }
-  }, [currentView]);
+  }, [currentView, t]);
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
@@ -45,7 +47,6 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ currentView, setCurrentView
           {navItems.map((item, index) => (
             <li
               key={item.view}
-              // FIX: The ref callback should not return a value. Changed to a block body.
               ref={el => { itemRefs.current[index] = el; }}
               className="z-10 flex-1"
             >

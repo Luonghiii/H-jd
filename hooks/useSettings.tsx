@@ -21,8 +21,8 @@ interface UserProfile {
 }
 
 interface SettingsContextType {
-  targetLanguage: TargetLanguage;
-  setTargetLanguage: (language: TargetLanguage) => Promise<void>;
+  uiLanguage: TargetLanguage;
+  setUiLanguage: (language: TargetLanguage) => void;
   learningLanguage: LearningLanguage;
   setLearningLanguage: (language: LearningLanguage) => Promise<void>;
   backgroundSetting: BackgroundSetting;
@@ -51,8 +51,16 @@ interface SettingsContextType {
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
+const getInitialUiLanguage = (): TargetLanguage => {
+    const storedLang = localStorage.getItem('uiLanguage');
+    if (storedLang === 'english' || storedLang === 'vietnamese') {
+        return storedLang;
+    }
+    return 'vietnamese';
+};
+
 const defaultState = {
-    targetLanguage: 'vietnamese' as TargetLanguage,
+    uiLanguage: getInitialUiLanguage(),
     learningLanguage: 'german' as LearningLanguage,
     backgroundSetting: null as BackgroundSetting,
     customGradients: [] as string[],
@@ -90,8 +98,11 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     if (currentUser?.uid) {
       const unsubscribe = onUserDataSnapshot(currentUser.uid, (data) => {
         if (data) {
+          const storedUiLanguage = data.settings?.uiLanguage || getInitialUiLanguage();
+          localStorage.setItem('uiLanguage', storedUiLanguage);
+
           const combinedState = {
-            targetLanguage: data.settings?.targetLanguage || defaultState.targetLanguage,
+            uiLanguage: storedUiLanguage,
             learningLanguage: data.settings?.learningLanguage || defaultState.learningLanguage,
             backgroundSetting: data.settings?.backgroundSetting !== undefined ? data.settings.backgroundSetting : defaultState.backgroundSetting,
             customGradients: data.settings?.customGradients || defaultState.customGradients,
@@ -108,7 +119,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
           setAppState(combinedState);
           setApiKeys(combinedState.userApiKeys);
         } else {
-            setAppState(defaultState);
+            setAppState(prev => ({ ...prev, uiLanguage: getInitialUiLanguage() }));
             setApiKeys([]);
         }
         if (!initialLoadDoneRef.current) {
@@ -118,7 +129,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
       });
       return () => unsubscribe();
     } else {
-      setAppState(defaultState);
+      setAppState(prev => ({ ...prev, uiLanguage: getInitialUiLanguage() }));
       setApiKeys([]);
       setIsSettingsLoading(false);
     }
@@ -155,9 +166,12 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
   }, [currentUser, appState.stats]);
 
 
-  const setTargetLanguage = useCallback(async (language: TargetLanguage) => {
-    if (!currentUser) return;
-    await updateUserData(currentUser.uid, { settings: { targetLanguage: language } });
+  const setUiLanguage = useCallback(async (language: TargetLanguage) => {
+    localStorage.setItem('uiLanguage', language);
+    setAppState(prev => ({...prev, uiLanguage: language}));
+    if (currentUser) {
+        await updateUserData(currentUser.uid, { settings: { uiLanguage: language } });
+    }
   }, [currentUser]);
   
   const setLearningLanguage = useCallback(async (language: LearningLanguage) => {
@@ -248,8 +262,8 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
   const hasApiKey = !!process.env.API_KEY || appState.userApiKeys.length > 0;
 
   const contextValue = {
-    targetLanguage: appState.targetLanguage,
-    setTargetLanguage,
+    uiLanguage: appState.uiLanguage,
+    setUiLanguage,
     learningLanguage: appState.learningLanguage,
     setLearningLanguage,
     backgroundSetting: appState.backgroundSetting,

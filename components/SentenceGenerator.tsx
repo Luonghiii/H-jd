@@ -13,7 +13,7 @@ interface SentenceGeneratorProps {
 
 const SentenceGenerator: React.FC<SentenceGeneratorProps> = ({ onBack }) => {
     const { words } = useVocabulary();
-    const { targetLanguage, learningLanguage } = useSettings();
+    const { uiLanguage, learningLanguage, recordActivity } = useSettings();
     const { addHistoryEntry } = useHistory();
     const [selectedWord, setSelectedWord] = useState<VocabularyWord | null>(null);
     const [generatedSentence, setGeneratedSentence] = useState('');
@@ -27,8 +27,9 @@ const SentenceGenerator: React.FC<SentenceGeneratorProps> = ({ onBack }) => {
         setGeneratedSentence('');
         setTranslation('');
 
-        const result = await generateSentence(word, targetLanguage, learningLanguage);
+        const result = await generateSentence(word, uiLanguage, learningLanguage);
         addHistoryEntry('SENTENCE_GENERATED', `Tạo câu ví dụ cho từ "${word.word}".`, { word: word.word });
+        recordActivity();
         const parts = result.split('---Translation---');
         if (parts.length === 2) {
             setGeneratedSentence(parts[0].trim());
@@ -103,7 +104,7 @@ const SentenceGenerator: React.FC<SentenceGeneratorProps> = ({ onBack }) => {
                                 >
                                     <div>
                                         <p className="font-semibold text-slate-800 dark:text-white">{word.word}</p>
-                                        <p className="text-sm text-slate-500 dark:text-gray-400">{word.translation[targetLanguage]}</p>
+                                        <p className="text-sm text-slate-500 dark:text-gray-400">{word.translation[uiLanguage]}</p>
                                     </div>
                                     <Wand2 className="w-5 h-5 text-slate-400 dark:text-gray-400" />
                                 </button>

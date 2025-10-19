@@ -6,25 +6,7 @@ import { useAuth } from './useAuth';
 import { onUserDataSnapshot, updateUserData } from '../services/firestoreService';
 import eventBus from '../utils/eventBus';
 
-interface VocabularyContextType {
-  words: VocabularyWord[];
-  isWordsLoading: boolean;
-  addWord: (word: string, translation: string, language: TargetLanguage, theme?: string) => Promise<boolean>;
-  addMultipleWords: (newWords: GeneratedWord[]) => Promise<number>;
-  deleteWord: (id: string) => Promise<void>;
-  updateWord: (id: string, updates: Partial<VocabularyWord>) => Promise<void>;
-  updateWordImage: (wordId: string, imageUrl: string | null) => Promise<void>;
-  updateWordSpeechAudio: (wordId: string, audioB64: string) => Promise<void>;
-  updateWordSrs: (wordId: string, performance: 'hard' | 'good' | 'easy') => Promise<void>;
-  getWordsForStory: (count: number) => VocabularyWord[];
-  getAvailableThemes: () => string[];
-  toggleWordStar: (id: string) => Promise<void>;
-  lastDeletedWord: { word: VocabularyWord; index: number } | null;
-  undoDelete: () => Promise<void>;
-}
-
-const VocabularyContext = createContext<VocabularyContextType | undefined>(undefined);
-
+// FIX: Export themeTranslationMap to resolve import errors.
 export const themeTranslationMap: Record<string, string> = {
   'Thức ăn': 'Food',
   'Đồ uống': 'Drinks',
@@ -59,6 +41,25 @@ export const themeTranslationMap: Record<string, string> = {
   'Sở thích': 'Hobbies',
   'Cảm xúc': 'Feelings',
 };
+
+interface VocabularyContextType {
+  words: VocabularyWord[];
+  isWordsLoading: boolean;
+  addWord: (word: string, translation: string, language: TargetLanguage, theme?: string) => Promise<boolean>;
+  addMultipleWords: (newWords: GeneratedWord[]) => Promise<number>;
+  deleteWord: (id: string) => Promise<void>;
+  updateWord: (id: string, updates: Partial<VocabularyWord>) => Promise<void>;
+  updateWordImage: (wordId: string, imageUrl: string | null) => Promise<void>;
+  updateWordSpeechAudio: (wordId: string, audioB64: string) => Promise<void>;
+  updateWordSrs: (wordId: string, performance: 'hard' | 'good' | 'easy') => Promise<void>;
+  getWordsForStory: (count: number) => VocabularyWord[];
+  getAvailableThemes: () => string[];
+  toggleWordStar: (id: string) => Promise<void>;
+  lastDeletedWord: { word: VocabularyWord; index: number } | null;
+  undoDelete: () => Promise<void>;
+}
+
+const VocabularyContext = createContext<VocabularyContextType | undefined>(undefined);
 
 const srsIntervalsDays = [1, 3, 7, 14, 30, 90, 180, 365];
 const DAY_IN_MS = 24 * 60 * 60 * 1000;

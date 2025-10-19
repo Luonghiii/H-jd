@@ -15,7 +15,8 @@ type GameState = 'setup' | 'loading' | 'playing' | 'correct';
 
 const SentenceScramble: React.FC<SentenceScrambleProps> = ({ onBack }) => {
     const { words, getAvailableThemes } = useVocabulary();
-    const { learningLanguage, targetLanguage, recordActivity } = useSettings();
+    // FIX: Replaced 'targetLanguage' with 'uiLanguage' from settings and aliased for compatibility.
+    const { learningLanguage, uiLanguage: targetLanguage, recordActivity } = useSettings();
     const { addHistoryEntry } = useHistory();
     const { openInspector } = useInspector();
     const [gameState, setGameState] = useState<GameState>('setup');

@@ -21,7 +21,6 @@ import {
   QueryDocumentSnapshot
 } from 'firebase/firestore';
 import { User } from 'firebase/auth';
-// FIX: import HistoryEntry
 import { ConversationSession, GeneratedWord, HistoryEntry, UserStats, VocabularyWord, UserDoc } from '../types';
 import eventBus from '../utils/eventBus';
 import { defaultGermanWords } from '../data/german_words';

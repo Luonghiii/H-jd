@@ -4,7 +4,7 @@ import React, { useState, useRef } from 'react';
 import { useVocabulary } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
 import { useHistory } from '../hooks/useHistory';
-import { PlusCircle, RefreshCw, Sparkles, Image as ImageIcon, FileText } from 'lucide-react';
+import { PlusCircle, RefreshCw, Sparkles, Image as ImageIcon, FileText, ArrowLeft } from 'lucide-react';
 import { generateWordsFromPrompt, getWordsFromImage, getWordsFromFile } from '../services/geminiService';
 import AddWordsReviewModal from './AddWordsReviewModal';
 import { GeneratedWord } from '../types';
@@ -23,7 +23,11 @@ const fileToBase64 = (file: File): Promise<{base64: string, mimeType: string}> =
 
 type AddMode = 'manual' | 'ai' | 'upload';
 
-const AddWord: React.FC = () => {
+interface AddWordProps {
+    onBack: () => void;
+}
+
+const AddWord: React.FC<AddWordProps> = ({ onBack }) => {
   const [mode, setMode] = useState<AddMode>('manual');
   
   // Manual state
@@ -49,7 +53,7 @@ const AddWord: React.FC = () => {
 
   const { words, addWord, addMultipleWords, getAvailableThemes } = useVocabulary();
   const { addHistoryEntry } = useHistory();
-  const { targetLanguage, learningLanguage, recordActivity } = useSettings();
+  const { uiLanguage, learningLanguage, recordActivity } = useSettings();
   
   const languageNameMap = {
       german: 'tiếng Đức',
@@ -69,11 +73,12 @@ const AddWord: React.FC = () => {
       setIsManualLoading(true);
       setFeedback(null);
       const trimmedWord = word.trim();
-      const success = await addWord(trimmedWord, translation.trim(), targetLanguage, manualTheme.trim());
+      const success = await addWord(trimmedWord, translation.trim(), uiLanguage, manualTheme.trim());
       
       setIsManualLoading(false);
 
       if (success) {
+        recordActivity();
         addHistoryEntry('WORDS_ADDED', `Đã thêm thủ công 1 từ.`, { wordCount: 1 });
         setWord('');
         setTranslation('');
@@ -189,8 +194,8 @@ const AddWord: React.FC = () => {
   );
 
   const renderManualForm = () => {
-    const translationLabel = targetLanguage === 'vietnamese' ? 'Nghĩa tiếng Việt' : 'Nghĩa tiếng Anh';
-    const translationPlaceholder = targetLanguage === 'vietnamese' ? 'ví dụ: quả táo' : 'e.g. the apple';
+    const translationLabel = uiLanguage === 'vietnamese' ? 'Nghĩa tiếng Việt' : 'Nghĩa tiếng Anh';
+    const translationPlaceholder = uiLanguage === 'vietnamese' ? 'ví dụ: quả táo' : 'e.g. the apple';
     const wordLabel = `Từ ${languageNameMap[learningLanguage]}`;
     const wordPlaceholder = `ví dụ: ${learningLanguage === 'german' ? 'der Apfel' : learningLanguage === 'english' ? 'apple' : '苹果'}`;
 
@@ -281,6 +286,13 @@ const AddWord: React.FC = () => {
 
   return (
     <div className="space-y-6">
+       <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-white">Thêm từ mới</h2>
+            <button onClick={onBack} className="flex-shrink-0 flex items-center gap-2 px-3 py-2 text-sm bg-slate-700/50 hover:bg-slate-700 text-gray-200 font-semibold rounded-xl transition-colors">
+                <ArrowLeft className="w-4 h-4" />
+                <span>Quay lại</span>
+            </button>
+        </div>
       {renderTabs()}
 
       {feedback && (

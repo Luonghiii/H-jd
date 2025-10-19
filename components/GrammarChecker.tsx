@@ -14,7 +14,7 @@ type Feedback = {
 } | null;
 
 const GrammarChecker: React.FC<GrammarCheckerProps> = ({ onBack }) => {
-    const { learningLanguage, targetLanguage } = useSettings();
+    const { learningLanguage, uiLanguage, recordActivity } = useSettings();
     const { addHistoryEntry } = useHistory();
     const [text, setText] = useState('');
     const [feedback, setFeedback] = useState<Feedback>(null);
@@ -25,7 +25,7 @@ const GrammarChecker: React.FC<GrammarCheckerProps> = ({ onBack }) => {
     const handleGeneratePrompt = async () => {
         setIsPromptLoading(true);
         try {
-            const newPrompt = await generateWritingPrompt(targetLanguage);
+            const newPrompt = await generateWritingPrompt(uiLanguage);
             setPrompt(newPrompt);
         } catch (error) {
             console.error("Failed to generate prompt:", error);
@@ -43,9 +43,10 @@ const GrammarChecker: React.FC<GrammarCheckerProps> = ({ onBack }) => {
         setIsLoading(true);
         setFeedback(null);
         try {
-            const result = await checkGrammar(text, learningLanguage, targetLanguage);
+            const result = await checkGrammar(text, learningLanguage, uiLanguage);
             setFeedback(result);
             addHistoryEntry('GRAMMAR_CHECK_COMPLETED', 'Đã sử dụng công cụ kiểm tra ngữ pháp.');
+            recordActivity();
         } catch (error) {
             console.error(error);
             alert('Đã xảy ra lỗi khi kiểm tra ngữ pháp.');

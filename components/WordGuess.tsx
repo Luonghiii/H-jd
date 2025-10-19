@@ -20,7 +20,7 @@ const GERMAN_ALPHABET = 'abcdefghijklmnopqrstuvwxyzäöüß'.split('');
 
 const WordGuess: React.FC<WordGuessProps> = ({ onBack }) => {
     const { words, getAvailableThemes } = useVocabulary();
-    const { learningLanguage, targetLanguage, recordActivity } = useSettings();
+    const { learningLanguage, uiLanguage, recordActivity } = useSettings();
     const { addHistoryEntry } = useHistory();
     const { openInspector } = useInspector();
     const [gameState, setGameState] = useState<GameState>('setup');
@@ -73,7 +73,7 @@ const WordGuess: React.FC<WordGuessProps> = ({ onBack }) => {
 
         setIsLoadingHint(true);
         try {
-            const generatedHints = await generateHintsForWord(randomWord, targetLanguage, learningLanguage);
+            const generatedHints = await generateHintsForWord(randomWord, uiLanguage, learningLanguage);
             setHints(generatedHints);
             setHintLevel(1);
         } catch (error) {
@@ -84,7 +84,7 @@ const WordGuess: React.FC<WordGuessProps> = ({ onBack }) => {
         }
         setIsLoadingHint(false);
 
-    }, [wordsForGame, targetLanguage, learningLanguage]);
+    }, [wordsForGame, uiLanguage, learningLanguage]);
 
     const handleGuess = (letter: string) => {
         if (gameState !== 'playing' || guessedLetters.has(letter)) return;
@@ -179,7 +179,7 @@ const WordGuess: React.FC<WordGuessProps> = ({ onBack }) => {
                     <div className="p-3 border-t border-slate-600">
                         <div className="flex flex-wrap gap-2 justify-center">
                             <button onClick={() => handleThemeToggle('all')} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has('all') ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 hover:bg-slate-600'}`}>{`Tất cả (${words.length})`}</button>
-                            {availableThemes.map(theme => <button key={theme} onClick={() => handleThemeToggle(theme)} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has(theme) ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 hover:bg-slate-600'}`}>{targetLanguage === 'english' ? (themeTranslationMap[theme] || theme) : theme} ({words.filter(w => w.theme === theme).length})</button>)}
+                            {availableThemes.map(theme => <button key={theme} onClick={() => handleThemeToggle(theme)} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has(theme) ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 hover:bg-slate-600'}`}>{uiLanguage === 'english' ? (themeTranslationMap[theme] || theme) : theme} ({words.filter(w => w.theme === theme).length})</button>)}
                         </div>
                     </div>
                 </details>
@@ -209,7 +209,7 @@ const WordGuess: React.FC<WordGuessProps> = ({ onBack }) => {
                             >
                                 {word.word}
                             </p>
-                            <p className="text-sm text-gray-400">{word.translation[targetLanguage]}</p>
+                            <p className="text-sm text-gray-400">{word.translation[uiLanguage]}</p>
                             </div>
                         </div>
                         ))}

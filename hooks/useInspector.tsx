@@ -70,7 +70,7 @@ const QuickTranslateContext = createContext<QuickTranslateContextType | undefine
 export const QuickTranslateProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [data, setData] = useState<QuickTranslateState | null>(null);
   const { words } = useVocabulary();
-  const { learningLanguage, targetLanguage } = useSettings();
+  const { learningLanguage, uiLanguage } = useSettings();
 
   const closeQuickTranslate = useCallback(() => {
     setData(null);
@@ -98,7 +98,7 @@ export const QuickTranslateProvider: React.FC<{ children: ReactNode }> = ({ chil
     });
     
     try {
-      const analysis = await getQuickWordAnalysis(cleanedWord, targetLanguage === 'vietnamese' ? 'Vietnamese' : 'English', learningLanguage);
+      const analysis = await getQuickWordAnalysis(cleanedWord, uiLanguage === 'vietnamese' ? 'Vietnamese' : 'English', learningLanguage);
       if (analysis) {
         setData(prev => prev ? {
           ...prev,
@@ -118,7 +118,7 @@ export const QuickTranslateProvider: React.FC<{ children: ReactNode }> = ({ chil
           isLoading: false,
       } : null);
     }
-  }, [words, learningLanguage, targetLanguage, closeQuickTranslate]);
+  }, [words, learningLanguage, uiLanguage, closeQuickTranslate]);
 
   return (
     <QuickTranslateContext.Provider value={{ data, openQuickTranslate, closeQuickTranslate }}>

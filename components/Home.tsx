@@ -1,14 +1,16 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useVocabulary } from '../hooks/useVocabulary';
 import { View, VocabularyWord } from '../types';
 import { PenSquare, Layers, Dices, ArrowRight, Book, Star, Gamepad2, Sparkles, Flame, RotateCcw, Calendar, BrainCircuit } from 'lucide-react';
 import { useSettings } from '../hooks/useSettings';
 import { useInspector } from '../hooks/useInspector';
+import { useI18n } from '../hooks/useI18n';
 
 
 const QuickReview: React.FC = () => {
     const { words, updateWordSrs } = useVocabulary();
-    const { targetLanguage, recordActivity } = useSettings();
+    const { uiLanguage, recordActivity } = useSettings();
+    const { t } = useI18n();
 
     const wordsToReview = useMemo(() => {
         return words
@@ -17,49 +19,57 @@ const QuickReview: React.FC = () => {
             .slice(0, 5); // Take top 5
     }, [words]);
 
+    const [sessionWords, setSessionWords] = useState<VocabularyWord[]>([]);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isFlipped, setIsFlipped] = useState(false);
-    const [completed, setCompleted] = useState(false);
+    const [isSessionActive, setIsSessionActive] = useState(false);
+    const justCompletedSession = useRef(false);
 
     useEffect(() => {
-        // Reset completion state if the component is re-rendered with new words to review
-        if (wordsToReview.length > 0) {
-            setCompleted(false);
+        if (!isSessionActive && wordsToReview.length > 0 && !justCompletedSession.current) {
+            setSessionWords(wordsToReview);
             setCurrentIndex(0);
+            setIsFlipped(false);
+            setIsSessionActive(true);
+        } else if (isSessionActive && sessionWords.length > 0 && wordsToReview.length === 0) {
+            // End session if the list of reviewable words becomes empty while in a session
+             setIsSessionActive(false);
         }
-    }, [wordsToReview]);
+    }, [wordsToReview, isSessionActive, sessionWords.length]);
 
-    if (wordsToReview.length === 0 || completed) {
+
+    if (!isSessionActive || sessionWords.length === 0) {
         return (
             <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 flex flex-col items-center justify-center text-center h-full">
                 <BrainCircuit className="w-8 h-8 text-emerald-400 mb-2" />
-                <h3 className="font-bold text-white">Ôn tập nhanh</h3>
+                <h3 className="font-bold text-white">{t('home.quick_review')}</h3>
                 <p className="text-sm text-gray-400 mt-1">
-                    {completed ? "Bạn đã hoàn thành phiên ôn tập nhanh!" : "Không có từ nào cần ôn tập ngay."}
+                    {!isSessionActive && sessionWords.length > 0 ? t('home.quick_review_done') : t('home.quick_review_empty')}
                 </p>
             </div>
         );
     }
 
-    const currentWord = wordsToReview[currentIndex];
+    const currentWord = sessionWords[currentIndex];
 
     const handlePerformance = (performance: 'hard' | 'good' | 'easy') => {
-        if (!isFlipped) return;
+        if (!isFlipped || !currentWord) return;
         
         updateWordSrs(currentWord.id, performance);
         
-        if (currentIndex < wordsToReview.length - 1) {
+        if (currentIndex < sessionWords.length - 1) {
             setIsFlipped(false);
             setTimeout(() => setCurrentIndex(prev => prev + 1), 150);
         } else {
             recordActivity();
-            setCompleted(true);
+            justCompletedSession.current = true;
+            setIsSessionActive(false);
         }
     };
 
     return (
         <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-4 flex flex-col h-full">
-            <h3 className="font-bold text-white mb-2 text-center">Ôn tập nhanh ({currentIndex + 1}/{wordsToReview.length})</h3>
+            <h3 className="font-bold text-white mb-2 text-center">{t('home.quick_review')} ({currentIndex + 1}/{sessionWords.length})</h3>
             <div className="flex-grow flex flex-col justify-center">
                 <div className="[perspective:1000px]" onClick={() => setIsFlipped(!isFlipped)}>
                     <div 
@@ -90,20 +100,20 @@ const QuickReview: React.FC = () => {
                                 WebkitTransform: 'rotateY(180deg)', // For Safari/iOS
                             }}
                         >
-                            <p className="text-xl font-bold text-white text-center">{currentWord.translation[targetLanguage]}</p>
+                            <p className="text-xl font-bold text-white text-center">{currentWord.translation[uiLanguage]}</p>
                         </div>
                     </div>
                 </div>
             </div>
             {isFlipped ? (
                  <div className="grid grid-cols-3 gap-2 mt-3 animate-fade-in">
-                    <button onClick={() => handlePerformance('hard')} className="py-2 bg-red-500/20 hover:bg-red-500/40 text-red-300 text-sm font-semibold rounded-lg">Khó</button>
-                    <button onClick={() => handlePerformance('good')} className="py-2 bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 text-sm font-semibold rounded-lg">Tốt</button>
-                    <button onClick={() => handlePerformance('easy')} className="py-2 bg-green-500/20 hover:bg-green-500/40 text-green-300 text-sm font-semibold rounded-lg">Dễ</button>
+                    <button onClick={() => handlePerformance('hard')} className="py-2 bg-red-500/20 hover:bg-red-500/40 text-red-300 text-sm font-semibold rounded-lg">{t('home.quick_review_hard')}</button>
+                    <button onClick={() => handlePerformance('good')} className="py-2 bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 text-sm font-semibold rounded-lg">{t('home.quick_review_good')}</button>
+                    <button onClick={() => handlePerformance('easy')} className="py-2 bg-green-500/20 hover:bg-green-500/40 text-green-300 text-sm font-semibold rounded-lg">{t('home.quick_review_easy')}</button>
                  </div>
             ) : (
                 <div className="text-center h-[40px] flex items-center justify-center mt-3">
-                    <p className="text-xs text-gray-500">Nhấn vào thẻ để xem đáp án.</p>
+                    <p className="text-xs text-gray-500">{t('home.quick_review_flip_prompt')}</p>
                 </div>
             )}
         </div>
@@ -112,8 +122,9 @@ const QuickReview: React.FC = () => {
 
 const WordOfTheDay: React.FC = () => {
     const { words, isWordsLoading } = useVocabulary();
-    const { stats, isSettingsLoading, setWordOfTheDay, targetLanguage } = useSettings();
+    const { stats, isSettingsLoading, setWordOfTheDay, uiLanguage } = useSettings();
     const { openInspector } = useInspector();
+    const { t } = useI18n();
     const [word, setWord] = useState<VocabularyWord | null>(null);
 
     useEffect(() => {
@@ -138,21 +149,21 @@ const WordOfTheDay: React.FC = () => {
          return (
             <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 flex flex-col items-center justify-center text-center h-full">
                 <Calendar className="w-8 h-8 text-cyan-400 mb-2" />
-                <h3 className="font-bold text-white">Từ của Ngày</h3>
-                <p className="text-sm text-gray-400 mt-1">Thêm từ vựng để bắt đầu nhận từ mới mỗi ngày.</p>
+                <h3 className="font-bold text-white">{t('home.word_of_the_day')}</h3>
+                <p className="text-sm text-gray-400 mt-1">{t('home.add_words_prompt')}</p>
             </div>
         );
     }
 
     return (
         <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-4 flex flex-col h-full cursor-pointer" onClick={() => openInspector(word)}>
-            <h3 className="font-bold text-white mb-2 text-center">Từ của Ngày</h3>
+            <h3 className="font-bold text-white mb-2 text-center">{t('home.word_of_the_day')}</h3>
             <div className="flex-grow flex flex-col items-center justify-center text-center">
                  {word.imageUrl && <img src={word.imageUrl} alt={word.word} className="w-full h-24 object-contain rounded-md mb-3" />}
                 <p className="text-2xl font-bold text-cyan-300">{word.word}</p>
-                <p className="text-gray-400">{word.translation[targetLanguage]}</p>
+                <p className="text-gray-400">{word.translation[uiLanguage]}</p>
             </div>
-            <p className="text-xs text-gray-500 text-center mt-2">Nhấn để xem chi tiết</p>
+            <p className="text-xs text-gray-500 text-center mt-2">{t('home.click_for_details')}</p>
         </div>
     );
 };
@@ -165,27 +176,28 @@ interface HomeProps {
 const Home: React.FC<HomeProps> = ({ setCurrentView }) => {
   const { words, isWordsLoading } = useVocabulary();
   const { stats, isSettingsLoading } = useSettings();
+  const { t } = useI18n();
 
   const featureCards = [
     {
       view: View.Learn,
       icon: BrainCircuit,
-      title: 'Ôn luyện',
-      description: 'Củng cố kiến thức qua ôn tập thông minh, luyện viết và thẻ ghi nhớ.',
+      title: t('home.mode_learn_title'),
+      description: t('home.mode_learn_desc'),
       color: 'from-blue-500 to-purple-500',
     },
     {
       view: View.Games,
       icon: Gamepad2,
-      title: 'Trò chơi',
-      description: 'Vừa học vừa chơi với các game tương tác như Lật thẻ, Đố vui...',
+      title: t('home.mode_games_title'),
+      description: t('home.mode_games_desc'),
       color: 'from-rose-500 to-rose-400',
     },
     {
       view: View.AiTools,
       icon: Sparkles,
-      title: 'Công cụ AI',
-      description: 'Sử dụng AI để tạo truyện, câu ví dụ và nhiều hơn nữa.',
+      title: t('home.mode_tools_title'),
+      description: t('home.mode_tools_desc'),
       color: 'from-amber-500 to-amber-400',
     }
   ];
@@ -194,10 +206,10 @@ const Home: React.FC<HomeProps> = ({ setCurrentView }) => {
     <div className="space-y-8 animate-fade-in">
       <div className="text-center p-6 bg-slate-800/30 rounded-2xl">
         <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-indigo-400 to-cyan-300 text-transparent bg-clip-text">
-          Chào mừng trở lại!
+          {t('home.welcome')}
         </h1>
         <p className="mt-2 text-lg text-gray-400 max-w-2xl mx-auto">
-          Sẵn sàng để chinh phục thêm nhiều từ vựng mới hôm nay chưa?
+          {t('home.sub_welcome')}
         </p>
       </div>
 
@@ -212,7 +224,7 @@ const Home: React.FC<HomeProps> = ({ setCurrentView }) => {
                 ) : (
                     <div className="text-3xl font-bold">{words.length}</div>
                 )}
-                <div className="text-sm text-gray-400">Từ đã lưu</div>
+                <div className="text-sm text-gray-400">{t('home.saved_words')}</div>
             </div>
         </div>
         <div className="bg-slate-800/50 p-5 rounded-2xl flex items-center gap-4 border border-slate-700">
@@ -225,7 +237,7 @@ const Home: React.FC<HomeProps> = ({ setCurrentView }) => {
                 ) : (
                     <div className="text-3xl font-bold">{stats.currentStreak}</div>
                 )}
-                <div className="text-sm text-gray-400">Chuỗi hiện tại</div>
+                <div className="text-sm text-gray-400">{t('home.current_streak')}</div>
             </div>
         </div>
         <div className="bg-slate-800/50 p-5 rounded-2xl flex items-center gap-4 border border-slate-700">
@@ -238,7 +250,7 @@ const Home: React.FC<HomeProps> = ({ setCurrentView }) => {
                 ) : (
                     <div className="text-3xl font-bold">{stats.longestStreak}</div>
                 )}
-                <div className="text-sm text-gray-400">Chuỗi dài nhất</div>
+                <div className="text-sm text-gray-400">{t('home.longest_streak')}</div>
             </div>
         </div>
       </div>
@@ -249,7 +261,7 @@ const Home: React.FC<HomeProps> = ({ setCurrentView }) => {
       </div>
 
       <div>
-        <h2 className="text-2xl font-bold text-white mb-4">Các chế độ học</h2>
+        <h2 className="text-2xl font-bold text-white mb-4">{t('home.learning_modes')}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {featureCards.map((card) => (
             <div

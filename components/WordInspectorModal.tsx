@@ -12,7 +12,7 @@ import eventBus from '../utils/eventBus';
 export const QuickTranslateModal: React.FC = () => {
     const { data, closeQuickTranslate } = useQuickTranslate();
     const { addWord } = useVocabulary();
-    const { targetLanguage } = useSettings();
+    const { uiLanguage } = useSettings();
     const modalRef = useRef<HTMLDivElement>(null);
     const [style, setStyle] = useState<React.CSSProperties>({});
 
@@ -55,7 +55,7 @@ export const QuickTranslateModal: React.FC = () => {
 
     const handleAdd = async () => {
         if (data.isLoading) return;
-        const success = await addWord(data.word, data.translation, targetLanguage, data.theme);
+        const success = await addWord(data.word, data.translation, uiLanguage, data.theme);
         if (success) {
             eventBus.dispatch('notification', { type: 'success', message: `Đã thêm từ "${data.word}"!` });
         }
@@ -114,7 +114,7 @@ interface WordInspectorModalProps {
 type Tab = 'info' | 'examples' | 'chat';
 
 const WordInspectorModal: React.FC<WordInspectorModalProps> = ({ isOpen, word, onClose }) => {
-  const { targetLanguage, learningLanguage } = useSettings();
+  const { uiLanguage, learningLanguage } = useSettings();
   const { updateWord, updateWordSpeechAudio } = useVocabulary();
   const { updateInspectingWord } = useInspector();
 
@@ -180,14 +180,14 @@ const WordInspectorModal: React.FC<WordInspectorModalProps> = ({ isOpen, word, o
       const fetchInfo = async () => {
         setIsInfoLoading(true);
         try {
-          const info = await getWordInfo(word.word, targetLanguage, learningLanguage);
+          const info = await getWordInfo(word.word, uiLanguage, learningLanguage);
           setWordInfo(info);
         } catch (error) { console.error(error); }
         setIsInfoLoading(false);
       };
       fetchInfo();
     }
-  }, [isOpen, activeTab, wordInfo, word, targetLanguage, learningLanguage]);
+  }, [isOpen, activeTab, wordInfo, word, uiLanguage, learningLanguage]);
 
   useEffect(() => {
     if (chatContainerRef.current) {
@@ -220,7 +220,7 @@ const WordInspectorModal: React.FC<WordInspectorModalProps> = ({ isOpen, word, o
 
   const handleGenerateExample = async () => {
     setIsExampleLoading(true);
-    const result = await generateSentence(word, targetLanguage, learningLanguage);
+    const result = await generateSentence(word, uiLanguage, learningLanguage);
     const parts = result.split('---Translation---');
     setExampleSentence(parts[0].trim());
     setExampleTranslation(parts.length > 1 ? parts[1].trim() : '');
@@ -230,7 +230,7 @@ const WordInspectorModal: React.FC<WordInspectorModalProps> = ({ isOpen, word, o
   const handleCheckSentence = async () => {
     if (!userSentence.trim()) return;
     setIsCheckingSentence(true);
-    const feedback = await checkSentence(userSentence, word.word, targetLanguage, learningLanguage);
+    const feedback = await checkSentence(userSentence, word.word, uiLanguage, learningLanguage);
     setSentenceFeedback(feedback);
     setIsCheckingSentence(false);
   };
@@ -238,7 +238,7 @@ const WordInspectorModal: React.FC<WordInspectorModalProps> = ({ isOpen, word, o
   const handleRewriteSentence = async () => {
     if (!userSentence.trim()) return;
     setIsRewriting(true);
-    const result = await rewriteSentence(userSentence, word.word, targetLanguage, learningLanguage);
+    const result = await rewriteSentence(userSentence, word.word, uiLanguage, learningLanguage);
     setRewrittenSentence(result);
     setIsRewriting(false);
   };
@@ -252,7 +252,7 @@ const WordInspectorModal: React.FC<WordInspectorModalProps> = ({ isOpen, word, o
     setUserQuestion('');
     setIsChatLoading(true);
 
-    const response = await getChatResponseForWord(word, userQuestion, newHistory, targetLanguage, learningLanguage);
+    const response = await getChatResponseForWord(word, userQuestion, newHistory, uiLanguage, learningLanguage);
     setChatHistory(prev => [...prev, { role: 'model', text: response }]);
     setIsChatLoading(false);
   }
@@ -305,7 +305,7 @@ const WordInspectorModal: React.FC<WordInspectorModalProps> = ({ isOpen, word, o
                           {isSpeechLoading ? <Loader2 className="w-5 h-5 animate-spin"/> : <Volume2 className="w-5 h-5"/>}
                       </button>
                     </h2>
-                    <p className="text-gray-400">{word.translation[targetLanguage]}</p>
+                    <p className="text-gray-400">{word.translation[uiLanguage]}</p>
                 </div>
                 <div className="flex items-center gap-1">
                   {!isEditing && (

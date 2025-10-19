@@ -5,9 +5,10 @@ import { useAuth } from '../hooks/useAuth';
 import { useHistory } from '../hooks/useHistory';
 import { auth } from '../services/firebase';
 import { signOut } from 'firebase/auth';
+import { useI18n } from '../hooks/useI18n';
 
-const TargetLanguageSelector: React.FC = () => {
-  const { targetLanguage, setTargetLanguage } = useSettings();
+const UiLanguageSelector: React.FC = () => {
+  const { uiLanguage, setUiLanguage } = useSettings();
 
   const baseClasses = "px-3 py-1 text-sm font-semibold rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-indigo-500";
   const activeClasses = "bg-indigo-600 text-white";
@@ -16,14 +17,14 @@ const TargetLanguageSelector: React.FC = () => {
   return (
     <div className="flex items-center p-1 bg-slate-800 rounded-lg">
       <button 
-        onClick={() => setTargetLanguage('vietnamese')}
-        className={`${baseClasses} ${targetLanguage === 'vietnamese' ? activeClasses : inactiveClasses}`}
+        onClick={() => setUiLanguage('vietnamese')}
+        className={`${baseClasses} ${uiLanguage === 'vietnamese' ? activeClasses : inactiveClasses}`}
       >
         VIE
       </button>
       <button 
-        onClick={() => setTargetLanguage('english')}
-        className={`${baseClasses} ${targetLanguage === 'english' ? activeClasses : inactiveClasses}`}
+        onClick={() => setUiLanguage('english')}
+        className={`${baseClasses} ${uiLanguage === 'english' ? activeClasses : inactiveClasses}`}
       >
         ENG
       </button>
@@ -33,6 +34,7 @@ const TargetLanguageSelector: React.FC = () => {
 
 const StreakDisplay: React.FC = () => {
   const { stats } = useSettings();
+  const { t } = useI18n();
   const streak = stats.currentStreak || 0;
 
   const getFlameColor = () => {
@@ -49,7 +51,7 @@ const StreakDisplay: React.FC = () => {
   if (streak === 0) return null;
 
   return (
-    <div className="flex items-center gap-1 bg-slate-800/60 px-3 py-1.5 rounded-full" title={`Chuỗi ${streak} ngày học!`}>
+    <div className="flex items-center gap-1 bg-slate-800/60 px-3 py-1.5 rounded-full" title={t('header.streak_title', { streak })}>
         <span className="font-bold text-white text-sm">{streak}</span>
         <Flame className={`w-4 h-4 ${getFlameColor()}`} />
     </div>
@@ -63,6 +65,7 @@ const ProfileDropdown: React.FC<{
   onEditProfile: () => void;
 }> = ({ isOpen, onClose, onLogout, onEditProfile }) => {
   const { profile } = useSettings();
+  const { t } = useI18n();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -80,17 +83,17 @@ const ProfileDropdown: React.FC<{
   return (
     <div ref={dropdownRef} className="absolute top-full right-0 mt-2 w-64 bg-slate-800/90 backdrop-blur-md border border-slate-700 rounded-xl shadow-2xl p-4 z-50 animate-fade-in-up">
         <div className="flex flex-col items-center pb-3 border-b border-slate-700">
-            <p className="font-bold text-white truncate">{profile.displayName || 'Người dùng'}</p>
+            <p className="font-bold text-white truncate">{profile.displayName || 'User'}</p>
             {profile.username && <p className="text-sm text-gray-400">@{profile.username}</p>}
         </div>
         <div className="py-2">
             <button onClick={onEditProfile} className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md hover:bg-slate-700">
                 <Edit className="w-4 h-4 text-gray-400" />
-                <span>Chỉnh sửa hồ sơ</span>
+                <span>{t('header.edit_profile')}</span>
             </button>
              <button onClick={onLogout} className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md text-red-400 hover:bg-red-500/10">
                 <LogOut className="w-4 h-4" />
-                <span>Đăng xuất</span>
+                <span>{t('header.logout')}</span>
             </button>
         </div>
     </div>
@@ -101,6 +104,7 @@ const ProfileDropdown: React.FC<{
 const Header: React.FC<{ onOpenSettings: () => void; onOpenProfile: () => void; }> = ({ onOpenSettings, onOpenProfile }) => {
   const { addHistoryEntry } = useHistory();
   const { profile } = useSettings();
+  const { t } = useI18n();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   
   const handleLogout = async () => {
@@ -119,11 +123,11 @@ const Header: React.FC<{ onOpenSettings: () => void; onOpenProfile: () => void; 
         </div>
         <div className="flex items-center flex-shrink-0 space-x-1 sm:space-x-2">
           <StreakDisplay />
-          <TargetLanguageSelector />
+          <UiLanguageSelector />
           <button
             onClick={onOpenSettings}
             className="p-2 text-gray-300 hover:bg-slate-700/50 hover:text-white rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-indigo-500"
-            aria-label="Cài đặt"
+            aria-label={t('header.settings')}
           >
             <Settings className="w-5 h-5" />
           </button>

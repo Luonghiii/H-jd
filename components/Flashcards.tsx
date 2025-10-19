@@ -13,7 +13,7 @@ interface FlashcardsProps {
 
 const Flashcards: React.FC<FlashcardsProps> = ({ onBack }) => {
   const { words, getAvailableThemes } = useVocabulary();
-  const { targetLanguage, recordActivity } = useSettings();
+  const { uiLanguage, recordActivity } = useSettings();
   const { openInspector } = useInspector();
   const { addHistoryEntry } = useHistory();
   
@@ -112,7 +112,7 @@ const Flashcards: React.FC<FlashcardsProps> = ({ onBack }) => {
                     </button>
                     {availableThemes.map(theme => (
                       <button key={theme} onClick={() => handleThemeToggle(theme)} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has(theme) ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 hover:bg-slate-600'}`}>
-                        {targetLanguage === 'english' ? (themeTranslationMap[theme] || theme) : theme} ({words.filter(w => w.theme === theme).length})
+                        {uiLanguage === 'english' ? (themeTranslationMap[theme] || theme) : theme} ({words.filter(w => w.theme === theme).length})
                       </button>
                     ))}
                 </div>
@@ -131,7 +131,7 @@ const Flashcards: React.FC<FlashcardsProps> = ({ onBack }) => {
                 <input type="checkbox" checked={selectedIds.has(word.id)} readOnly className="w-5 h-5 mr-3 bg-slate-900 border-slate-600 text-indigo-500 focus:ring-indigo-600 rounded-md pointer-events-none" />
                 <div>
                   <p className="font-medium text-white hover:underline" onClick={(e) => { e.stopPropagation(); openInspector(word); }}>{word.word}</p>
-                  <p className="text-sm text-gray-400">{word.translation[targetLanguage]}</p>
+                  <p className="text-sm text-gray-400">{word.translation[uiLanguage]}</p>
                 </div>
               </div>
             ))}
@@ -187,7 +187,7 @@ const Flashcards: React.FC<FlashcardsProps> = ({ onBack }) => {
               WebkitTransform: 'rotateY(180deg)', // For Safari/iOS
             }}
           >
-            <p className="text-3xl font-bold text-white text-center">{currentWord.translation[targetLanguage]}</p>
+            <p className="text-3xl font-bold text-white text-center">{currentWord.translation[uiLanguage]}</p>
             <button onClick={(e) => { e.stopPropagation(); openInspector(currentWord); }} className="absolute top-2 right-2 p-2 text-gray-200 hover:text-white hover:bg-black/20 rounded-full" aria-label="Inspect word"><Info className="w-5 h-5" /></button>
           </div>
         </div>

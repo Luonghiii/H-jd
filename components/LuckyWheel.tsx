@@ -19,7 +19,8 @@ interface LuckyWheelProps {
 
 const LuckyWheel: React.FC<LuckyWheelProps> = ({ onBack }) => {
   const { words, getAvailableThemes } = useVocabulary();
-  const { targetLanguage, learningLanguage, stats, updateBestStreak, recordActivity } = useSettings();
+  // FIX: Replaced 'targetLanguage' with 'uiLanguage' and aliased to 'targetLanguage' for compatibility.
+  const { uiLanguage: targetLanguage, learningLanguage, stats, updateBestStreak, recordActivity } = useSettings();
   const { openInspector } = useInspector();
   const { addHistoryEntry } = useHistory();
   

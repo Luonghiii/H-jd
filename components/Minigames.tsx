@@ -20,7 +20,8 @@ interface MemoryMatchProps {
 
 const MemoryMatch: React.FC<MemoryMatchProps> = ({ onBack }) => {
   const { words, getAvailableThemes } = useVocabulary();
-  const { targetLanguage, recordActivity } = useSettings();
+  // FIX: Replaced 'targetLanguage' with 'uiLanguage' from settings and aliased for compatibility.
+  const { uiLanguage: targetLanguage, recordActivity } = useSettings();
   const { addHistoryEntry } = useHistory();
 
   const [gameState, setGameState] = useState<'setup' | 'playing' | 'won' | 'lost'>('setup');

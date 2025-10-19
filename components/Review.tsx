@@ -10,7 +10,8 @@ interface ReviewProps {
 
 const Review: React.FC<ReviewProps> = ({ onBack }) => {
     const { words, updateWordSrs } = useVocabulary();
-    const { targetLanguage, recordActivity } = useSettings();
+    // FIX: Replaced 'targetLanguage' with 'uiLanguage' from settings and aliased for compatibility.
+    const { uiLanguage: targetLanguage, recordActivity } = useSettings();
     const { addHistoryEntry } = useHistory();
     const [isSessionActive, setIsSessionActive] = useState(false);
     

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View } from '../types';
 import { Sparkles, Clock, Trophy, Palette, ArrowRight } from 'lucide-react';
+import { useI18n } from '../hooks/useI18n';
 
 interface MoreProps {
     setCurrentView: (view: View) => void;
@@ -8,33 +9,34 @@ interface MoreProps {
 }
 
 const More: React.FC<MoreProps> = ({ setCurrentView, onOpenBgCustomizer }) => {
+    const { t } = useI18n();
 
     const menuItems = [
         {
             id: 'aitools',
-            title: 'Công cụ AI',
-            description: 'Khai phá sức mạnh của AI để học ngôn ngữ hiệu quả hơn.',
+            title: t('more.tools_title'),
+            description: t('more.tools_desc'),
             icon: Sparkles,
             action: () => setCurrentView(View.AiTools)
         },
         {
             id: 'history',
-            title: 'Lịch sử',
-            description: 'Xem lại các hoạt động học tập gần đây của bạn.',
+            title: t('more.history_title'),
+            description: t('more.history_desc'),
             icon: Clock,
             action: () => setCurrentView(View.History)
         },
         {
             id: 'leaderboard',
-            title: 'Bảng xếp hạng',
-            description: 'Xem ai đang dẫn đầu cuộc đua học tập!',
+            title: t('more.leaderboard_title'),
+            description: t('more.leaderboard_desc'),
             icon: Trophy,
             action: () => setCurrentView(View.Leaderboard)
         },
         {
             id: 'background',
-            title: 'Tùy chỉnh nền',
-            description: 'Cá nhân hóa giao diện với ảnh hoặc gradient của riêng bạn.',
+            title: t('more.background_title'),
+            description: t('more.background_desc'),
             icon: Palette,
             action: onOpenBgCustomizer
         }
@@ -43,8 +45,8 @@ const More: React.FC<MoreProps> = ({ setCurrentView, onOpenBgCustomizer }) => {
     return (
         <div className="space-y-6 animate-fade-in">
             <div className="text-center">
-                <h2 className="text-2xl font-bold text-white">Thêm</h2>
-                <p className="text-gray-400 mt-1">Các công cụ và tính năng khác.</p>
+                <h2 className="text-2xl font-bold text-white">{t('more.title')}</h2>
+                <p className="text-gray-400 mt-1">{t('more.desc')}</p>
             </div>
             <div className="grid grid-cols-1 gap-4">
                 {menuItems.map(item => (
