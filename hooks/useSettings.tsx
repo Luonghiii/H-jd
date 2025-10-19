@@ -4,6 +4,8 @@ import { useAuth } from './useAuth';
 import { onUserDataSnapshot, updateUserData } from '../services/firestoreService';
 import { setApiKeys } from '../services/geminiService';
 import { uploadAvatar } from '../services/storageService';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../services/firebase';
 
 export type BackgroundSetting = {
   type: 'image' | 'gradient';
@@ -250,7 +252,9 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const updateWordCountStat = useCallback(async (count: number) => {
     if (!currentUser) return;
-    await updateUserData(currentUser.uid, { stats: { totalWords: count } });
+    const userRef = doc(db, 'users', currentUser.uid);
+    // Use updateDoc with dot notation to avoid overwriting other stats
+    await updateDoc(userRef, { 'stats.totalWords': count });
   }, [currentUser]);
 
   const updateUserProfile = useCallback(async (updates: Partial<UserProfile>) => {

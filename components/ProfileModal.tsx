@@ -4,20 +4,20 @@ import { X, User as UserIcon, Upload, Check, Loader2, UserCheck } from 'lucide-r
 import eventBus from '../utils/eventBus';
 
 const PREMADE_AVATARS = [
-    'https://storage.googleapis.com/lbwl-e99a9.appspot.com/premade_avatars/avatar1.png',
-    'https://storage.googleapis.com/lbwl-e99a9.appspot.com/premade_avatars/avatar2.png',
-    'https://storage.googleapis.com/lbwl-e99a9.appspot.com/premade_avatars/avatar3.png',
-    'https://storage.googleapis.com/lbwl-e99a9.appspot.com/premade_avatars/avatar4.png',
-    'https://storage.googleapis.com/lbwl-e99a9.appspot.com/premade_avatars/avatar5.png',
-    'https://storage.googleapis.com/lbwl-e99a9.appspot.com/premade_avatars/avatar6.png',
+    'https://storage.googleapis.com/lbwl-e99a9.appspot.com/premade-avatars/avatar1.png',
+    'https://storage.googleapis.com/lbwl-e99a9.appspot.com/premade-avatars/avatar2.png',
+    'https://storage.googleapis.com/lbwl-e99a9.appspot.com/premade-avatars/avatar3.png',
+    'https://storage.googleapis.com/lbwl-e99a9.appspot.com/premade-avatars/avatar4.png',
+    'https://storage.googleapis.com/lbwl-e99a9.appspot.com/premade-avatars/avatar5.png',
+    'https://storage.googleapis.com/lbwl-e99a9.appspot.com/premade-avatars/avatar6.png',
 ];
 
 const AVATAR_FRAMES = [
     { id: 'none', name: 'Mặc định', url: '' },
-    { id: 'gold', name: 'Vàng', url: 'https://storage.googleapis.com/lbwl-e99a9.appspot.com/avatar_frames/frame_gold.png' },
-    { id: 'silver', name: 'Bạc', url: 'https://storage.googleapis.com/lbwl-e99a9.appspot.com/avatar_frames/frame_silver.png' },
-    { id: 'neon', name: 'Neon', url: 'https://storage.googleapis.com/lbwl-e99a9.appspot.com/avatar_frames/frame_neon.png' },
-    { id: 'rainbow', name: 'Cầu vồng', url: 'https://storage.googleapis.com/lbwl-e99a9.appspot.com/avatar_frames/frame_rainbow.png' },
+    { id: 'gold', name: 'Vàng', url: 'https://storage.googleapis.com/lbwl-e99a9.appspot.com/avatar-frames/frame_gold.png' },
+    { id: 'silver', name: 'Bạc', url: 'https://storage.googleapis.com/lbwl-e99a9.appspot.com/avatar-frames/frame_silver.png' },
+    { id: 'neon', name: 'Neon', url: 'https://storage.googleapis.com/lbwl-e99a9.appspot.com/avatar-frames/frame_neon.png' },
+    { id: 'rainbow', name: 'Cầu vồng', url: 'https://storage.googleapis.com/lbwl-e99a9.appspot.com/avatar-frames/frame_rainbow.png' },
 ];
 
 const ANONYMOUS_NAME = 'Người dùng ẩn danh';
