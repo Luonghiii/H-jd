@@ -2,9 +2,13 @@ import React, { useState, useMemo } from 'react';
 import { useVocabulary } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
 import { useHistory } from '../hooks/useHistory';
-import { BrainCircuit, RotateCcw } from 'lucide-react';
+import { BrainCircuit, RotateCcw, ArrowLeft } from 'lucide-react';
 
-const Review: React.FC = () => {
+interface ReviewProps {
+  onBack: () => void;
+}
+
+const Review: React.FC<ReviewProps> = ({ onBack }) => {
     const { words, updateWordSrs } = useVocabulary();
     const { targetLanguage, recordActivity } = useSettings();
     const { addHistoryEntry } = useHistory();
@@ -55,21 +59,29 @@ const Review: React.FC = () => {
 
     if (!isSessionActive) {
         return (
-            <div className="text-center space-y-6 animate-fade-in">
-                 <div className="inline-block p-3 bg-emerald-500/10 rounded-full mb-3">
-                    <BrainCircuit className="w-10 h-10 text-emerald-400" />
+            <div className="space-y-6 animate-fade-in">
+                <div className="flex items-center justify-between">
+                    <h2 className="text-2xl font-bold text-white">Ôn tập Thông minh</h2>
+                    <button onClick={onBack} className="flex-shrink-0 flex items-center gap-2 px-3 py-2 text-sm bg-slate-700/50 hover:bg-slate-700 text-gray-200 font-semibold rounded-xl transition-colors">
+                        <ArrowLeft className="w-4 h-4" />
+                        <span>Quay lại</span>
+                    </button>
                 </div>
-                <h2 className="text-2xl font-bold text-white">Ôn tập Thông minh</h2>
-                {wordsToReview.length > 0 ? (
-                    <>
-                        <p className="text-gray-400">Bạn có <strong className="text-white">{wordsToReview.length}</strong> từ cần ôn tập hôm nay.</p>
-                        <button onClick={startSession} className="w-full max-w-xs mx-auto flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98]">
-                            Bắt đầu ôn tập
-                        </button>
-                    </>
-                ) : (
-                    <p className="text-gray-400">Tuyệt vời! Bạn đã hoàn thành tất cả các từ cần ôn tập.</p>
-                )}
+                <div className="text-center">
+                    <div className="inline-block p-3 bg-emerald-500/10 rounded-full mb-3">
+                        <BrainCircuit className="w-10 h-10 text-emerald-400" />
+                    </div>
+                    {wordsToReview.length > 0 ? (
+                        <>
+                            <p className="text-gray-400">Bạn có <strong className="text-white">{wordsToReview.length}</strong> từ cần ôn tập hôm nay.</p>
+                            <button onClick={startSession} className="w-full max-w-xs mx-auto mt-4 flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98]">
+                                Bắt đầu ôn tập
+                            </button>
+                        </>
+                    ) : (
+                        <p className="text-gray-400">Tuyệt vời! Bạn đã hoàn thành tất cả các từ cần ôn tập.</p>
+                    )}
+                </div>
             </div>
         );
     }
@@ -90,7 +102,7 @@ const Review: React.FC = () => {
 
             <div className="[perspective:1000px]" onClick={() => setIsFlipped(!isFlipped)}>
                 <div 
-                  className="relative w-full h-64 rounded-2xl shadow-xl [transform-style:preserve-3d] transition-transform duration-500 cursor-pointer"
+                  className="relative w-full h-64 rounded-2xl shadow-xl [transform-style:preserve-d] transition-transform duration-500 cursor-pointer"
                   style={{ transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'}}
                 >
                   <div className="absolute w-full h-full [backface-visibility:hidden] flex items-center justify-center p-4 bg-slate-700 rounded-2xl border border-slate-600">

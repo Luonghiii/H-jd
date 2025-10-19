@@ -13,7 +13,11 @@ type Answer = {
   isCorrect: boolean;
 };
 
-const Practice: React.FC = () => {
+interface PracticeProps {
+  onBack: () => void;
+}
+
+const Practice: React.FC<PracticeProps> = ({ onBack }) => {
   const { words, getAvailableThemes } = useVocabulary();
   const { targetLanguage, recordActivity } = useSettings();
   const { openInspector } = useInspector();
@@ -134,10 +138,15 @@ const Practice: React.FC = () => {
   if (view === 'setup') {
     return (
       <div className="space-y-6 animate-fade-in">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-white">Luyện tập Viết</h2>
-          <p className="text-gray-400 mt-1">Dịch từ để củng cố kiến thức.</p>
+        <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-white">Luyện tập Viết</h2>
+            <button onClick={onBack} className="flex-shrink-0 flex items-center gap-2 px-3 py-2 text-sm bg-slate-700/50 hover:bg-slate-700 text-gray-200 font-semibold rounded-xl transition-colors">
+                <ArrowLeft className="w-4 h-4" />
+                <span>Quay lại</span>
+            </button>
         </div>
+        <p className="text-gray-400 -mt-4 text-center sm:text-left">Dịch từ để củng cố kiến thức.</p>
+        
         <div>
           <h3 className="font-semibold text-white mb-2">1. Chọn chủ đề</h3>
           <div className="flex flex-wrap gap-2 p-3 bg-slate-800/50 border border-slate-700 rounded-2xl">
@@ -232,7 +241,7 @@ const Practice: React.FC = () => {
             </div>
         </div>
         <div className="flex flex-col sm:flex-row gap-3 pt-4">
-            <button onClick={() => setView('setup')} className="flex-1 px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-xl">Game mới</button>
+            <button onClick={onBack} className="flex-1 px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-xl">Game mới</button>
             <button onClick={() => handleStartPractice({ replay: true })} className="flex-1 px-4 py-3 bg-slate-600 hover:bg-slate-700 text-white font-semibold rounded-xl">Chơi lại</button>
             <button onClick={() => handleStartPractice()} className="flex-1 flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl">
                  <RefreshCw className="w-5 h-5 mr-2" /> Tiếp tục
@@ -247,7 +256,7 @@ const Practice: React.FC = () => {
       <div>
         <div className="flex justify-between items-center mb-2">
           <h2 className="text-lg font-bold text-white">Câu hỏi {currentWordIndex + 1} / {practiceWords.length}</h2>
-          <button onClick={() => setView('setup')} className="text-sm text-indigo-400 hover:underline">Thoát</button>
+          <button onClick={onBack} className="text-sm text-indigo-400 hover:underline">Thoát</button>
         </div>
         <div className="w-full bg-slate-700 rounded-full h-2.5">
           <div className="bg-indigo-500 h-2.5 rounded-full transition-all duration-300" style={{ width: `${((currentWordIndex + 1) / practiceWords.length) * 100}%` }}></div>

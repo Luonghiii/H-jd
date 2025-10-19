@@ -275,11 +275,6 @@ const AddWord: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="text-center">
-        <h2 className="text-2xl font-bold text-white">Thêm từ mới</h2>
-        <p className="text-gray-400 mt-1">Xây dựng từ điển cá nhân của bạn theo cách bạn muốn.</p>
-      </div>
-      
       {renderTabs()}
 
       {feedback && (

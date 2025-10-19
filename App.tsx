@@ -6,10 +6,6 @@ import { HistoryProvider, useHistory } from './hooks/useHistory';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import WordInspectorModal from './components/WordInspectorModal';
 import Header from './components/Header';
-import AddWord from './components/AddWord';
-import WordList from './components/WordList';
-import Practice from './components/Practice';
-import Flashcards from './components/Flashcards';
 import Login from './components/Login';
 import Home from './components/Home';
 import BackgroundCustomizer from './components/BackgroundCustomizer';
@@ -18,16 +14,18 @@ import PrivacyPolicyModal from './components/PrivacyPolicyModal';
 import TermsOfServiceModal from './components/TermsOfServiceModal';
 import History from './components/History';
 import { View } from './types';
-import { Home as HomeIcon, BookOpen, Feather, PenSquare, Sparkles, Layers, Gamepad2, History as HistoryIcon, BrainCircuit, Trophy as TrophyIcon } from 'lucide-react';
 import SettingsModal from './components/SettingsModal';
 import ProfileModal from './components/ProfileModal';
 import Games from './components/Games';
 import AiTools from './components/AiTools';
-import Review from './components/Review';
 import ApiKeySetup from './components/ApiKeySetup';
 import NotificationManager from './components/NotificationManager';
 import { Loader2 } from 'lucide-react';
 import Leaderboard from './components/Leaderboard';
+import Learn from './components/Learn';
+import Vocabulary from './components/Vocabulary';
+import BottomNavBar from './components/BottomNavBar';
+import More from './components/More';
 
 const AppLayout: React.FC<{ onOpenSettings: () => void; }> = ({ onOpenSettings }) => {
   const [currentView, setCurrentView] = useState<View>(View.Home);
@@ -36,46 +34,30 @@ const AppLayout: React.FC<{ onOpenSettings: () => void; }> = ({ onOpenSettings }
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
   const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isBgCustomizerOpen, setIsBgCustomizerOpen] = useState(false);
 
   const renderView = () => {
     switch (currentView) {
       case View.Home:
         return <Home setCurrentView={setCurrentView} />;
-      case View.Add:
-        return <AddWord />;
-      case View.List:
-        return <WordList />;
-      case View.Practice:
-        return <Practice />;
-      case View.Flashcards:
-        return <Flashcards />;
-      case View.Review:
-        return <Review />;
+      case View.Learn:
+        return <Learn />;
       case View.Games:
         return <Games />;
       case View.AiTools:
         return <AiTools />;
+      case View.Vocabulary:
+        return <Vocabulary />;
       case View.History:
         return <History />;
       case View.Leaderboard:
         return <Leaderboard />;
+      case View.More:
+        return <More setCurrentView={setCurrentView} onOpenBgCustomizer={() => setIsBgCustomizerOpen(true)} />;
       default:
         return <Home setCurrentView={setCurrentView} />;
     }
   };
-
-  const navItems = [
-    { view: View.Home, label: 'Trang chủ', icon: HomeIcon },
-    { view: View.Review, label: 'Ôn tập', icon: BrainCircuit },
-    { view: View.Practice, label: 'Luyện tập', icon: PenSquare },
-    { view: View.Flashcards, label: 'Thẻ ghi nhớ', icon: Layers },
-    { view: View.Games, label: 'Trò chơi', icon: Gamepad2 },
-    { view: View.Leaderboard, label: 'Bảng xếp hạng', icon: TrophyIcon },
-    { view: View.AiTools, label: 'Công cụ AI', icon: Sparkles },
-    { view: View.Add, label: 'Thêm từ', icon: Feather },
-    { view: View.List, label: 'Danh sách từ', icon: BookOpen },
-    { view: View.History, label: 'Lịch sử', icon: HistoryIcon },
-  ];
   
   let backgroundStyle: React.CSSProperties = {};
   let backgroundClasses = 'bg-gradient-to-br from-gray-900 via-slate-900 to-indigo-900';
@@ -101,36 +83,15 @@ const AppLayout: React.FC<{ onOpenSettings: () => void; }> = ({ onOpenSettings }
         style={backgroundStyle}
       >
         <Header onOpenSettings={onOpenSettings} onOpenProfile={() => setIsProfileModalOpen(true)} />
-        <main className="container mx-auto p-4 md:p-6 lg:p-8 flex-grow">
+        <main className="container mx-auto p-4 md:p-6 lg:p-8 flex-grow pb-28">
           <div className="max-w-5xl mx-auto">
             <div className={`${contentContainerClasses} rounded-3xl shadow-2xl shadow-slate-900/50 border border-slate-700/60`}>
-              <nav className="p-2 border-b border-slate-700/80 flex justify-center">
-                <div className="bg-slate-800/60 p-1 rounded-full overflow-x-auto">
-                  <ul className="flex items-center justify-start space-x-1">
-                    {navItems.map((item) => (
-                      <li key={item.view}>
-                        <button
-                          onClick={() => setCurrentView(item.view)}
-                          className={`flex-shrink-0 flex items-center space-x-2 px-3 py-1.5 text-sm sm:px-4 sm:text-base rounded-full font-medium transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-indigo-500 ${
-                            currentView === item.view
-                              ? 'bg-indigo-600 text-white shadow-lg'
-                              : 'text-gray-300 hover:bg-slate-700/50 hover:text-white'
-                          }`}
-                        >
-                          <item.icon className="w-4 h-4 sm:w-5 sm:h-5" />
-                          <span className="hidden sm:inline">{item.label}</span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </nav>
               <div className="p-4 sm:p-6 lg:p-8">{renderView()}</div>
             </div>
           </div>
         </main>
         <Footer onOpenPrivacy={() => setIsPrivacyModalOpen(true)} onOpenTerms={() => setIsTermsModalOpen(true)} />
-        <BackgroundCustomizer />
+        <BottomNavBar currentView={currentView} setCurrentView={setCurrentView} />
       </div>
       {inspectingWord && (
         <WordInspectorModal
@@ -142,6 +103,7 @@ const AppLayout: React.FC<{ onOpenSettings: () => void; }> = ({ onOpenSettings }
       <PrivacyPolicyModal isOpen={isPrivacyModalOpen} onClose={() => setIsPrivacyModalOpen(false)} />
       <TermsOfServiceModal isOpen={isTermsModalOpen} onClose={() => setIsTermsModalOpen(false)} />
       <ProfileModal isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} />
+      <BackgroundCustomizer isOpen={isBgCustomizerOpen} onClose={() => setIsBgCustomizerOpen(false)} />
     </>
   );
 };

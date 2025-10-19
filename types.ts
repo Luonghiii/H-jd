@@ -72,6 +72,9 @@ export enum View {
   AiTools = 'aitools',
   History = 'history',
   Leaderboard = 'leaderboard',
+  Learn = 'learn',
+  Vocabulary = 'vocabulary',
+  More = 'more',
 }
 
 export interface Quiz {

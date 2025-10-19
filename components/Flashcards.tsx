@@ -7,7 +7,11 @@ import { ArrowLeft, ArrowRight, Shuffle, RotateCcw, Info } from 'lucide-react';
 
 type FlashcardView = 'setup' | 'playing';
 
-const Flashcards: React.FC = () => {
+interface FlashcardsProps {
+  onBack: () => void;
+}
+
+const Flashcards: React.FC<FlashcardsProps> = ({ onBack }) => {
   const { words, getAvailableThemes } = useVocabulary();
   const { targetLanguage } = useSettings();
   const { openInspector } = useInspector();
@@ -86,10 +90,15 @@ const Flashcards: React.FC = () => {
   if (view === 'setup') {
     return (
       <div className="space-y-6 animate-fade-in">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-white">Thẻ ghi nhớ</h2>
-          <p className="text-gray-400 mt-1">Chọn từ để bắt đầu ôn tập.</p>
+        <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-white">Thẻ ghi nhớ</h2>
+            <button onClick={onBack} className="flex-shrink-0 flex items-center gap-2 px-3 py-2 text-sm bg-slate-700/50 hover:bg-slate-700 text-gray-200 font-semibold rounded-xl transition-colors">
+                <ArrowLeft className="w-4 h-4" />
+                <span>Quay lại</span>
+            </button>
         </div>
+        <p className="text-gray-400 -mt-4 text-center sm:text-left">Chọn từ để bắt đầu ôn tập.</p>
+
         <div>
           <h3 className="font-semibold text-white mb-2">1. Chọn chủ đề</h3>
           <div className="flex flex-wrap gap-2 p-3 bg-slate-800/50 border border-slate-700 rounded-2xl">
@@ -136,13 +145,13 @@ const Flashcards: React.FC = () => {
     <div className="space-y-6 animate-fade-in">
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-bold text-white">Thẻ {currentIndex + 1} / {cardWords.length}</h2>
-        <button onClick={() => setView('setup')} className="text-sm text-indigo-400 hover:underline">Thay đổi lựa chọn</button>
+        <button onClick={onBack} className="text-sm text-indigo-400 hover:underline">Thay đổi lựa chọn</button>
       </div>
       
       <div className="[perspective:1000px]">
         <div 
           onClick={() => setIsFlipped(!isFlipped)}
-          className="relative w-full h-64 rounded-2xl shadow-xl [transform-style:preserve-3d] transition-transform duration-500 cursor-pointer"
+          className="relative w-full h-64 rounded-2xl shadow-xl [transform-style:preserve-d] transition-transform duration-500 cursor-pointer"
           style={{ transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'}}
         >
           <div className="absolute w-full h-full [backface-visibility:hidden] flex items-center justify-center p-4 bg-slate-700 rounded-2xl border border-slate-600">

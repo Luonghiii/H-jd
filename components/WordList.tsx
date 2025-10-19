@@ -278,11 +278,6 @@ const WordList: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="text-center">
-        <h2 className="text-2xl font-bold text-white">Danh sách từ của bạn</h2>
-        <p className="text-gray-400 mt-1">Bạn đã lưu {words.length} từ.</p>
-      </div>
-
       <div className="flex flex-col sm:flex-row gap-2">
         <input ref={importFileRef} type="file" className="hidden" accept=".csv, .json" onChange={handleImport} />
         <button onClick={() => importFileRef.current?.click()} className="flex-1 flex items-center justify-center gap-2 text-sm px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg"> <Upload className="w-4 h-4" /> Nhập</button>
