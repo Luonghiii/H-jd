@@ -120,12 +120,17 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
       id: crypto.randomUUID(),
       word,
       translation: { vietnamese, english },
-      theme: theme || undefined,
       createdAt: Date.now(),
       isStarred: false,
       srsLevel: 0,
       nextReview: Date.now(),
     };
+    
+    // Firestore does not accept `undefined` values.
+    // Only add the theme property if it's a non-empty string.
+    if (theme) {
+      newWord.theme = theme;
+    }
     
     const newWordsList = [newWord, ...words];
     await persistWords(newWordsList);
@@ -226,7 +231,15 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
   const updateWordImage = useCallback(async (wordId: string, imageUrl: string | null) => {
     const newWords = words.map(word => {
       if (word.id === wordId) {
-        return { ...word, imageUrl: imageUrl || undefined };
+        // Create a new object to avoid mutating state
+        const updatedWord = { ...word };
+        if (imageUrl) {
+          updatedWord.imageUrl = imageUrl;
+        } else {
+          // Firestore does not accept 'undefined'. Deleting the key is the correct way.
+          delete updatedWord.imageUrl;
+        }
+        return updatedWord;
       }
       return word;
     });

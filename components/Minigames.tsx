@@ -20,7 +20,7 @@ interface MemoryMatchProps {
 
 const MemoryMatch: React.FC<MemoryMatchProps> = ({ onBack }) => {
   const { words, getAvailableThemes } = useVocabulary();
-  const { targetLanguage } = useSettings();
+  const { targetLanguage, recordActivity } = useSettings();
   const { addHistoryEntry } = useHistory();
 
   const [gameState, setGameState] = useState<'setup' | 'playing' | 'won' | 'lost'>('setup');
@@ -108,8 +108,9 @@ const MemoryMatch: React.FC<MemoryMatchProps> = ({ onBack }) => {
         ? `Thắng game Lật thẻ (${pairCount} cặp).`
         : `Thắng game Lật thẻ (${pairCount} cặp).`;
       addHistoryEntry('MEMORY_MATCH_WON', details, { moves, timeLeft });
+      recordActivity();
     }
-  }, [matchedWordIds, pairCount, cards.length, addHistoryEntry, moves, timeLeft, timeLimit, gameState]);
+  }, [matchedWordIds, pairCount, cards.length, addHistoryEntry, moves, timeLeft, timeLimit, gameState, recordActivity]);
 
   const handleCardClick = (index: number) => {
     if (isChecking || flippedIndices.length >= 2 || flippedIndices.includes(index) || matchedWordIds.includes(cards[index].wordId)) {
@@ -209,7 +210,7 @@ const MemoryMatch: React.FC<MemoryMatchProps> = ({ onBack }) => {
           <div className="max-h-[20vh] overflow-y-auto pr-2 bg-slate-800/50 border border-slate-700 rounded-2xl p-3 space-y-2">
               {themeFilteredWords.map(word => (
                   <div key={word.id} onClick={() => handleToggleWord(word.id)} className="flex items-center p-2 rounded-xl hover:bg-slate-700/50 cursor-pointer">
-                      <input type="checkbox" checked={selectedIds.has(word.id)} readOnly className="w-5 h-5 mr-3 bg-slate-900 border-slate-600 text-indigo-500 focus:ring-indigo-600 rounded-md pointer-events-none" />
+                      <input type="checkbox" checked={selectedIds.has(word.id)} readOnly className="w-5 h-5 mr-3 bg-slate-900 border border-slate-600 text-indigo-500 focus:ring-indigo-600 rounded-md pointer-events-none" />
                       <div>
                           <p className="font-medium text-white">{word.word}</p>
                           <p className="text-sm text-gray-400">{word.translation[targetLanguage]}</p>

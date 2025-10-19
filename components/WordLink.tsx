@@ -15,7 +15,7 @@ const PAIR_COUNTS = [5, 8, 10];
 
 const WordLink: React.FC<WordLinkProps> = ({ onBack }) => {
     const { words, getAvailableThemes } = useVocabulary();
-    const { targetLanguage } = useSettings();
+    const { targetLanguage, recordActivity } = useSettings();
     const { addHistoryEntry } = useHistory();
     
     const [gameState, setGameState] = useState<GameState>('setup');
@@ -108,9 +108,10 @@ const WordLink: React.FC<WordLinkProps> = ({ onBack }) => {
     useEffect(() => {
         if (gameState === 'playing' && wordItems.length > 0 && correctPairs.length === wordItems.length) {
             addHistoryEntry('WORD_LINK_COMPLETED', `Hoàn thành game Nối từ với ${score} điểm.`);
+            recordActivity();
             setGameState('results');
         }
-    }, [correctPairs, wordItems.length, gameState, score, addHistoryEntry]);
+    }, [correctPairs, wordItems.length, gameState, score, addHistoryEntry, recordActivity]);
 
     if (gameState === 'setup') {
         const isStartDisabled = wordsForGame.length < pairCount;
@@ -142,7 +143,7 @@ const WordLink: React.FC<WordLinkProps> = ({ onBack }) => {
                     <div className="max-h-[20vh] overflow-y-auto pr-2 bg-slate-800/50 border border-slate-700 rounded-2xl p-3 space-y-2">
                         {themeFilteredWords.map(word => (
                             <div key={word.id} onClick={() => handleToggleWord(word.id)} className="flex items-center p-2 rounded-xl hover:bg-slate-700/50 cursor-pointer">
-                                <input type="checkbox" checked={selectedIds.has(word.id)} readOnly className="w-5 h-5 mr-3 bg-slate-900 border-slate-600 text-indigo-500 focus:ring-indigo-600 rounded-md pointer-events-none" />
+                                <input type="checkbox" checked={selectedIds.has(word.id)} readOnly className="w-5 h-5 mr-3 bg-slate-900 border border-slate-600 text-indigo-500 focus:ring-indigo-600 rounded-md pointer-events-none" />
                                 <div>
                                     <p className="font-medium text-white">{word.word}</p>
                                     <p className="text-sm text-gray-400">{word.translation[targetLanguage]}</p>

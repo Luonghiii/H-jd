@@ -12,7 +12,8 @@ import {
   Unsubscribe,
 } from 'firebase/firestore';
 import { User } from 'firebase/auth';
-import { ConversationSession, GeneratedWord, VocabularyWord } from '../types';
+// FIX: import HistoryEntry
+import { ConversationSession, GeneratedWord, HistoryEntry, UserStats, VocabularyWord } from '../types';
 import eventBus from '../utils/eventBus';
 import { defaultGermanWords } from '../data/german_words';
 import { defaultEnglishWords } from '../data/english_words';
@@ -37,10 +38,9 @@ export interface UserDoc {
   createdAt: any;
   words: Record<string, VocabularyWord[]>;
   settings: UserSettings;
-  history: unknown[];
-  stats: {
-    luckyWheelBestStreak: number;
-  };
+  // FIX: history should be of type HistoryEntry[] to prevent type errors in components.
+  history: HistoryEntry[];
+  stats: UserStats;
   aiTutorHistory: ConversationSession[];
 }
 
@@ -94,6 +94,9 @@ export const createUserDocument = async (user: User): Promise<void> => {
         history: [],
         stats: {
           luckyWheelBestStreak: 0,
+          currentStreak: 0,
+          longestStreak: 0,
+          lastActivityDate: '',
         },
         aiTutorHistory: [],
       };
@@ -125,6 +128,33 @@ export const updateUserData = async (uid: string, data: DocumentData): Promise<v
     eventBus.dispatch('notification', { type: 'error', message: errorMessage });
   }
 };
+
+/**
+ * Appends a new entry to the user's history array using a transaction.
+ */
+export const appendHistoryEntry = async (uid: string, newEntry: HistoryEntry): Promise<void> => {
+  if (!uid) return;
+  const userRef = doc(db, 'users', uid);
+
+  try {
+    await runTransaction(db, async (transaction) => {
+      const userDoc = await transaction.get(userRef);
+      if (!userDoc.exists()) {
+        console.error("User document does not exist for history update.");
+        return;
+      }
+      const data = userDoc.data() as UserDoc;
+      const oldHistory = data.history || [];
+      const newHistory = [newEntry, ...oldHistory].slice(0, 100); // Keep max 100 entries
+      transaction.update(userRef, { history: newHistory });
+    });
+  } catch (e) {
+    console.error("History update transaction failed: ", e);
+    eventBus.dispatch('notification', { type: 'error', message: 'Không thể lưu lịch sử hoạt động.' });
+    throw e;
+  }
+};
+
 
 // =====================
 // Realtime listener

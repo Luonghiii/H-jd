@@ -2,8 +2,9 @@ import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useVocabulary, themeTranslationMap } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
 import { VocabularyWord } from '../types';
-import { RefreshCw, ArrowLeft } from 'lucide-react';
+import { RefreshCw, ArrowLeft, Check, X } from 'lucide-react';
 import { useInspector } from '../hooks/useInspector';
+import { useHistory } from '../hooks/useHistory';
 
 type PracticeView = 'setup' | 'playing' | 'results';
 type Answer = {
@@ -14,8 +15,9 @@ type Answer = {
 
 const Practice: React.FC = () => {
   const { words, getAvailableThemes } = useVocabulary();
-  const { targetLanguage } = useSettings();
+  const { targetLanguage, recordActivity } = useSettings();
   const { openInspector } = useInspector();
+  const { addHistoryEntry } = useHistory();
 
   const [view, setView] = useState<PracticeView>('setup');
   const [selectedThemes, setSelectedThemes] = useState<Set<string>>(new Set(['all']));
@@ -26,6 +28,7 @@ const Practice: React.FC = () => {
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
   const [userAnswer, setUserAnswer] = useState('');
   const [answers, setAnswers] = useState<Answer[]>([]);
+  const [answerStatus, setAnswerStatus] = useState<'idle' | 'correct' | 'incorrect'>('idle');
   
   const availableThemes = getAvailableThemes();
   
@@ -94,21 +97,37 @@ const Practice: React.FC = () => {
 
   const handleSubmitAnswer = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userAnswer.trim()) return;
+    if (!userAnswer.trim() || answerStatus !== 'idle') return;
 
     const currentWord = practiceWords[currentWordIndex];
     const correctAnswer = currentWord.translation[targetLanguage];
     const isCorrect = userAnswer.trim().toLowerCase() === correctAnswer.toLowerCase();
     
     setAnswers(prev => [...prev, { word: currentWord, userAnswer: userAnswer.trim(), isCorrect }]);
+    setAnswerStatus(isCorrect ? 'correct' : 'incorrect');
     
-    if (currentWordIndex < practiceWords.length - 1) {
-      setCurrentWordIndex(prev => prev + 1);
-      setUserAnswer('');
-    } else {
-      setView('results');
-    }
+    setTimeout(() => {
+        if (currentWordIndex < practiceWords.length - 1) {
+            setCurrentWordIndex(prev => prev + 1);
+            setUserAnswer('');
+            setAnswerStatus('idle');
+        } else {
+            recordActivity();
+            addHistoryEntry('PRACTICE_SESSION_COMPLETED', `Hoàn thành phiên luyện tập với ${practiceWords.length} từ.`, { count: practiceWords.length });
+            setView('results');
+        }
+    }, 1500);
   };
+  
+  const getStatusClasses = () => {
+      if (answerStatus === 'correct') {
+          return 'ring-2 ring-green-500 border-green-500';
+      }
+      if (answerStatus === 'incorrect') {
+          return 'ring-2 ring-red-500 border-red-500';
+      }
+      return 'border-slate-600 focus:ring-2 focus:ring-indigo-500';
+  }
 
   const currentWord = practiceWords[currentWordIndex];
 
@@ -244,16 +263,21 @@ const Practice: React.FC = () => {
         </p>
         <p className="text-gray-400 mt-1">Dịch sang {targetLanguage === 'vietnamese' ? 'Tiếng Việt' : 'Tiếng Anh'}</p>
       </div>
-      <form onSubmit={handleSubmitAnswer} className="space-y-4">
-        <input 
-          type="text"
-          value={userAnswer}
-          onChange={e => setUserAnswer(e.target.value)}
-          className="w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-lg"
-          placeholder="Nhập câu trả lời của bạn..."
-          autoFocus
-        />
-        <button type="submit" className="w-full flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98]">
+      <form onSubmit={handleSubmitAnswer}>
+        <div className="relative">
+            <input 
+              type="text"
+              value={userAnswer}
+              onChange={e => setUserAnswer(e.target.value)}
+              className={`w-full px-4 py-3 bg-slate-800 border rounded-xl text-white placeholder-gray-500 focus:outline-none text-lg transition-all ${getStatusClasses()}`}
+              placeholder="Nhập câu trả lời của bạn..."
+              autoFocus
+              disabled={answerStatus !== 'idle'}
+            />
+             {answerStatus === 'correct' && <Check className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 text-green-500" />}
+             {answerStatus === 'incorrect' && <X className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 text-red-500" />}
+        </div>
+        <button type="submit" className="w-full mt-4 flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98]" disabled={answerStatus !== 'idle'}>
           Kiểm tra
         </button>
       </form>

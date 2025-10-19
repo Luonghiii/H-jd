@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
-import { TargetLanguage, LearningLanguage, ConversationSession } from '../types';
+import { TargetLanguage, LearningLanguage, ConversationSession, UserStats } from '../types';
 import { useAuth } from './useAuth';
 import { onUserDataSnapshot, updateUserData } from '../services/firestoreService';
 import { setApiKeys } from '../services/geminiService';
@@ -28,8 +28,9 @@ interface SettingsContextType {
   removeUserApiKey: (keyToRemove: string) => Promise<void>;
   hasApiKey: boolean;
   isSettingsLoading: boolean;
-  stats: { luckyWheelBestStreak: number };
+  stats: UserStats;
   updateBestStreak: (streak: number) => Promise<void>;
+  recordActivity: () => Promise<void>;
   aiTutorHistory: ConversationSession[];
   saveTutorSession: (session: ConversationSession) => Promise<void>;
   clearTutorHistory: () => Promise<void>;
@@ -43,7 +44,12 @@ const defaultState = {
     backgroundSetting: null as BackgroundSetting,
     customGradients: [] as string[],
     userApiKeys: [] as string[],
-    stats: { luckyWheelBestStreak: 0 },
+    stats: { 
+      luckyWheelBestStreak: 0,
+      currentStreak: 0,
+      longestStreak: 0,
+      lastActivityDate: '',
+    } as UserStats,
     aiTutorHistory: [] as ConversationSession[],
 };
 
@@ -70,7 +76,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
             backgroundSetting: data.settings?.backgroundSetting !== undefined ? data.settings.backgroundSetting : defaultState.backgroundSetting,
             customGradients: data.settings?.customGradients || defaultState.customGradients,
             userApiKeys: data.settings?.userApiKeys || defaultState.userApiKeys,
-            stats: data.stats || defaultState.stats,
+            stats: { ...defaultState.stats, ...data.stats },
             aiTutorHistory: data.aiTutorHistory || defaultState.aiTutorHistory,
           };
           setAppState(combinedState);
@@ -91,6 +97,37 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
       setIsSettingsLoading(false);
     }
   }, [currentUser, isAuthLoading]);
+
+  const recordActivity = useCallback(async () => {
+    if (!currentUser) return;
+    
+    const today = new Date().toISOString().split('T')[0];
+    const { lastActivityDate, currentStreak = 0, longestStreak = 0 } = appState.stats;
+
+    if (lastActivityDate === today) {
+      return; // Already recorded an activity today
+    }
+
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    
+    let newCurrentStreak = 1;
+    if (lastActivityDate === yesterday) {
+        newCurrentStreak = currentStreak + 1;
+    }
+    
+    const newLongestStreak = Math.max(longestStreak, newCurrentStreak);
+
+    const newStats: UserStats = {
+      ...appState.stats,
+      currentStreak: newCurrentStreak,
+      longestStreak: newLongestStreak,
+      lastActivityDate: today,
+    };
+    
+    await updateUserData(currentUser.uid, { stats: newStats });
+    
+  }, [currentUser, appState.stats]);
+
 
   const setTargetLanguage = useCallback(async (language: TargetLanguage) => {
     if (!currentUser) return;
@@ -186,6 +223,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     isSettingsLoading,
     stats: appState.stats,
     updateBestStreak,
+    recordActivity,
     aiTutorHistory: appState.aiTutorHistory,
     saveTutorSession,
     clearTutorHistory,

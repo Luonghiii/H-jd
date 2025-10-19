@@ -2,6 +2,7 @@ import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useVocabulary, themeTranslationMap } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
 import { useInspector } from '../hooks/useInspector';
+import { useHistory } from '../hooks/useHistory';
 import { ArrowLeft, ArrowRight, Shuffle, RotateCcw, Info } from 'lucide-react';
 
 type FlashcardView = 'setup' | 'playing';
@@ -10,6 +11,7 @@ const Flashcards: React.FC = () => {
   const { words, getAvailableThemes } = useVocabulary();
   const { targetLanguage } = useSettings();
   const { openInspector } = useInspector();
+  const { addHistoryEntry } = useHistory();
   
   const [view, setView] = useState<FlashcardView>('setup');
   const [selectedThemes, setSelectedThemes] = useState<Set<string>>(new Set(['all']));
@@ -60,6 +62,7 @@ const Flashcards: React.FC = () => {
     setCardWords(shuffled);
     setCurrentIndex(0);
     setIsFlipped(false);
+    addHistoryEntry('FLASHCARDS_SESSION_STARTED', `Bắt đầu phiên thẻ ghi nhớ với ${wordsForFlashcards.length} từ.`, { count: wordsForFlashcards.length });
     setView('playing');
   };
   

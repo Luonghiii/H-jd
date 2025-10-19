@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { useVocabulary } from '../hooks/useVocabulary';
 import { View } from '../types';
-import { PenSquare, Layers, Dices, ArrowRight, Book, Star, Gamepad2, Sparkles } from 'lucide-react';
+import { PenSquare, Layers, Dices, ArrowRight, Book, Star, Gamepad2, Sparkles, Flame } from 'lucide-react';
 import { useSettings } from '../hooks/useSettings';
 
 interface HomeProps {
@@ -54,18 +54,31 @@ const Home: React.FC<HomeProps> = ({ setCurrentView }) => {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-white">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-white">
         <div className="bg-slate-800/50 p-5 rounded-2xl flex items-center gap-4 border border-slate-700">
             <div className="p-3 bg-indigo-500/20 rounded-full">
                 <Book className="w-7 h-7 text-indigo-400" />
             </div>
             <div>
                 {isWordsLoading ? (
-                    <div className="h-8 w-16 bg-slate-700 rounded-md animate-pulse"></div>
+                    <div className="h-7 w-16 bg-slate-700 rounded-md animate-pulse"></div>
                 ) : (
                     <div className="text-3xl font-bold">{words.length}</div>
                 )}
                 <div className="text-sm text-gray-400">Từ đã lưu</div>
+            </div>
+        </div>
+        <div className="bg-slate-800/50 p-5 rounded-2xl flex items-center gap-4 border border-slate-700">
+            <div className="p-3 bg-orange-500/20 rounded-full">
+                <Flame className="w-7 h-7 text-orange-400" />
+            </div>
+            <div>
+                {isSettingsLoading ? (
+                    <div className="h-7 w-8 bg-slate-700 rounded-md animate-pulse"></div>
+                ) : (
+                    <div className="text-3xl font-bold">{stats.currentStreak}</div>
+                )}
+                <div className="text-sm text-gray-400">Chuỗi hiện tại</div>
             </div>
         </div>
         <div className="bg-slate-800/50 p-5 rounded-2xl flex items-center gap-4 border border-slate-700">
@@ -74,11 +87,11 @@ const Home: React.FC<HomeProps> = ({ setCurrentView }) => {
             </div>
             <div>
                 {isSettingsLoading ? (
-                    <div className="h-8 w-8 bg-slate-700 rounded-md animate-pulse"></div>
+                    <div className="h-7 w-8 bg-slate-700 rounded-md animate-pulse"></div>
                 ) : (
-                    <div className="text-3xl font-bold">{stats.luckyWheelBestStreak}</div>
+                    <div className="text-3xl font-bold">{stats.longestStreak}</div>
                 )}
-                <div className="text-sm text-gray-400">Chuỗi thắng dài nhất</div>
+                <div className="text-sm text-gray-400">Chuỗi dài nhất</div>
             </div>
         </div>
       </div>

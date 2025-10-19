@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { VocabularyProvider } from './hooks/useVocabulary';
 import { SettingsProvider, useSettings } from './hooks/useSettings';
 import { InspectorProvider, useInspector } from './hooks/useInspector';
@@ -144,9 +144,15 @@ const AppLayout: React.FC<{ onLogout: () => void; onOpenSettings: () => void; }>
 // This component logs the login event once when the user session is established.
 const LoginHistoryLogger: React.FC = () => {
     const { addHistoryEntry } = useHistory();
+    const hasLoggedRef = useRef(false);
+
     useEffect(() => {
-        addHistoryEntry('LOGIN', 'Đăng nhập thành công.');
+        if (!hasLoggedRef.current) {
+            addHistoryEntry('LOGIN', 'Đăng nhập thành công.');
+            hasLoggedRef.current = true;
+        }
     }, [addHistoryEntry]);
+    
     return null;
 };
 
@@ -171,6 +177,10 @@ const AppContent: React.FC = () => {
 
   if (!currentUser) {
     return <Login />;
+  }
+  
+  if (!hasApiKey) {
+    return <ApiKeySetup />;
   }
 
   return (

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useVocabulary } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
@@ -16,7 +15,7 @@ type GameState = 'setup' | 'loading' | 'playing' | 'correct';
 
 const SentenceScramble: React.FC<SentenceScrambleProps> = ({ onBack }) => {
     const { words } = useVocabulary();
-    const { learningLanguage } = useSettings();
+    const { learningLanguage, recordActivity } = useSettings();
     const { addHistoryEntry } = useHistory();
     const { openInspector } = useInspector();
     const [gameState, setGameState] = useState<GameState>('setup');
@@ -74,8 +73,9 @@ const SentenceScramble: React.FC<SentenceScrambleProps> = ({ onBack }) => {
         if (userString === originalSentence) {
             setGameState('correct');
             addHistoryEntry('SENTENCE_SCRAMBLE_WON', `Sắp xếp đúng câu: "${originalSentence}"`);
+            recordActivity();
         }
-    }, [userSentence, scrambledWords, originalSentence, gameState, addHistoryEntry]);
+    }, [userSentence, scrambledWords, originalSentence, gameState, addHistoryEntry, recordActivity]);
 
     if (gameState === 'setup') {
         const themes = ['all', ...Array.from(new Set(words.map(w => w.theme).filter(Boolean))) as string[]];

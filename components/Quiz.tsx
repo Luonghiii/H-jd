@@ -28,7 +28,7 @@ interface QuizProps {
 
 const Quiz: React.FC<QuizProps> = ({ onBack }) => {
   const { words, getAvailableThemes } = useVocabulary();
-  const { targetLanguage, learningLanguage } = useSettings();
+  const { targetLanguage, learningLanguage, recordActivity } = useSettings();
   const { openInspector } = useInspector();
   const { addHistoryEntry } = useHistory();
 
@@ -87,7 +87,7 @@ const Quiz: React.FC<QuizProps> = ({ onBack }) => {
         
         const formattedQuestions: QuizQuestion[] = successfulQuizzes.map((quiz, index) => ({
             ...quiz!,
-            word: wordsToQuiz[index],
+            word: wordsToQuiz.find(w => w.word === quiz!.question.split('"')[1]) || wordsToQuiz[index], // Robust word matching
         }));
 
         if (formattedQuestions.length < 1) {
@@ -123,16 +123,28 @@ const Quiz: React.FC<QuizProps> = ({ onBack }) => {
   };
   
   const handleNextQuestion = () => {
-    if (currentQuestionIndex < quizQuestions.length - 1) {
+    const isLastQuestion = currentQuestionIndex >= quizQuestions.length - 1;
+    
+    if (!isLastQuestion) {
       setCurrentQuestionIndex(prev => prev + 1);
       setSelectedAnswer(null);
     } else {
-      const correctAnswers = userAnswers.filter(a => a.isCorrect).length;
-      const details = `Hoàn thành bài trắc nghiệm.`;
-      addHistoryEntry('QUIZ_COMPLETED', details, { score: { correct: correctAnswers + (selectedAnswer === quizQuestions[currentQuestionIndex].correctAnswer ? 1 : 0), total: quizQuestions.length }});
+      // Logic for when the quiz finishes
+      const finalAnswers = [...userAnswers];
+      if (finalAnswers.length < quizQuestions.length) {
+          const currentQuestion = quizQuestions[currentQuestionIndex];
+          const isCorrect = selectedAnswer === currentQuestion.correctAnswer;
+          finalAnswers.push({ question: currentQuestion, answer: selectedAnswer!, isCorrect });
+      }
+      
+      const correctCount = finalAnswers.filter(a => a.isCorrect).length;
+      const score = { correct: correctCount, total: quizQuestions.length };
+      addHistoryEntry('QUIZ_COMPLETED', `Hoàn thành bài trắc nghiệm. (${score.correct}/${score.total})`, { score });
+      recordActivity();
       setView('results');
     }
   };
+
 
   const handleRestartQuiz = () => {
       handleStartQuiz();

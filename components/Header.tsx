@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, LogOut, Settings } from 'lucide-react';
+import { BookOpen, LogOut, Settings, Flame } from 'lucide-react';
 import { useSettings } from '../hooks/useSettings';
 
 const TargetLanguageSelector: React.FC = () => {
@@ -27,6 +27,31 @@ const TargetLanguageSelector: React.FC = () => {
   );
 };
 
+const StreakDisplay: React.FC = () => {
+  const { stats } = useSettings();
+  const streak = stats.currentStreak || 0;
+
+  const getFlameColor = () => {
+    if (streak === 0) return 'text-slate-500';
+    if (streak < 5) return 'text-orange-400';
+    if (streak < 10) return 'text-orange-500';
+    if (streak < 20) return 'text-red-500';
+    if (streak < 30) return 'text-red-600';
+    if (streak < 50) return 'text-purple-500';
+    if (streak < 100) return 'text-blue-500';
+    return 'text-cyan-400 animate-pulse';
+  };
+  
+  if (streak === 0) return null;
+
+  return (
+    <div className="flex items-center gap-1 bg-slate-800/60 px-3 py-1.5 rounded-full" title={`Chuỗi ${streak} ngày học!`}>
+        <span className="font-bold text-white text-sm">{streak}</span>
+        <Flame className={`w-4 h-4 ${getFlameColor()}`} />
+    </div>
+  )
+}
+
 const Header: React.FC<{ onLogout: () => void; onOpenSettings: () => void; }> = ({ onLogout, onOpenSettings }) => {
   return (
     <header className="py-4 px-4 sm:px-8">
@@ -38,6 +63,7 @@ const Header: React.FC<{ onLogout: () => void; onOpenSettings: () => void; }> = 
           </h1>
         </div>
         <div className="flex items-center flex-shrink-0 space-x-1 sm:space-x-2">
+          <StreakDisplay />
           <TargetLanguageSelector />
           <button
             onClick={onOpenSettings}

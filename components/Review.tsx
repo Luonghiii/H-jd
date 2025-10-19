@@ -6,7 +6,7 @@ import { BrainCircuit, RotateCcw } from 'lucide-react';
 
 const Review: React.FC = () => {
     const { words, updateWordSrs } = useVocabulary();
-    const { targetLanguage } = useSettings();
+    const { targetLanguage, recordActivity } = useSettings();
     const { addHistoryEntry } = useHistory();
     const [isSessionActive, setIsSessionActive] = useState(false);
     
@@ -30,7 +30,10 @@ const Review: React.FC = () => {
     };
     
     const endSession = () => {
-        addHistoryEntry('REVIEW_SESSION_COMPLETED', `Hoàn thành phiên ôn tập với ${sessionWords.length} từ.`);
+        if(sessionWords.length > 0) {
+            addHistoryEntry('REVIEW_SESSION_COMPLETED', `Hoàn thành phiên ôn tập với ${sessionWords.length} từ.`);
+            recordActivity();
+        }
         setIsSessionActive(false);
     };
 
@@ -72,7 +75,8 @@ const Review: React.FC = () => {
     }
     
     if (sessionWords.length === 0) {
-        return <div>Đang tải...</div>;
+        endSession();
+        return null;
     }
     
     const currentWord = sessionWords[currentIndex];

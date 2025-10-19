@@ -3,14 +3,18 @@ import { useHistory } from '../hooks/useHistory';
 import { HistoryEntry } from '../types';
 import { useInspector } from '../hooks/useInspector';
 import { useVocabulary } from '../hooks/useVocabulary';
-import { LogIn, LogOut, PlusSquare, BookOpen, CheckSquare, Award, XCircle, Trash2, Link, Puzzle, Shuffle, BrainCircuit, Volume2, Wand2, Image as ImageIcon, Search } from 'lucide-react';
+import { LogIn, LogOut, PlusSquare, BookOpen, CheckSquare, Award, XCircle, Trash2, Link, Puzzle, Shuffle, BrainCircuit, Volume2, Wand2, Image as ImageIcon, Search, PenSquare, Layers } from 'lucide-react';
 
 const ICONS: { [key in HistoryEntry['type']]: React.ElementType } = {
     LOGIN: LogIn,
     LOGOUT: LogOut,
     WORDS_ADDED: PlusSquare,
     STORY_GENERATED: BookOpen,
+    SENTENCE_GENERATED: Wand2,
+    IMAGE_OBJECT_IDENTIFIED: ImageIcon,
     QUIZ_COMPLETED: CheckSquare,
+    PRACTICE_SESSION_COMPLETED: PenSquare,
+    FLASHCARDS_SESSION_STARTED: Layers,
     MEMORY_MATCH_WON: Award,
     MEMORY_MATCH_LOST: XCircle,
     SENTENCE_SCRAMBLE_WON: Shuffle,
@@ -20,8 +24,6 @@ const ICONS: { [key in HistoryEntry['type']]: React.ElementType } = {
     GRAMMAR_CHECK_COMPLETED: CheckSquare,
     REVIEW_SESSION_COMPLETED: BrainCircuit,
     SPEECH_GENERATED: Volume2,
-    SENTENCE_GENERATED: Wand2,
-    IMAGE_OBJECT_IDENTIFIED: ImageIcon,
 };
 
 const formatTimeAgo = (timestamp: number) => {
@@ -50,19 +52,60 @@ const formatFullDateTime = (timestamp: number) => {
     });
 };
 
+const isToday = (date: Date) => {
+    const today = new Date();
+    return date.getDate() === today.getDate() &&
+           date.getMonth() === today.getMonth() &&
+           date.getFullYear() === today.getFullYear();
+};
+
+const isYesterday = (date: Date) => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    return date.getDate() === yesterday.getDate() &&
+           date.getMonth() === yesterday.getMonth() &&
+           date.getFullYear() === yesterday.getFullYear();
+};
+
 const History: React.FC = () => {
-    const { history, clearHistory } = useHistory();
+    const { history } = useHistory();
     const { openInspector } = useInspector();
     const { words } = useVocabulary();
     const [searchTerm, setSearchTerm] = useState('');
 
-    const filteredHistory = useMemo(() => {
-        if (!searchTerm) return history;
-        const lowerSearch = searchTerm.toLowerCase();
-        return history.filter(entry => 
-            entry.details.toLowerCase().includes(lowerSearch) ||
-            entry.payload?.word?.toLowerCase().includes(lowerSearch)
-        );
+    const groupedHistory = useMemo(() => {
+        const filtered = searchTerm 
+            ? history.filter(entry => 
+                entry.details.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                // FIX: Add type check for payload.word to ensure it's a string before calling string methods.
+                (entry.payload?.word && typeof entry.payload.word === 'string' && entry.payload.word.toLowerCase().includes(searchTerm.toLowerCase()))
+              )
+            : history;
+
+        // FIX: Use a generic parameter on `reduce` for safer type inference instead of casting the initial value.
+        return filtered.reduce<Record<string, HistoryEntry[]>>((acc, entry) => {
+            const entryDate = new Date(entry.timestamp);
+            let key = '';
+
+            if (isToday(entryDate)) {
+                key = 'Hôm nay';
+            } else if (isYesterday(entryDate)) {
+                key = 'Hôm qua';
+            } else {
+                key = entryDate.toLocaleDateString('vi-VN', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+            }
+
+            if (!acc[key]) {
+                acc[key] = [];
+            }
+            acc[key].push(entry);
+            return acc;
+        }, {});
     }, [history, searchTerm]);
 
     const handleEntryClick = (entry: HistoryEntry) => {
@@ -80,8 +123,8 @@ const History: React.FC = () => {
         if (entry.type === 'QUIZ_COMPLETED' && entry.payload.score) {
             return <span className="text-sm text-indigo-400">({entry.payload.score.correct}/{entry.payload.score.total})</span>
         }
-        if (entry.type === 'WORDS_ADDED' && entry.payload.wordCount) {
-             return <span className="text-sm text-gray-400">({entry.payload.wordCount} từ)</span>
+        if ((entry.type === 'WORDS_ADDED' || entry.type === 'PRACTICE_SESSION_COMPLETED' || entry.type === 'FLASHCARDS_SESSION_STARTED') && entry.payload.count) {
+             return <span className="text-sm text-gray-400">({entry.payload.count} từ)</span>
         }
         if (entry.type === 'MEMORY_MATCH_WON' && entry.payload.moves) {
             return <span className="text-sm text-gray-400">({entry.payload.moves} lượt)</span>
@@ -94,19 +137,9 @@ const History: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center flex-wrap gap-4">
-                <div className="text-center sm:text-left">
-                    <h2 className="text-2xl font-bold text-white">Lịch sử hoạt động</h2>
-                    <p className="text-gray-400 mt-1">Xem lại các hoạt động học tập gần đây của bạn.</p>
-                </div>
-                <button 
-                    onClick={clearHistory}
-                    disabled={history.length === 0}
-                    className="flex-shrink-0 flex items-center gap-2 px-3 py-2 text-sm bg-red-600/20 hover:bg-red-600/40 text-red-400 font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                    <Trash2 className="w-4 h-4" />
-                    <span>Xóa lịch sử</span>
-                </button>
+            <div className="text-center">
+                <h2 className="text-2xl font-bold text-white">Lịch sử hoạt động</h2>
+                <p className="text-gray-400 mt-1">Xem lại các hoạt động học tập gần đây của bạn.</p>
             </div>
 
             <div className="relative">
@@ -121,30 +154,37 @@ const History: React.FC = () => {
             </div>
             
             <div className="max-h-[55vh] overflow-y-auto pr-2">
-                {filteredHistory.length > 0 ? (
-                    <ul className="space-y-3">
-                        {filteredHistory.map(entry => {
-                            const Icon = ICONS[entry.type] || BookOpen;
-                            const isClickable = !!entry.payload?.word && words.some(w => w.word === entry.payload.word);
-                            return (
-                                <li 
-                                    key={entry.id}
-                                    onClick={() => handleEntryClick(entry)}
-                                    className={`flex items-start gap-4 bg-slate-800/50 p-4 rounded-xl border border-slate-700 transition-colors ${isClickable ? 'cursor-pointer hover:bg-slate-700/50 hover:border-slate-600' : ''}`}
-                                >
-                                    <div className="p-2 bg-slate-700/50 rounded-full">
-                                        <Icon className="w-5 h-5 text-gray-300" />
-                                    </div>
-                                    <div className="flex-grow">
-                                        <p className="font-medium text-white">{entry.details} {renderPayload(entry)}</p>
-                                        <p className="text-sm text-gray-500" title={formatFullDateTime(entry.timestamp)}>
-                                            {formatTimeAgo(entry.timestamp)}
-                                        </p>
-                                    </div>
-                                </li>
-                            )
-                        })}
-                    </ul>
+                {Object.keys(groupedHistory).length > 0 ? (
+                    <div className="space-y-6">
+                        {Object.entries(groupedHistory).map(([date, entries]) => (
+                            <div key={date}>
+                                <h3 className="text-lg font-semibold text-white mb-3 sticky top-0 bg-slate-900/80 backdrop-blur-sm py-2 z-10">{date}</h3>
+                                <div className="space-y-3">
+                                    {entries.map(entry => {
+                                        const Icon = ICONS[entry.type] || BookOpen;
+                                        const isClickable = !!entry.payload?.word && words.some(w => w.word === entry.payload.word);
+                                        return (
+                                            <div 
+                                                key={entry.id}
+                                                onClick={() => handleEntryClick(entry)}
+                                                className={`flex items-start gap-4 p-4 rounded-xl transition-colors ${isClickable ? 'cursor-pointer bg-slate-800/50 hover:bg-slate-700/50' : 'bg-slate-800/50'}`}
+                                            >
+                                                <div className="p-2 bg-slate-700/50 rounded-full flex-shrink-0 mt-1">
+                                                    <Icon className="w-5 h-5 text-gray-300" />
+                                                </div>
+                                                <div className="flex-grow">
+                                                    <p className="font-medium text-white">{entry.details} {renderPayload(entry)}</p>
+                                                    <p className="text-sm text-gray-500" title={formatFullDateTime(entry.timestamp)}>
+                                                        {formatTimeAgo(entry.timestamp)}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                 ) : (
                     <p className="text-center text-gray-400 py-16">
                         {history.length > 0 ? "Không tìm thấy kết quả phù hợp." : "Chưa có hoạt động nào được ghi lại."}
