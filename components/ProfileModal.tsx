@@ -27,6 +27,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
 
     // Control state
     const [isLoading, setIsLoading] = useState(false);
+    const [isAvatarLoading, setIsAvatarLoading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
 
@@ -56,22 +57,15 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            // Optimistic UI update with a local URL for instant preview
-            const localUrl = URL.createObjectURL(file);
-            setLocalAvatar(localUrl);
-
-            setIsLoading(true);
+            setIsAvatarLoading(true);
             try {
                 await updateAvatarFromFile(file);
                 eventBus.dispatch('notification', { type: 'success', message: 'Cập nhật ảnh đại diện thành công!' });
             } catch (error) {
-                // Revert on failure
-                setLocalAvatar(profile.photoURL);
                 eventBus.dispatch('notification', { type: 'error', message: 'Tải ảnh lên thất bại.' });
             } finally {
-                setIsLoading(false);
+                setIsAvatarLoading(false);
             }
-            // The useEffect hook listening to profile.photoURL will sync the permanent URL
         }
     };
 
@@ -112,7 +106,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                                         <UserIcon className="w-12 h-12 text-gray-400" />
                                     </div>
                                 )}
-                                {isLoading && <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin"/></div>}
+                                {isAvatarLoading && <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin"/></div>}
                             </div>
                             <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
                             <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 px-3 py-1.5 text-sm bg-slate-700 hover:bg-slate-600 rounded-lg">
@@ -160,7 +154,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
 
                     </div>
                     <div className="p-4 bg-slate-900/50 flex justify-end">
-                        <button onClick={handleSave} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg disabled:bg-indigo-400" disabled={isLoading}>
+                        <button onClick={handleSave} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg disabled:bg-indigo-400" disabled={isLoading || isAvatarLoading}>
                            {isLoading ? <Loader2 className="w-5 h-5 animate-spin"/> : 'Lưu'}
                         </button>
                     </div>
