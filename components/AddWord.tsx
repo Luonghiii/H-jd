@@ -1,4 +1,5 @@
 
+
 import React, { useState, useRef } from 'react';
 import { useVocabulary } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
@@ -213,7 +214,16 @@ const AddWord: React.FC = () => {
     <form onSubmit={handleAiSubmit} className="space-y-4 animate-fade-in">
         <div>
             <label htmlFor="ai-prompt" className="block text-sm font-medium text-gray-300 mb-1">Yêu cầu</label>
-            <input id="ai-prompt" type="text" value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} placeholder="ví dụ: 10 động từ thông dụng về nấu ăn" className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" required disabled={isAiLoading} />
+            <textarea
+                id="ai-prompt"
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                placeholder="ví dụ: 10 động từ thông dụng về nấu ăn"
+                className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                required
+                disabled={isAiLoading}
+                rows={3}
+            />
         </div>
         <button type="submit" className="w-full flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98] disabled:bg-indigo-400 disabled:cursor-not-allowed" disabled={!aiPrompt.trim() || isAiLoading}>
             {isAiLoading ? <><RefreshCw className="w-5 h-5 mr-2 animate-spin" />Đang tạo...</> : <><Sparkles className="w-5 h-5 mr-2" />Tạo từ vựng</>}

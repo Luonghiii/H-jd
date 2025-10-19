@@ -43,6 +43,14 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
         }
     }, [isOpen, profile, initialLeaderboardName]);
 
+    // This effect ensures the local avatar state is updated if the global state changes
+    // (e.g., after a successful upload completes).
+    useEffect(() => {
+        if (isOpen) {
+            setLocalAvatar(profile.photoURL);
+        }
+    }, [profile.photoURL, isOpen]);
+
     if (!isOpen) return null;
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -62,7 +70,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                 eventBus.dispatch('notification', { type: 'error', message: 'Tải ảnh lên thất bại.' });
             }
             setIsLoading(false);
-            // The useEffect hook will later sync localAvatar with the permanent URL from Firestore
+            // The useEffect hook listening to profile.photoURL will sync the permanent URL
         }
     };
 
