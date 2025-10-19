@@ -44,7 +44,7 @@ const Vocabulary: React.FC = () => {
                         </div>
                         <div className="mt-4 flex-grow">
                             <h3 className="text-xl font-bold text-slate-800">{option.title}</h3>
-                            <p className="mt-1 text-gray-500 text-sm">{option.description}</p>
+                            <p className="mt-1 text-slate-600 text-sm">{option.description}</p>
                         </div>
                     </div>
                 ))}

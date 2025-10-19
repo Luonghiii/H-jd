@@ -78,7 +78,7 @@ const BackgroundCustomizer: React.FC<BackgroundCustomizerProps> = ({ isOpen, onC
             >
                 <div className="flex items-center justify-between">
                     <h4 className="font-bold text-white">Tùy chỉnh nền</h4>
-                    <button onClick={onClose} className="p-1 rounded-full hover:bg-slate-700"><X className="w-4 h-4" /></button>
+                    <button onClick={onClose} className="p-1 rounded-full text-gray-300 hover:bg-slate-700"><X className="w-4 h-4" /></button>
                 </div>
                 
                 {customGradients.length > 0 && (

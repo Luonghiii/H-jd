@@ -65,7 +65,7 @@ const AiTools: React.FC = () => {
                        <tool.icon className="w-8 h-8 text-indigo-500 flex-shrink-0" />
                        <div className="flex-grow">
                             <h3 className="text-lg font-bold text-slate-800">{tool.title}</h3>
-                            <p className="mt-1 text-gray-500 text-sm">{tool.description}</p>
+                            <p className="mt-1 text-slate-600 text-sm">{tool.description}</p>
                         </div>
                         <ArrowRight className="w-6 h-6 text-gray-400 group-hover:text-indigo-500 transition-colors flex-shrink-0" />
                     </div>

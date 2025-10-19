@@ -288,7 +288,7 @@ const AiTutor: React.FC<AiTutorProps> = ({ onBack }) => {
                 break; // Exit loop on successful connection
             } catch (err: any) {
                 const keyIdentifier = `...${key.slice(-4)}`;
-                eventBus.dispatch('apiKeyNotification', { type: 'warning', message: `Khóa API ${keyIdentifier} thất bại. Đang thử khóa tiếp theo...` });
+                eventBus.dispatch('notification', { type: 'warning', message: `Khóa API ${keyIdentifier} thất bại. Đang thử khóa tiếp theo...` });
                 await cleanup(false); // Cleanup failed attempt
             }
         }

@@ -1,10 +1,11 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useVocabulary } from '../hooks/useVocabulary';
 import { View, VocabularyWord } from '../types';
-import { PenSquare, Layers, Dices, ArrowRight, Book, Star, Gamepad2, Sparkles, Flame, RotateCcw, Calendar, BrainCircuit } from 'lucide-react';
+import { PenSquare, Layers, Dices, ArrowRight, Book, Star, Gamepad2, Sparkles, Flame, RotateCcw, Calendar, BrainCircuit, Loader2 } from 'lucide-react';
 import { useSettings } from '../hooks/useSettings';
 import { useInspector } from '../hooks/useInspector';
 import { useI18n } from '../hooks/useI18n';
+import { generateDailyMission } from '../services/geminiService';
 
 const TimeIsWidgetClock: React.FC = () => {
   useEffect(() => {
@@ -209,6 +210,42 @@ const WordOfTheDay: React.FC = () => {
     );
 };
 
+const DailyMission: React.FC = () => {
+    const { words } = useVocabulary();
+    const { stats, learningLanguage } = useSettings();
+    const [mission, setMission] = useState<string>('');
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchMission = async () => {
+            if (words.length === 0) {
+                setMission('Thêm từ vựng đầu tiên để nhận nhiệm vụ mỗi ngày!');
+                setIsLoading(false);
+                return;
+            };
+            setIsLoading(true);
+            try {
+                const generatedMission = await generateDailyMission(words, stats, learningLanguage);
+                setMission(generatedMission);
+            } catch (error) {
+                console.error("Failed to generate daily mission:", error);
+                setMission("Không thể tạo nhiệm vụ. Hãy thử lại sau.");
+            }
+            setIsLoading(false);
+        };
+        fetchMission();
+    }, []); // Run only once per day/session
+
+    return (
+        <div className="bg-white/50 border border-white/30 rounded-2xl p-4 neu-light">
+            <h3 className="font-bold text-slate-800 mb-2 text-center">Nhiệm vụ hôm nay</h3>
+            <div className="text-center text-indigo-700 min-h-[48px] flex items-center justify-center">
+                {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <p className="font-semibold italic">"{mission}"</p>}
+            </div>
+        </div>
+    );
+};
+
 
 interface HomeProps {
   setCurrentView: (view: View) => void;
@@ -297,6 +334,8 @@ const Home: React.FC<HomeProps> = ({ setCurrentView }) => {
         </div>
       </div>
       
+      <DailyMission />
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <WordOfTheDay />
         <QuickReview />

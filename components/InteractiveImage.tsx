@@ -4,7 +4,7 @@ import { useSettings } from '../hooks/useSettings';
 import { useHistory } from '../hooks/useHistory';
 import { identifyObjectInImage } from '../services/geminiService';
 import { GeneratedWord } from '../types';
-import { Upload, Sparkles, PlusCircle, X, RefreshCw } from 'lucide-react';
+import { Upload, Sparkles, PlusCircle, X, RefreshCw, Camera } from 'lucide-react';
 
 const fileToBase64 = (file: File): Promise<{base64: string, mimeType: string}> => {
   return new Promise((resolve, reject) => {
@@ -24,12 +24,16 @@ const InteractiveImage: React.FC<{onBack: () => void;}> = ({onBack}) => {
     const [lastResult, setLastResult] = useState<GeneratedWord | null>(null);
     const [feedback, setFeedback] = useState<string | null>(null);
     const [clickMarker, setClickMarker] = useState<{x: number, y: number} | null>(null);
+    const [cameraActive, setCameraActive] = useState(false);
     
     const { addMultipleWords } = useVocabulary();
     const { addHistoryEntry } = useHistory();
     const { learningLanguage, recordActivity } = useSettings();
+    
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const imageRef = useRef<HTMLImageElement>(new Image());
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const streamRef = useRef<MediaStream | null>(null);
 
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -47,6 +51,21 @@ const InteractiveImage: React.FC<{onBack: () => void;}> = ({onBack}) => {
         img.src = imageFile.url;
     }, [imageFile]);
 
+    const cleanupCamera = () => {
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+            streamRef.current = null;
+        }
+        if (videoRef.current) {
+            videoRef.current.srcObject = null;
+        }
+        setCameraActive(false);
+    }
+
+    useEffect(() => {
+        return () => cleanupCamera();
+    }, []);
+
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
@@ -57,6 +76,40 @@ const InteractiveImage: React.FC<{onBack: () => void;}> = ({onBack}) => {
             setImageFile({ base64, mimeType, url: URL.createObjectURL(file) });
         }
     };
+
+    const handleCameraOpen = async () => {
+        cleanupCamera();
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+            streamRef.current = stream;
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+            }
+            setCameraActive(true);
+            setImageFile(null);
+        } catch (error) {
+            console.error("Camera error:", error);
+            setFeedback("Không thể truy cập camera. Vui lòng cấp quyền trong cài đặt trình duyệt.");
+        }
+    }
+
+    const handleCapture = () => {
+        const video = videoRef.current;
+        if (!video) return;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        const dataUrl = canvas.toDataURL('image/jpeg');
+        const base64 = dataUrl.split(',')[1];
+        setImageFile({ base64, mimeType: 'image/jpeg', url: dataUrl });
+
+        cleanupCamera();
+    }
+
 
     const handleCanvasClick = async (e: React.MouseEvent<HTMLCanvasElement>) => {
         if (isLoading || !imageFile) return;
@@ -70,7 +123,6 @@ const InteractiveImage: React.FC<{onBack: () => void;}> = ({onBack}) => {
         const x = (e.clientX - rect.left) * scaleX;
         const y = (e.clientY - rect.top) * scaleY;
         
-        // Use normalized coordinates for the marker
         setClickMarker({ x: x / canvas.width * 100, y: y / canvas.height * 100 });
 
         setIsLoading(true);
@@ -78,7 +130,6 @@ const InteractiveImage: React.FC<{onBack: () => void;}> = ({onBack}) => {
         setLastResult(null);
         
         try {
-            // Use normalized coordinates for the API
             const result = await identifyObjectInImage(imageFile.base64, imageFile.mimeType, { x: x / canvas.width, y: y / canvas.height }, learningLanguage);
             setLastResult(result);
             if (result) {
@@ -109,17 +160,45 @@ const InteractiveImage: React.FC<{onBack: () => void;}> = ({onBack}) => {
         }
     };
 
+    const resetView = () => {
+        cleanupCamera();
+        setImageFile(null);
+        setLastResult(null);
+        setFeedback(null);
+        setClickMarker(null);
+    }
+
+    if (cameraActive) {
+        return (
+             <div className="space-y-4">
+                <h2 className="text-2xl font-bold text-white">Sử dụng Camera</h2>
+                <div className="relative w-full max-w-full mx-auto aspect-video bg-black rounded-lg overflow-hidden">
+                    <video ref={videoRef} autoPlay playsInline className="w-full h-full object-contain"></video>
+                </div>
+                <div className="flex gap-2">
+                    <button onClick={handleCapture} className="flex-1 px-4 py-3 bg-indigo-600 rounded-lg text-white font-semibold">Chụp ảnh</button>
+                    <button onClick={cleanupCamera} className="px-4 py-3 bg-slate-700 rounded-lg text-white">Hủy</button>
+                </div>
+             </div>
+        );
+    }
+
     return (
         <div className="space-y-4">
             <h2 className="text-2xl font-bold text-white">Khám phá qua Ảnh</h2>
             {!imageFile ? (
-                <div className="text-center">
-                    <input type="file" id="image-upload" className="hidden" onChange={handleFileChange} accept="image/*" />
-                    <label htmlFor="image-upload" className="w-full flex flex-col items-center justify-center p-10 bg-slate-800 border-2 border-dashed border-slate-600 rounded-xl cursor-pointer hover:border-indigo-500 hover:text-white transition-colors">
-                        <Upload className="w-10 h-10 mb-2 text-gray-500" />
-                        <span className="font-semibold">Nhấp để tải ảnh lên</span>
-                        <span className="text-sm text-gray-400">Sau đó nhấp vào bất kỳ đối tượng nào để xác định.</span>
-                    </label>
+                <div className="text-center space-y-4">
+                    <p className="text-gray-400">Tải ảnh lên hoặc dùng camera, sau đó nhấp vào bất kỳ đối tượng nào để xác định.</p>
+                    <div className="flex flex-col sm:flex-row gap-4">
+                        <input type="file" id="image-upload" className="hidden" onChange={handleFileChange} accept="image/*" />
+                        <label htmlFor="image-upload" className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg cursor-pointer">
+                            <Upload className="w-5 h-5"/> Tải ảnh lên
+                        </label>
+                        <button onClick={handleCameraOpen} className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg">
+                            <Camera className="w-5 h-5"/> Dùng Camera
+                        </button>
+                    </div>
+                    {feedback && <p className="text-red-400 text-sm">{feedback}</p>}
                 </div>
             ) : (
                 <div className="space-y-4">
@@ -150,8 +229,8 @@ const InteractiveImage: React.FC<{onBack: () => void;}> = ({onBack}) => {
                         {!isLoading && !feedback && !lastResult && <p className="text-gray-400">Nhấp vào một đối tượng trong ảnh.</p>}
                     </div>
 
-                    <button onClick={() => setImageFile(null)} className="w-full text-center py-2 bg-slate-700 hover:bg-slate-600 rounded-lg">
-                        Tải ảnh khác
+                    <button onClick={resetView} className="w-full text-center py-2 bg-slate-700 hover:bg-slate-600 rounded-lg">
+                        Bắt đầu lại
                     </button>
                 </div>
             )}

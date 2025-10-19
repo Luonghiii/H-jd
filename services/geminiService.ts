@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
-import { VocabularyWord, WordInfo, TargetLanguage, LearningLanguage, ChatMessage, GeneratedWord, Quiz, AiLesson } from '../types';
+import { VocabularyWord, WordInfo, TargetLanguage, LearningLanguage, ChatMessage, GeneratedWord, Quiz, AiLesson, UserStats } from '../types';
 import eventBus from '../utils/eventBus';
 
 let currentApiIndex = 0;
@@ -438,6 +438,44 @@ For German nouns, include the gender ('der', 'die', or 'das').`;
     });
 };
 
+export const getSynonymsAndAntonyms = async (word: string, targetLanguage: TargetLanguage, learningLanguage: LearningLanguage): Promise<{ synonyms: string[], antonyms: string[] } | null> => {
+    return executeWithKeyRotation(async (ai) => {
+        const prompt = `For the ${learningLanguage} word "${word}", provide up to 4 relevant synonyms and up to 4 relevant antonyms. The synonyms and antonyms themselves should be in ${learningLanguage}. Return a JSON object. If no synonyms or antonyms are found, return an empty array for that key.`;
+        
+        const response = await ai.models.generateContent({
+            model: textModel,
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        synonyms: { type: Type.ARRAY, items: { type: Type.STRING } },
+                        antonyms: { type: Type.ARRAY, items: { type: Type.STRING } }
+                    },
+                    required: ["synonyms", "antonyms"]
+                }
+            }
+        });
+
+        return parseJsonResponse<{ synonyms: string[], antonyms: string[] }>(response.text);
+    });
+};
+
+export const getEtymology = async (word: string, targetLanguage: TargetLanguage, learningLanguage: LearningLanguage): Promise<string | null> => {
+    return executeWithKeyRotation(async (ai) => {
+        const prompt = `Provide a concise etymology for the ${learningLanguage} word "${word}". Explain its origin and evolution simply, suitable for a language learner. The explanation should be in ${targetLanguage === 'vietnamese' ? 'Vietnamese' : 'English'}. Provide only the explanation text.`;
+        
+        const response = await ai.models.generateContent({
+            model: textModel,
+            contents: prompt
+        });
+
+        return response.text.trim();
+    });
+};
+
+
 export const generateSpeech = async (word: string, learningLanguage: LearningLanguage): Promise<string> => {
     return executeWithKeyRotation(async (ai) => {
         const voiceMap: Record<LearningLanguage, string> = {
@@ -679,5 +717,177 @@ All content should be suitable for an A2/B1 level learner.`;
             }
         });
         return parseJsonResponse<AiLesson>(response.text);
+    });
+};
+
+export const generateDailyMission = async (words: VocabularyWord[], stats: UserStats, learningLanguage: LearningLanguage): Promise<string> => {
+    return executeWithKeyRotation(async (ai) => {
+        const wordsForReview = words.filter(w => w.nextReview <= Date.now()).slice(0, 10).map(w => w.word);
+        
+        const prompt = `You are a friendly language learning coach. Based on the user's data, create a short, encouraging, and specific daily mission in Vietnamese.
+        - User's learning language: ${learningLanguage}
+        - Total words learned: ${stats.totalWords}
+        - Current learning streak: ${stats.currentStreak} days
+        - Words due for review today: ${wordsForReview.length > 0 ? wordsForReview.join(', ') : 'none'}
+        
+        Generate a single, actionable mission for today. Be creative. Suggest a specific activity available in the app (e.g., "Ôn tập nhanh", "Thẻ ghi nhớ", "Luyện viết", a game like "Đoán chữ").
+        Keep the mission text concise (1-2 sentences). Address the user directly.
+        
+        Example outputs:
+        "Chuỗi ${stats.currentStreak} ngày thật tuyệt vời! Nhiệm vụ hôm nay: dùng 'Thẻ ghi nhớ' để ôn lại 5 từ và thử sức với game 'Đoán chữ' nhé!"
+        "Hôm nay hãy thử thách bản thân! Dùng công cụ "Tạo truyện AI" với ít nhất 3 từ mới xem sao."
+        "Bạn có ${wordsForReview.length} từ cần ôn tập. Hãy vào mục 'Ôn tập Thông minh' để củng cố lại chúng ngay nào!"
+        
+        Provide only the mission text.`;
+
+        const response = await ai.models.generateContent({
+            model: textModel,
+            contents: prompt,
+            config: { temperature: 0.8 }
+        });
+        return response.text.trim();
+    });
+};
+
+export const validateDuelWord = async (
+    word: string,
+    usedWords: string[],
+    language: LearningLanguage,
+    context: { mode: 'theme' | 'longest' | 'chain', theme?: string, startingLetter?: string, lastWord?: string }
+): Promise<{ isValid: boolean; reason: string }> => {
+    return executeWithKeyRotation(async (ai) => {
+        let rules = `1. It must be a real, correctly spelled word in ${language}.
+2. It must NOT have been used before. Used words: ${usedWords.join(', ')}.`;
+
+        switch (context.mode) {
+            case 'theme':
+                rules += `\n3. It must be relevant to the theme "${context.theme}". If the theme is "any", any valid word is acceptable.`;
+                break;
+            case 'longest':
+                rules += `\n3. It MUST start with the letter "${context.startingLetter}".`;
+                break;
+            case 'chain':
+                let startRule = '';
+                const lastLetter = context.lastWord ? context.lastWord.slice(-1).toLowerCase() : '';
+
+                switch(language) {
+                    case 'german':
+                        if (lastLetter === 'ß') {
+                            startRule = `The previous word ended in 'ß', so the new word MUST start with the letter 's'.`;
+                        } else {
+                            startRule = `It MUST start with the letter "${lastLetter}", which is the last letter of the previous word "${context.lastWord}".`;
+                        }
+                        break;
+                    case 'chinese':
+                        const lastChar = context.lastWord ? context.lastWord.slice(-1) : '';
+                        startRule = `The first character of the new word MUST be "${lastChar}", which is the last character of the previous word "${context.lastWord}". It must be a multi-character word.`;
+                        break;
+                    default: // english
+                        startRule = `It MUST start with the letter "${lastLetter}", which is the last letter of the previous word "${context.lastWord}".`;
+                }
+                rules += `\n3. ${startRule}`;
+                break;
+        }
+
+        const systemInstruction = `You are a strict referee for a word game in ${language}.
+The user has provided a word. You must determine if it's valid based on these rules:
+${rules}
+Analyze the user's word and respond ONLY with a JSON object.`;
+        
+        const response = await ai.models.generateContent({
+            model: textModel,
+            contents: `The user's word is: "${word}"`,
+            config: {
+                systemInstruction,
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        isValid: { type: Type.BOOLEAN },
+                        reason: { type: Type.STRING, description: "A brief explanation in Vietnamese if the word is invalid. E.g., 'Từ đã được sử dụng', 'Không đúng chữ cái bắt đầu', 'Không phải là một từ hợp lệ'." }
+                    },
+                    required: ["isValid", "reason"]
+                }
+            }
+        });
+
+        const result = parseJsonResponse<{ isValid: boolean; reason: string }>(response.text);
+        return result || { isValid: false, reason: "Lỗi phân tích phản hồi từ AI." };
+    });
+};
+
+export const getAiDuelWord = async (
+    usedWords: string[],
+    language: LearningLanguage,
+    difficulty: 'easy' | 'medium' | 'hard' | 'hell',
+    context: { mode: 'theme' | 'longest' | 'chain' | 'first', theme?: string, startingLetter?: string, lastWord?: string }
+): Promise<{ word: string }> => {
+    return executeWithKeyRotation(async (ai) => {
+        let task = '';
+        switch (context.mode) {
+            case 'theme':
+            case 'first': // The first word can be theme-based
+                task = `Provide one new, valid word related to the theme "${context.theme}". If the theme is "any", you can choose a word from any theme.`;
+                break;
+            case 'longest':
+                task = `Provide one new, valid word that starts with the letter "${context.startingLetter}". Your goal is to find a LONG word to score a point.`;
+                break;
+            case 'chain':
+                let chainRule = '';
+                 const lastLetter = context.lastWord ? context.lastWord.slice(-1).toLowerCase() : '';
+                 switch(language) {
+                    case 'german':
+                        if (lastLetter === 'ß') {
+                            chainRule = `Provide one new, valid word that starts with the letter 's' (because the previous word "${context.lastWord}" ended in 'ß').`;
+                        } else {
+                            chainRule = `Provide one new, valid word that starts with the letter "${lastLetter}" (from the end of "${context.lastWord}").`;
+                        }
+                        break;
+                    case 'chinese':
+                        const lastChar = context.lastWord ? context.lastWord.slice(-1) : '';
+                        chainRule = `Provide one new, valid multi-character word where the first character is "${lastChar}" (from the end of "${context.lastWord}").`;
+                        break;
+                    default: // english
+                         chainRule = `Provide one new, valid word that starts with the letter "${lastLetter}" (from the end of "${context.lastWord}").`;
+                }
+                task = chainRule;
+                break;
+        }
+
+        let difficultyInstruction = '';
+        switch (difficulty) {
+            case 'easy': difficultyInstruction = 'Choose a very common and obvious word.'; break;
+            case 'medium': difficultyInstruction = 'Choose a moderately common word.'; break;
+            case 'hard': difficultyInstruction = `Choose a less common, more specific, or creative word. For 'longest word' mode, try to find a genuinely long word.`; break;
+            case 'hell': difficultyInstruction = `Choose a very specific, rare, or clever word that is still valid. Try to win. For 'longest word' mode, find the longest possible valid word you can think of.`; break;
+        }
+
+        const systemInstruction = `You are an AI player in a word game in ${language}.
+${task}
+The word MUST NOT be in this list of already used words: ${usedWords.join(', ')}.
+Your difficulty level is ${difficulty}. ${difficultyInstruction}
+Respond ONLY with a JSON object containing the word.`;
+        
+        const response = await ai.models.generateContent({
+            model: textModel,
+            contents: "Your turn. Provide your word.",
+            config: {
+                systemInstruction,
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        word: { type: Type.STRING, description: `A single word in ${language} that follows the rules.` }
+                    },
+                    required: ["word"]
+                }
+            }
+        });
+
+        const result = parseJsonResponse<{ word: string }>(response.text);
+        if (!result || !result.word) {
+            return { word: '' }; // Fallback
+        }
+        return result;
     });
 };

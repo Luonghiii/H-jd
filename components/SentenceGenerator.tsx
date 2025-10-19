@@ -56,40 +56,40 @@ const SentenceGenerator: React.FC<SentenceGeneratorProps> = ({ onBack }) => {
     };
     
     return (
-        <div className="space-y-6 animate-fade-in">
+        <div className="space-y-6 animate-fade-in text-white">
             <div className="flex items-center justify-between">
               <div className="text-center sm:text-left">
-                  <h2 className="text-2xl font-bold text-slate-900">AI Tạo câu</h2>
-                  <p className="text-slate-500 mt-1">Chọn một từ để tạo câu ví dụ.</p>
+                  <h2 className="text-2xl font-bold text-white">AI Tạo câu</h2>
+                  <p className="text-gray-400 mt-1">Chọn một từ để tạo câu ví dụ.</p>
               </div>
-              <button onClick={onBack} className="flex-shrink-0 flex items-center gap-2 px-3 py-2 text-sm bg-slate-200/80 hover:bg-slate-300 text-slate-700 font-semibold rounded-xl transition-colors">
+              <button onClick={onBack} className="flex-shrink-0 flex items-center gap-2 px-3 py-2 text-sm bg-slate-700/50 hover:bg-slate-700 text-gray-200 font-semibold rounded-xl transition-colors">
                 <ArrowLeft className="w-4 h-4" />
                 <span>Quay lại</span>
               </button>
             </div>
 
             {isLoading && (
-                 <div className="flex justify-center items-center p-6 bg-white rounded-2xl">
-                     <RefreshCw className="w-6 h-6 mr-3 animate-spin text-indigo-500" />
-                     <p className="text-slate-800">Đang tạo câu cho "{selectedWord?.word}"...</p>
+                 <div className="flex justify-center items-center p-6 bg-slate-800/50 rounded-2xl">
+                     <RefreshCw className="w-6 h-6 mr-3 animate-spin text-indigo-400" />
+                     <p>Đang tạo câu cho "{selectedWord?.word}"...</p>
                  </div>
             )}
 
             {generatedSentence && !isLoading && selectedWord && (
-                <div className="p-4 rounded-2xl bg-white border border-slate-200 space-y-4">
-                    <h3 className="text-lg font-semibold text-slate-900">Ví dụ cho <span className="text-cyan-600">{selectedWord.word}</span></h3>
+                <div className="p-4 rounded-2xl bg-slate-800/50 border border-slate-700 space-y-4">
+                    <h3 className="text-lg font-semibold">Ví dụ cho <span className="text-cyan-300">{selectedWord.word}</span></h3>
                     <div>
                         <div className="flex items-center justify-between mb-2">
-                            <h4 className="font-semibold text-slate-700">Câu {languageNameMap[learningLanguage]}</h4>
+                            <h4 className="font-semibold text-gray-300">Câu {languageNameMap[learningLanguage]}</h4>
                         </div>
-                        <div className="text-slate-800 text-lg whitespace-pre-wrap leading-relaxed">
+                        <div className="text-gray-200 text-lg whitespace-pre-wrap leading-relaxed">
                             <HighlightableText text={generatedSentence} words={[selectedWord]} />
                         </div>
                     </div>
                     {translation && (
-                        <div className="border-t border-slate-200 pt-4 mt-4">
-                            <h4 className="font-semibold text-slate-500 mb-2">Bản dịch</h4>
-                            <div className="text-slate-500 whitespace-pre-wrap leading-relaxed">
+                        <div className="border-t border-slate-600 pt-4 mt-4">
+                            <h4 className="font-semibold text-gray-400 mb-2">Bản dịch</h4>
+                            <div className="text-gray-400 whitespace-pre-wrap leading-relaxed">
                                 <HighlightableText text={translation} words={[selectedWord]} />
                             </div>
                         </div>
@@ -98,7 +98,7 @@ const SentenceGenerator: React.FC<SentenceGeneratorProps> = ({ onBack }) => {
             )}
 
             <div className="pt-2">
-                <h3 className="font-semibold text-slate-800 mb-3">Chọn một từ từ danh sách của bạn:</h3>
+                <h3 className="font-semibold text-white mb-3">Chọn một từ từ danh sách của bạn:</h3>
                 <div className="relative mb-4">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
                     <input
@@ -106,7 +106,7 @@ const SentenceGenerator: React.FC<SentenceGeneratorProps> = ({ onBack }) => {
                         placeholder="Tìm kiếm từ..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 bg-slate-200 border border-slate-300 rounded-md text-slate-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-600 rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                 </div>
                 <div className="max-h-[45vh] overflow-y-auto pr-2">
@@ -116,15 +116,15 @@ const SentenceGenerator: React.FC<SentenceGeneratorProps> = ({ onBack }) => {
                                 <button
                                     onClick={() => handleWordClick(word)}
                                     disabled={isLoading}
-                                    className={`w-full flex items-center justify-between text-left bg-white p-3 rounded-2xl border transition-all duration-200
-                                    ${selectedWord?.id === word.id && !isLoading ? 'ring-2 ring-indigo-500 border-transparent' : 'border-slate-200 hover:bg-slate-50 hover:scale-[1.02] hover:border-slate-300'}
+                                    className={`w-full flex items-center justify-between text-left bg-slate-800/50 p-3 rounded-lg border transition-all duration-200
+                                    ${selectedWord?.id === word.id && !isLoading ? 'ring-2 ring-indigo-500 border-transparent' : 'border-slate-700 hover:bg-slate-700/50 hover:scale-[1.01] hover:border-slate-600'}
                                     disabled:opacity-50 disabled:cursor-not-allowed`}
                                 >
                                     <div>
-                                        <p className="font-semibold text-slate-800">{word.word}</p>
-                                        <p className="text-sm text-slate-500">{word.translation[uiLanguage]}</p>
+                                        <p className="font-semibold text-white">{word.word}</p>
+                                        <p className="text-sm text-gray-400">{word.translation[uiLanguage]}</p>
                                     </div>
-                                    <Wand2 className="w-5 h-5 text-slate-400" />
+                                    <Wand2 className="w-5 h-5 text-gray-500" />
                                 </button>
                             </li>
                         ))}
