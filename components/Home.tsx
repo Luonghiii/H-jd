@@ -8,7 +8,7 @@ import { useInspector } from '../hooks/useInspector';
 
 const QuickReview: React.FC = () => {
     const { words, updateWordSrs } = useVocabulary();
-    const { targetLanguage } = useSettings();
+    const { targetLanguage, recordActivity } = useSettings();
 
     const wordsToReview = useMemo(() => {
         return words
@@ -20,6 +20,14 @@ const QuickReview: React.FC = () => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isFlipped, setIsFlipped] = useState(false);
     const [completed, setCompleted] = useState(false);
+
+    useEffect(() => {
+        // Reset completion state if the component is re-rendered with new words to review
+        if (wordsToReview.length > 0) {
+            setCompleted(false);
+            setCurrentIndex(0);
+        }
+    }, [wordsToReview]);
 
     if (wordsToReview.length === 0 || completed) {
         return (
@@ -44,6 +52,7 @@ const QuickReview: React.FC = () => {
             setIsFlipped(false);
             setTimeout(() => setCurrentIndex(prev => prev + 1), 150);
         } else {
+            recordActivity();
             setCompleted(true);
         }
     };

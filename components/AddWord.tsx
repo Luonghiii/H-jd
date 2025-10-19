@@ -49,7 +49,7 @@ const AddWord: React.FC = () => {
 
   const { words, addWord, addMultipleWords, getAvailableThemes } = useVocabulary();
   const { addHistoryEntry } = useHistory();
-  const { targetLanguage, learningLanguage } = useSettings();
+  const { targetLanguage, learningLanguage, recordActivity } = useSettings();
   
   const languageNameMap = {
       german: 'tiếng Đức',
@@ -68,14 +68,19 @@ const AddWord: React.FC = () => {
     if (word.trim() && translation.trim() && !isManualLoading) {
       setIsManualLoading(true);
       setFeedback(null);
-      await addWord(word.trim(), translation.trim(), targetLanguage, manualTheme.trim());
-      addHistoryEntry('WORDS_ADDED', `Đã thêm thủ công 1 từ.`, { wordCount: 1 });
-      setWord('');
-      setTranslation('');
-      setManualTheme('');
+      const trimmedWord = word.trim();
+      const success = await addWord(trimmedWord, translation.trim(), targetLanguage, manualTheme.trim());
+      
       setIsManualLoading(false);
-      setFeedback({ type: 'success', message: `Đã thêm từ "${word.trim()}"!` });
-      clearFeedback();
+
+      if (success) {
+        addHistoryEntry('WORDS_ADDED', `Đã thêm thủ công 1 từ.`, { wordCount: 1 });
+        setWord('');
+        setTranslation('');
+        setManualTheme('');
+        setFeedback({ type: 'success', message: `Đã thêm từ "${trimmedWord}"!` });
+        clearFeedback();
+      }
     }
   };
 
@@ -166,6 +171,7 @@ const AddWord: React.FC = () => {
       if (count > 0) {
           addHistoryEntry('WORDS_ADDED', `Đã thêm ${count} từ mới.`, { wordCount: count });
           setFeedback({ type: 'success', message: `Đã thêm ${count} từ mới!` });
+          recordActivity();
       } else {
           setFeedback({ type: 'info', message: 'Không có từ mới nào được thêm.' });
       }

@@ -4,9 +4,106 @@ import { useSettings } from '../hooks/useSettings';
 import { getWordInfo, generateSentence, checkSentence, rewriteSentence, getChatResponseForWord, generateSpeech } from '../services/geminiService';
 import { useAudioPlayer } from '../hooks/useAudioPlayer';
 import { useHistory } from '../hooks/useHistory';
-import { X, Info, MessageSquare, BookOpen, Send, RefreshCw, Volume2, Loader2, Edit, Save } from 'lucide-react';
+import { X, Info, MessageSquare, BookOpen, Send, RefreshCw, Volume2, Loader2, Edit, Save, PlusCircle } from 'lucide-react';
 import { useVocabulary } from '../hooks/useVocabulary';
-import { useInspector } from '../hooks/useInspector';
+import { useInspector, useQuickTranslate } from '../hooks/useInspector';
+import eventBus from '../utils/eventBus';
+
+export const QuickTranslateModal: React.FC = () => {
+    const { data, closeQuickTranslate } = useQuickTranslate();
+    const { addWord } = useVocabulary();
+    const { targetLanguage } = useSettings();
+    const modalRef = useRef<HTMLDivElement>(null);
+    const [style, setStyle] = useState<React.CSSProperties>({});
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
+                closeQuickTranslate();
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [closeQuickTranslate]);
+
+    useEffect(() => {
+        if (data && modalRef.current) {
+            const rect = modalRef.current.getBoundingClientRect();
+            let left = data.position.left;
+            if (left + rect.width > window.innerWidth) {
+                left = window.innerWidth - rect.width - 16;
+            }
+            if (left < 16) {
+                left = 16;
+            }
+            setStyle({
+                position: 'absolute',
+                top: `${data.position.top + 8}px`,
+                left: `${left}px`,
+            });
+        } else if (data) {
+             setStyle({
+                position: 'absolute',
+                top: `${data.position.top + 8}px`,
+                left: `${data.position.left}px`,
+                opacity: 0, // Render invisible first to measure
+            });
+        }
+    }, [data]);
+    
+    if (!data) return null;
+
+    const handleAdd = async () => {
+        if (data.isLoading) return;
+        const success = await addWord(data.word, data.translation, targetLanguage, data.theme);
+        if (success) {
+            eventBus.dispatch('notification', { type: 'success', message: `Đã thêm từ "${data.word}"!` });
+        }
+        closeQuickTranslate();
+    };
+
+    return (
+        <div
+            ref={modalRef}
+            style={style}
+            className="fixed z-[999] bg-slate-800 border border-slate-600 rounded-2xl shadow-2xl p-4 w-72 animate-fade-in-up"
+        >
+            {data.isLoading ? (
+                <div className="flex items-center justify-center h-24">
+                    <Loader2 className="w-6 h-6 animate-spin text-indigo-400" />
+                </div>
+            ) : (
+                <div className="space-y-3">
+                    <div className="flex justify-between items-start">
+                        <p className="font-bold text-white text-lg">{data.word}</p>
+                        <button onClick={closeQuickTranslate} className="-mt-2 -mr-2 p-1 text-gray-400 hover:text-white"><X className="w-4 h-4" /></button>
+                    </div>
+                    {data.translation !== 'Lỗi phân tích' ? (
+                        <>
+                            <p className="text-gray-300 text-base">{data.translation}</p>
+                            <div className="text-sm space-y-1 border-t border-slate-700 pt-2">
+                                <div className="flex justify-between text-gray-400">
+                                    <span>Từ loại:</span>
+                                    <span className="font-semibold text-gray-200">{data.partOfSpeech}</span>
+                                </div>
+                                <div className="flex justify-between text-gray-400">
+                                    <span>Chủ đề:</span>
+                                    <span className="font-semibold text-gray-200">{data.theme}</span>
+                                </div>
+                            </div>
+                            <button onClick={handleAdd} className="w-full flex items-center justify-center gap-2 text-sm px-2 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-semibold">
+                                <PlusCircle className="w-4 h-4"/> Thêm vào từ vựng
+                            </button>
+                        </>
+                    ) : (
+                        <p className="text-red-400 text-center py-4">{data.translation}</p>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+};
+
 
 interface WordInspectorModalProps {
   isOpen: boolean;
@@ -18,7 +115,7 @@ type Tab = 'info' | 'examples' | 'chat';
 
 const WordInspectorModal: React.FC<WordInspectorModalProps> = ({ isOpen, word, onClose }) => {
   const { targetLanguage, learningLanguage } = useSettings();
-  const { updateWord } = useVocabulary();
+  const { updateWord, updateWordSpeechAudio } = useVocabulary();
   const { updateInspectingWord } = useInspector();
 
   const [activeTab, setActiveTab] = useState<Tab>('info');
@@ -100,13 +197,23 @@ const WordInspectorModal: React.FC<WordInspectorModalProps> = ({ isOpen, word, o
 
   const handlePlaySpeech = async () => {
       if (isSpeechLoading || isAudioPlaying) return;
+
+      if (word.speechAudio) {
+        await play(word.speechAudio);
+        return;
+      }
+
       setIsSpeechLoading(true);
       try {
           const audioB64 = await generateSpeech(word.word, learningLanguage);
+          await updateWordSpeechAudio(word.id, audioB64);
+          // Update the local state of the word in the modal so it plays instantly next time
+          updateInspectingWord({ ...word, speechAudio: audioB64 });
           await play(audioB64);
           addHistoryEntry('SPEECH_GENERATED', `Phát âm từ "${word.word}".`, { word: word.word });
       } catch (error) {
           console.error("Failed to generate/play speech", error);
+          eventBus.dispatch('notification', { type: 'error', message: 'Không thể tạo âm thanh.' });
       }
       setIsSpeechLoading(false);
   }

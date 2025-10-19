@@ -82,6 +82,46 @@ const parseJsonResponse = <T>(text: string): T | null => {
     }
 };
 
+const quickWordAnalysisSchema = {
+    type: Type.OBJECT,
+    properties: {
+        translation: {
+            type: Type.STRING,
+            description: "The translation of the word."
+        },
+        partOfSpeech: {
+            type: Type.STRING,
+            description: "The part of speech of the word (e.g., Noun, Verb, Adjective)."
+        },
+        theme: {
+            type: Type.STRING,
+            description: "A concise theme or category for the word, in Vietnamese (e.g., 'Thức ăn', 'Gia đình')."
+        },
+    },
+    required: ["translation", "partOfSpeech", "theme"]
+};
+
+
+export const getQuickWordAnalysis = async (word: string, toLanguage: 'English' | 'Vietnamese', fromLanguage: LearningLanguage): Promise<{ translation: string; partOfSpeech: string; theme: string; } | null> => {
+    return executeWithKeyRotation(async (ai) => {
+        const systemInstruction = `You are a helpful language assistant. Analyze the given ${fromLanguage} word and provide its translation into ${toLanguage}, its part of speech, and a suitable theme in Vietnamese.
+Strictly follow the provided JSON schema. Output a single JSON object.`;
+
+        const response = await ai.models.generateContent({
+            model: textModel,
+            contents: `Analyze the word: "${word}"`,
+            config: {
+                systemInstruction,
+                responseMimeType: "application/json",
+                responseSchema: quickWordAnalysisSchema
+            }
+        });
+
+        const result = parseJsonResponse<{ translation: string; partOfSpeech: string; theme: string; }>(response.text);
+        return result;
+    });
+};
+
 export const translateWord = async (word: string, toLanguage: 'English' | 'Vietnamese', fromLanguage: LearningLanguage): Promise<string> => {
     return executeWithKeyRotation(async (ai) => {
         const response = await ai.models.generateContent({

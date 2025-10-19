@@ -16,6 +16,7 @@ export interface VocabularyWord {
   createdAt: number;
   isStarred: boolean;
   imageUrl?: string;
+  speechAudio?: string; // Base64 encoded audio string
   // Spaced Repetition System fields
   srsLevel: number; // 0 for new, increases with correct reviews
   nextReview: number; // Timestamp for the next review

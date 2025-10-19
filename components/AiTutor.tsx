@@ -73,7 +73,7 @@ interface AiTutorProps {
 }
 
 const AiTutor: React.FC<AiTutorProps> = ({ onBack }) => {
-    const { learningLanguage, targetLanguage, userApiKeys, aiTutorHistory, saveTutorSession, clearTutorHistory } = useSettings();
+    const { learningLanguage, targetLanguage, userApiKeys, aiTutorHistory, saveTutorSession, clearTutorHistory, recordActivity } = useSettings();
     const { addHistoryEntry } = useHistory();
     const [connectionState, setConnectionState] = useState<'idle' | 'connecting' | 'connected' | 'error'>('idle');
     
@@ -154,6 +154,7 @@ const AiTutor: React.FC<AiTutorProps> = ({ onBack }) => {
                 };
                 saveTutorSession(newSession);
                 addHistoryEntry('AI_TUTOR_SESSION_COMPLETED', `Hoàn thành phiên trò chuyện với Gia sư AI.`, { turnCount: allTurns.length });
+                recordActivity();
             }
         }
 
@@ -162,7 +163,7 @@ const AiTutor: React.FC<AiTutorProps> = ({ onBack }) => {
         setLiveOutput('');
         currentInputTranscriptionRef.current = '';
         currentOutputTranscriptionRef.current = '';
-    }, [saveTutorSession, addHistoryEntry]);
+    }, [saveTutorSession, addHistoryEntry, recordActivity]);
 
     const stopSession = useCallback(async () => {
         await cleanup(true);

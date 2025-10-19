@@ -5,7 +5,7 @@ import { useInspector } from '../hooks/useInspector';
 import { useHistory } from '../hooks/useHistory';
 import { VocabularyWord } from '../types';
 import { generateQuizForWord } from '../services/geminiService';
-import { Check, X, Loader2, RefreshCw, ArrowLeft } from 'lucide-react';
+import { Check, X, Loader2, RefreshCw, ArrowLeft, ChevronDown } from 'lucide-react';
 
 type QuizQuestion = {
   word: VocabularyWord;
@@ -211,19 +211,24 @@ const Quiz: React.FC<QuizProps> = ({ onBack }) => {
       
       {error && <p className="text-center text-red-400 bg-red-500/10 p-3 rounded-xl">{error}</p>}
 
-      <div>
-        <h3 className="font-semibold text-white mb-2">1. Chọn chủ đề</h3>
-        <div className="flex flex-wrap gap-2 p-3 bg-slate-800/50 border border-slate-700 rounded-2xl">
-          <button onClick={() => handleThemeToggle('all')} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has('all') ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 hover:bg-slate-600'}`}>
-            Tất cả ({words.length})
-          </button>
-          {availableThemes.map(theme => (
-            <button key={theme} onClick={() => handleThemeToggle(theme)} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has(theme) ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 hover:bg-slate-600'}`}>
-              {targetLanguage === 'english' ? (themeTranslationMap[theme] || theme) : theme} ({words.filter(w => w.theme === theme).length})
-            </button>
-          ))}
-        </div>
-      </div>
+      <details className="group bg-slate-800/50 border border-slate-700 rounded-2xl">
+          <summary className="list-none p-3 cursor-pointer flex justify-between items-center">
+              <h3 className="font-semibold text-white">1. Chọn chủ đề <span className="text-gray-400 font-normal text-sm">({selectedThemes.has('all') ? 'Tất cả' : `${selectedThemes.size} đã chọn`})</span></h3>
+              <ChevronDown className="w-5 h-5 text-gray-400 transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="p-3 border-t border-slate-600">
+              <div className="flex flex-wrap gap-2">
+                  <button onClick={() => handleThemeToggle('all')} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has('all') ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 hover:bg-slate-600'}`}>
+                    Tất cả ({words.length})
+                  </button>
+                  {availableThemes.map(theme => (
+                    <button key={theme} onClick={() => handleThemeToggle(theme)} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has(theme) ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 hover:bg-slate-600'}`}>
+                      {targetLanguage === 'english' ? (themeTranslationMap[theme] || theme) : theme} ({words.filter(w => w.theme === theme).length})
+                    </button>
+                  ))}
+              </div>
+          </div>
+      </details>
       
       <div>
         <h3 className="font-semibold text-white mb-2">2. Chọn số câu hỏi</h3>

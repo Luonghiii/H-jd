@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { VocabularyProvider } from './hooks/useVocabulary';
+import React, { useState, useEffect, useRef, createContext, useContext, useCallback } from 'react';
+import { VocabularyProvider, useVocabulary } from './hooks/useVocabulary';
 import { SettingsProvider, useSettings } from './hooks/useSettings';
-import { InspectorProvider, useInspector } from './hooks/useInspector';
+import { InspectorProvider, useInspector, QuickTranslateProvider } from './hooks/useInspector';
 import { HistoryProvider, useHistory } from './hooks/useHistory';
 import { AuthProvider, useAuth } from './hooks/useAuth';
-import WordInspectorModal from './components/WordInspectorModal';
+import WordInspectorModal, { QuickTranslateModal } from './components/WordInspectorModal';
 import Header from './components/Header';
 import Login from './components/Login';
 import Home from './components/Home';
@@ -100,6 +100,7 @@ const AppLayout: React.FC<{ onOpenSettings: () => void; }> = ({ onOpenSettings }
           onClose={closeInspector}
         />
       )}
+      <QuickTranslateModal />
       <PrivacyPolicyModal isOpen={isPrivacyModalOpen} onClose={() => setIsPrivacyModalOpen(false)} />
       <TermsOfServiceModal isOpen={isTermsModalOpen} onClose={() => setIsTermsModalOpen(false)} />
       <ProfileModal isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} />
@@ -148,14 +149,16 @@ const AppContent: React.FC = () => {
   return (
     <VocabularyProvider>
         <HistoryProvider>
-          <InspectorProvider>
-            <LoginHistoryLogger />
-            <AppLayout onOpenSettings={() => setIsSettingsOpen(true)} />
-            <SettingsModal 
-                isOpen={isSettingsOpen}
-                onClose={() => setIsSettingsOpen(false)}
-            />
-          </InspectorProvider>
+          <QuickTranslateProvider>
+            <InspectorProvider>
+              <LoginHistoryLogger />
+              <AppLayout onOpenSettings={() => setIsSettingsOpen(true)} />
+              <SettingsModal 
+                  isOpen={isSettingsOpen}
+                  onClose={() => setIsSettingsOpen(false)}
+              />
+            </InspectorProvider>
+          </QuickTranslateProvider>
         </HistoryProvider>
     </VocabularyProvider>
   );

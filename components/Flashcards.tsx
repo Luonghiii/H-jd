@@ -13,7 +13,7 @@ interface FlashcardsProps {
 
 const Flashcards: React.FC<FlashcardsProps> = ({ onBack }) => {
   const { words, getAvailableThemes } = useVocabulary();
-  const { targetLanguage } = useSettings();
+  const { targetLanguage, recordActivity } = useSettings();
   const { openInspector } = useInspector();
   const { addHistoryEntry } = useHistory();
   
@@ -67,6 +67,7 @@ const Flashcards: React.FC<FlashcardsProps> = ({ onBack }) => {
     setCurrentIndex(0);
     setIsFlipped(false);
     addHistoryEntry('FLASHCARDS_SESSION_STARTED', `Bắt đầu phiên thẻ ghi nhớ với ${wordsForFlashcards.length} từ.`, { count: wordsForFlashcards.length });
+    recordActivity();
     setView('playing');
   };
   

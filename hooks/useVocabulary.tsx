@@ -4,15 +4,17 @@ import { translateWord } from '../services/geminiService';
 import { useSettings } from './useSettings';
 import { useAuth } from './useAuth';
 import { onUserDataSnapshot, updateUserData } from '../services/firestoreService';
+import eventBus from '../utils/eventBus';
 
 interface VocabularyContextType {
   words: VocabularyWord[];
   isWordsLoading: boolean;
-  addWord: (word: string, translation: string, language: TargetLanguage, theme?: string) => Promise<void>;
+  addWord: (word: string, translation: string, language: TargetLanguage, theme?: string) => Promise<boolean>;
   addMultipleWords: (newWords: GeneratedWord[]) => Promise<number>;
   deleteWord: (id: string) => Promise<void>;
   updateWord: (id: string, updates: Partial<VocabularyWord>) => Promise<void>;
   updateWordImage: (wordId: string, imageUrl: string | null) => Promise<void>;
+  updateWordSpeechAudio: (wordId: string, audioB64: string) => Promise<void>;
   updateWordSrs: (wordId: string, performance: 'hard' | 'good' | 'easy') => Promise<void>;
   getWordsForStory: (count: number) => VocabularyWord[];
   getAvailableThemes: () => string[];
@@ -105,21 +107,30 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
       }
   }, [currentUser, learningLanguage, updateWordCountStat]);
 
-  const addWord = useCallback(async (word: string, providedTranslation: string, language: TargetLanguage, theme?: string) => {
+  const addWord = useCallback(async (word: string, providedTranslation: string, language: TargetLanguage, theme?: string): Promise<boolean> => {
+    const trimmedWord = word.trim();
+    if (!trimmedWord) return false;
+
+    const alreadyExists = words.some(w => w.word.toLowerCase() === trimmedWord.toLowerCase());
+    if (alreadyExists) {
+        eventBus.dispatch('notification', { type: 'warning', message: `Từ "${trimmedWord}" đã có trong danh sách của bạn.` });
+        return false;
+    }
+    
     let vietnamese = '';
     let english = '';
 
     if (language === 'vietnamese') {
       vietnamese = providedTranslation;
-      english = await translateWord(word, 'English', learningLanguage);
+      english = await translateWord(trimmedWord, 'English', learningLanguage);
     } else {
       english = providedTranslation;
-      vietnamese = await translateWord(word, 'Vietnamese', learningLanguage);
+      vietnamese = await translateWord(trimmedWord, 'Vietnamese', learningLanguage);
     }
 
     const newWord: VocabularyWord = {
       id: crypto.randomUUID(),
-      word,
+      word: trimmedWord,
       translation: { vietnamese, english },
       createdAt: Date.now(),
       isStarred: false,
@@ -135,6 +146,7 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
     
     const newWordsList = [newWord, ...words];
     await persistWords(newWordsList);
+    return true;
   }, [learningLanguage, persistWords, words]);
   
   const addMultipleWords = useCallback(async (newWords: GeneratedWord[]): Promise<number> => {
@@ -254,6 +266,13 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
     await persistWords(newWords);
   }, [persistWords, words]);
 
+  const updateWordSpeechAudio = useCallback(async (wordId: string, audioB64: string) => {
+    const newWords = words.map(word => 
+      word.id === wordId ? { ...word, speechAudio: audioB64 } : word
+    );
+    await persistWords(newWords);
+  }, [persistWords, words]);
+
   const getWordsForStory = useCallback((count: number): VocabularyWord[] => {
     const shuffled = [...words].sort(() => 0.5 - Math.random());
     return shuffled.slice(0, count);
@@ -265,7 +284,7 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
   }, [words]);
 
   return (
-    <VocabularyContext.Provider value={{ words, isWordsLoading, addWord, addMultipleWords, deleteWord, updateWord, updateWordImage, updateWordSrs, getWordsForStory, getAvailableThemes, toggleWordStar, lastDeletedWord, undoDelete }}>
+    <VocabularyContext.Provider value={{ words, isWordsLoading, addWord, addMultipleWords, deleteWord, updateWord, updateWordImage, updateWordSpeechAudio, updateWordSrs, getWordsForStory, getAvailableThemes, toggleWordStar, lastDeletedWord, undoDelete }}>
       {children}
     </VocabularyContext.Provider>
   );

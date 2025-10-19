@@ -1,5 +1,5 @@
-import React from 'react';
-import { useInspector } from '../hooks/useInspector';
+import React, { useMemo } from 'react';
+import { useInspector, useQuickTranslate } from '../hooks/useInspector';
 import { VocabularyWord } from '../types';
 
 interface HighlightableTextProps {
@@ -9,54 +9,65 @@ interface HighlightableTextProps {
 
 const HighlightableText: React.FC<HighlightableTextProps> = ({ text, words }) => {
   const { openInspector } = useInspector();
+  const { openQuickTranslate } = useQuickTranslate();
 
-  if (!words || words.length === 0 || !text) {
-    return <>{text}</>;
+  const wordMap = useMemo(() => {
+    const map = new Map<string, VocabularyWord>();
+    if (words) {
+      words.forEach(word => {
+        map.set(word.word.toLowerCase(), word);
+      });
+    }
+    return map;
+  }, [words]);
+
+  if (!text) {
+    return null;
   }
-
-  // Create a map for quick lookup of any word form (German, Vietnamese, English)
-  const wordMap = new Map<string, VocabularyWord>();
-  const allTerms: string[] = [];
-  words.forEach(word => {
-    const terms = [word.word, word.translation.vietnamese, word.translation.english];
-    terms.forEach(term => {
-      if (term) {
-        // Handle words with parentheses like "苹果 (píngguǒ)"
-        const mainTerm = term.split(' ')[0];
-        wordMap.set(term.toLowerCase(), word);
-        wordMap.set(mainTerm.toLowerCase(), word);
-        allTerms.push(term);
-        if (mainTerm !== term) {
-            allTerms.push(mainTerm);
-        }
-      }
-    });
-  });
-
-  // Create a regex to find all vocabulary words
-  // Escape special characters and ensure whole word matching
-  const regex = new RegExp(`\\b(${allTerms.map(w => w.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')).join('|')})\\b`, 'gi');
   
-  const parts = text.split(regex);
+  const parts = text.split(/([,.\s!?()"“„”]+)/g);
 
   return (
     <>
       {parts.map((part, index) => {
-        if (!part) return null;
-        const lowerPart = part.toLowerCase();
+        const cleanedPart = part.trim();
+        if (!cleanedPart) {
+          // This is a delimiter or space
+          return <React.Fragment key={index}>{part}</React.Fragment>;
+        }
+
+        const lowerPart = cleanedPart.toLowerCase();
+        
         if (wordMap.has(lowerPart)) {
           const word = wordMap.get(lowerPart)!;
           return (
+            <React.Fragment key={index}>
+              <span
+                className="font-bold text-cyan-300 cursor-pointer hover:underline"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openInspector(word);
+                }}
+              >
+                {part}
+              </span>
+            </React.Fragment>
+          );
+        }
+
+        return (
+          <React.Fragment key={index}>
             <span
-              key={index}
-              className="font-bold text-cyan-300 cursor-pointer hover:underline"
-              onClick={() => openInspector(word)}
+              className="cursor-pointer hover:bg-slate-700/50 rounded"
+              onClick={(e) => {
+                e.stopPropagation();
+                openQuickTranslate(cleanedPart, e);
+              }}
             >
               {part}
             </span>
-          );
-        }
-        return <React.Fragment key={index}>{part}</React.Fragment>;
+          </React.Fragment>
+        );
       })}
     </>
   );

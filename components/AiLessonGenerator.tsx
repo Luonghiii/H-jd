@@ -12,7 +12,7 @@ interface AiLessonGeneratorProps {
 }
 
 const AiLessonGenerator: React.FC<AiLessonGeneratorProps> = ({ onBack }) => {
-    const { learningLanguage, targetLanguage } = useSettings();
+    const { learningLanguage, targetLanguage, recordActivity } = useSettings();
     const { addMultipleWords } = useVocabulary();
     const { addHistoryEntry } = useHistory();
     const [theme, setTheme] = useState('');
@@ -50,6 +50,9 @@ const AiLessonGenerator: React.FC<AiLessonGeneratorProps> = ({ onBack }) => {
 
         const count = await addMultipleWords(wordsToAdd);
         eventBus.dispatch('notification', { type: 'success', message: `Đã thêm ${count} từ mới vào danh sách của bạn!` });
+        if (count > 0) {
+            recordActivity();
+        }
     };
 
     return (
