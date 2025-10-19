@@ -152,20 +152,22 @@ const AppContent: React.FC = () => {
   }
 
   return (
-    <VocabularyProvider>
-      <HistoryProvider>
-        <InspectorProvider>
-          <QuickTranslateProvider>
-            <LoginHistoryLogger />
-            <AppLayout onOpenSettings={() => setIsSettingsOpen(true)} />
-            <SettingsModal
-              isOpen={isSettingsOpen}
-              onClose={() => setIsSettingsOpen(false)}
-            />
-          </QuickTranslateProvider>
-        </InspectorProvider>
-      </HistoryProvider>
-    </VocabularyProvider>
+    <React.Fragment key={currentUser.uid}>
+      <VocabularyProvider>
+        <HistoryProvider>
+          <InspectorProvider>
+            <QuickTranslateProvider>
+              <LoginHistoryLogger />
+              <AppLayout onOpenSettings={() => setIsSettingsOpen(true)} />
+              <SettingsModal
+                isOpen={isSettingsOpen}
+                onClose={() => setIsSettingsOpen(false)}
+              />
+            </QuickTranslateProvider>
+          </InspectorProvider>
+        </HistoryProvider>
+      </VocabularyProvider>
+    </React.Fragment>
   );
 }
 

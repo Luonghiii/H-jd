@@ -67,13 +67,40 @@ const generatedWordsToVocabulary = (words: GeneratedWord[]): VocabularyWord[] =>
 };
 
 // =====================
+// Username check
+// =====================
+export const isUsernameTaken = async (username: string): Promise<boolean> => {
+    const q = query(collection(db, "users"), where("username", "==", username));
+    const querySnapshot = await getDocs(q);
+    return !querySnapshot.empty;
+};
+
+// =====================
+// Get Email by Username
+// =====================
+export const getEmailByUsername = async (username: string): Promise<string | null> => {
+    const q = query(collection(db, "users"), where("username", "==", username), limit(1));
+    try {
+        const querySnapshot = await getDocs(q);
+        if (!querySnapshot.empty) {
+            const userDoc = querySnapshot.docs[0].data() as UserDoc;
+            return userDoc.email;
+        }
+        return null;
+    } catch (error) {
+        console.error("Error getting user by username:", error);
+        return null;
+    }
+};
+
+// =====================
 // Create user (first-time only) via transaction
 // =====================
 /**
- * Tạo document user nếu chưa tồn tại (an toàn với race) và chỉ set createdAt lần đầu.
- * Gọi sau khi user đăng nhập lần đầu.
+ * Creates a user document if it doesn't exist, only setting createdAt on the first creation.
+ * Called after a user signs up for the first time.
  */
-export const createUserDocument = async (user: User): Promise<void> => {
+export const createUserDocument = async (user: User, username?: string): Promise<void> => {
   if (!user) return;
 
   const userRef = doc(db, 'users', user.uid);
@@ -89,7 +116,7 @@ export const createUserDocument = async (user: User): Promise<void> => {
         email: email ?? null,
         displayName: displayName ?? '',
         photoURL: photoURL ?? null,
-        username: '',
+        username: username || '',
         dob: '',
         createdAt: serverTimestamp(),
         words: {
