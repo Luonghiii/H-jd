@@ -43,7 +43,7 @@ const HighlightableText: React.FC<HighlightableTextProps> = ({ text, words }) =>
           return (
             <React.Fragment key={index}>
               <span
-                className="font-bold text-cyan-300 cursor-pointer hover:underline"
+                className="font-bold text-cyan-600 dark:text-cyan-400 cursor-pointer hover:underline"
                 onClick={(e) => {
                   e.stopPropagation();
                   openInspector(word);
@@ -58,7 +58,7 @@ const HighlightableText: React.FC<HighlightableTextProps> = ({ text, words }) =>
         return (
           <React.Fragment key={index}>
             <span
-              className="cursor-pointer hover:bg-slate-700/50 rounded"
+              className="cursor-pointer hover:bg-slate-200/80 dark:hover:bg-slate-700/50 rounded"
               onClick={(e) => {
                 e.stopPropagation();
                 openQuickTranslate(cleanedPart, e);

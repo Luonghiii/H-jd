@@ -5,7 +5,8 @@ import { resizeBackgroundImageAsDataUrl } from '../services/storageService';
 import eventBus from '../utils/eventBus';
 
 const gradients = [
-    { name: 'Hoàng hôn', value: 'linear-gradient(to right top, #304352, #d7d2cc)' },
+    { name: 'Mặc định Sáng', value: 'linear-gradient(to right top, #f1f5f9, #e2e8f0)' },
+    { name: 'Mặc định Tối', value: 'linear-gradient(to right top, #1e293b, #0f172a)' },
     { name: 'Hoàng gia', value: 'linear-gradient(to right top, #1e3c72, #2a5298)' },
     { name: 'Violet', value: 'linear-gradient(to right top, #8e2de2, #4a00e0)' },
     { name: 'Mặt trời lặn', value: 'linear-gradient(to right top, #ff512f, #dd2476)' },

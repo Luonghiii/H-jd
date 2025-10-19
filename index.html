@@ -15,11 +15,35 @@
         from { opacity: 1; transform: translateY(0); }
         to { opacity: 0; transform: translateY(-8px); }
       }
+       @keyframes fade-in-up {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      /* Add back gradient styles */
+      @keyframes gradient-move {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+      }
+      .animated-gradient {
+        background: linear-gradient(-45deg, #f1f5f9, #e0e7ff, #fecdd3, #e0f2fe);
+        background-size: 400% 400%;
+        animation: gradient-move 15s ease infinite;
+      }
+      .dark .dark-animated-gradient {
+         background: linear-gradient(-45deg, #0f172a, #1e1b4b, #4c1d95, #082f49);
+         background-size: 400% 400%;
+         animation: gradient-move 15s ease infinite;
+      }
+
       .animate-fade-in {
         animation: fade-in 0.25s ease-in-out forwards;
       }
       .animate-fade-out {
         animation: fade-out 0.25s ease-in-out forwards;
+      }
+      .animate-fade-in-up {
+        animation: fade-in-up 0.6s ease-out forwards;
       }
     </style>
   <script type="importmap">
@@ -39,7 +63,7 @@
 }
 </script>
 </head>
-  <body class="bg-gray-900 text-slate-200 transition-colors duration-300">
+  <body class="text-slate-800 dark:text-slate-200 transition-colors duration-300">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>

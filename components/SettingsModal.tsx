@@ -1,5 +1,3 @@
-
-
 import React, { useState } from 'react';
 import { X, KeyRound, Trash2 } from 'lucide-react';
 import { useSettings } from '../hooks/useSettings';
@@ -24,12 +22,12 @@ const LearningLanguageSelector: React.FC = () => {
   ];
 
   return (
-    <div className="flex items-center p-1 bg-slate-900/50 rounded-xl justify-center gap-1">
+    <div className="flex items-center p-1 bg-slate-200 dark:bg-slate-900/50 rounded-xl justify-center gap-1">
       {languages.map(({ key, label }) => (
         <button 
           key={key}
           onClick={() => setLearningLanguage(key)}
-          className={`${baseClasses} ${learningLanguage === key ? activeClasses : inactiveClasses}`}
+          className={`flex-1 px-3 py-2 text-sm font-semibold rounded-lg transition-colors duration-200 ${learningLanguage === key ? 'bg-indigo-600 text-white' : 'bg-slate-300 dark:bg-slate-700 text-slate-600 dark:text-gray-300 hover:bg-slate-400 dark:hover:bg-slate-600'}`}
         >
           {label}
         </button>
@@ -45,7 +43,6 @@ const ApiKeyManager: React.FC = () => {
 
     const handleAdd = async () => {
         if (newApiKey.trim()) {
-            // FIX: Await the async function to get the boolean result
             const success = await addUserApiKey(newApiKey.trim());
             if (success) {
                 setNewApiKey('');
@@ -74,17 +71,17 @@ const ApiKeyManager: React.FC = () => {
 
     return (
         <div>
-            <p className="text-sm font-medium text-gray-300 mb-2 text-center">Quản lý API Key</p>
-            <div className="p-3 bg-slate-900/50 rounded-xl space-y-3">
+            <p className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-2 text-center">Quản lý API Key</p>
+            <div className="p-3 bg-slate-100 dark:bg-slate-900/50 rounded-xl space-y-3">
                 {userApiKeys.length > 0 && (
                     <div className="space-y-2 max-h-32 overflow-y-auto pr-2">
                         {userApiKeys.map((key) => (
-                            <div key={key} className="flex items-center justify-between gap-2 bg-slate-800 p-2 rounded-md">
+                            <div key={key} className="flex items-center justify-between gap-2 bg-white dark:bg-slate-800 p-2 rounded-md">
                                 <div className="flex items-center gap-2 min-w-0">
-                                    <KeyRound className="w-5 h-5 text-gray-400 flex-shrink-0"/>
-                                    <span className="truncate font-mono text-sm">{`****...${key.slice(-4)}`}</span>
+                                    <KeyRound className="w-5 h-5 text-gray-500 dark:text-gray-400 flex-shrink-0"/>
+                                    <span className="truncate font-mono text-sm text-slate-700 dark:text-slate-300">{`****...${key.slice(-4)}`}</span>
                                 </div>
-                                <button onClick={() => removeUserApiKey(key)} className="p-1 text-red-400 hover:bg-red-500/10 rounded-full">
+                                <button onClick={() => removeUserApiKey(key)} className="p-1 text-red-500 hover:bg-red-500/10 rounded-full">
                                     <Trash2 className="w-4 h-4"/>
                                 </button>
                             </div>
@@ -99,12 +96,12 @@ const ApiKeyManager: React.FC = () => {
                             onChange={(e) => setNewApiKey(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
                             placeholder="Nhập khóa API mới..."
-                            className="flex-grow px-3 py-2 bg-slate-800 border border-slate-600 rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md text-slate-800 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         />
-                        <button onClick={handleAdd} className="px-4 text-sm py-2 bg-indigo-600 hover:bg-indigo-700 rounded-md">Thêm</button>
+                        <button onClick={handleAdd} className="px-4 text-sm py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md">Thêm</button>
                     </div>
                 )}
-                {feedback && <p className="text-xs text-center text-cyan-300 pt-1">{feedback}</p>}
+                {feedback && <p className="text-xs text-center text-cyan-500 pt-1">{feedback}</p>}
             </div>
             <p className="text-xs text-gray-500 mt-2 text-center">{statusText}</p>
         </div>
@@ -117,18 +114,18 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-white">Cài đặt</h2>
-            <button onClick={onClose} className="p-2 text-gray-400 hover:bg-slate-700 rounded-full">
+            <h2 className="text-xl font-bold text-slate-800 dark:text-white">Cài đặt</h2>
+            <button onClick={onClose} className="p-2 text-gray-500 dark:text-gray-400 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full">
               <X className="w-5 h-5" />
             </button>
           </div>
           
           <div className="space-y-6">
             <div>
-              <p className="text-sm font-medium text-gray-300 mb-2 text-center">Ngôn ngữ học</p>
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-2 text-center">Ngôn ngữ học</p>
               <LearningLanguageSelector />
             </div>
             

@@ -45,22 +45,22 @@ const More: React.FC<MoreProps> = ({ setCurrentView, onOpenBgCustomizer }) => {
     return (
         <div className="space-y-6 animate-fade-in">
             <div className="text-center">
-                <h2 className="text-2xl font-bold text-white">{t('more.title')}</h2>
-                <p className="text-gray-400 mt-1">{t('more.desc')}</p>
+                <h2 className="text-2xl font-bold text-slate-800 dark:text-white">{t('more.title')}</h2>
+                <p className="text-gray-600 dark:text-gray-400 mt-1">{t('more.desc')}</p>
             </div>
             <div className="grid grid-cols-1 gap-4">
                 {menuItems.map(item => (
                     <div
                         key={item.id}
                         onClick={item.action}
-                        className="group bg-slate-800/50 border border-slate-700 rounded-2xl p-4 flex items-center gap-4 hover:border-indigo-500/50 hover:-translate-y-1 hover:shadow-xl hover:shadow-indigo-500/20 transition-all duration-300 cursor-pointer"
+                        className="group bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 flex items-center gap-4 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:-translate-y-1 hover:shadow-xl hover:shadow-indigo-500/10 dark:hover:shadow-indigo-500/10 transition-all duration-300 cursor-pointer"
                     >
-                       <item.icon className="w-8 h-8 text-indigo-400 flex-shrink-0" />
+                       <item.icon className="w-8 h-8 text-indigo-500 flex-shrink-0" />
                        <div className="flex-grow">
-                            <h3 className="text-lg font-bold text-white">{item.title}</h3>
-                            <p className="mt-1 text-gray-400 text-sm">{item.description}</p>
+                            <h3 className="text-lg font-bold text-slate-800 dark:text-white">{item.title}</h3>
+                            <p className="mt-1 text-gray-500 dark:text-gray-400 text-sm">{item.description}</p>
                         </div>
-                        <ArrowRight className="w-6 h-6 text-gray-600 group-hover:text-indigo-400 transition-colors flex-shrink-0" />
+                        <ArrowRight className="w-6 h-6 text-gray-400 group-hover:text-indigo-500 dark:group-hover:text-indigo-400 transition-colors flex-shrink-0" />
                     </div>
                 ))}
             </div>

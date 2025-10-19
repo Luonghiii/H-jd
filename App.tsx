@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from './hooks/useAuth';
 import WordInspectorModal, { QuickTranslateModal } from './components/WordInspectorModal';
 import Header from './components/Header';
 import Login from './components/Login';
+import AppBackground from './components/AppBackground';
 import Home from './components/Home';
 import BackgroundCustomizer from './components/BackgroundCustomizer';
 import Footer from './components/Footer';
@@ -53,7 +54,6 @@ const AppLayout: React.FC<{ onOpenSettings: () => void; }> = ({ onOpenSettings }
   }, []);
 
   const { inspectingWord, closeInspector } = useInspector();
-  const { backgroundSetting } = useSettings();
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
   const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -81,34 +81,16 @@ const AppLayout: React.FC<{ onOpenSettings: () => void; }> = ({ onOpenSettings }
         return <Home setCurrentView={setCurrentView} />;
     }
   };
-  
-  let backgroundStyle: React.CSSProperties = {};
-  let backgroundClasses = 'bg-gradient-to-br from-gray-900 via-slate-900 to-indigo-900';
-  const contentContainerClasses = backgroundSetting?.type === 'image'
-    ? 'bg-black/40 backdrop-blur-xl'
-    : 'bg-slate-900/60 backdrop-blur-lg';
-
-  if (backgroundSetting) {
-    if (backgroundSetting.type === 'image') {
-        backgroundStyle = { backgroundImage: `url(${backgroundSetting.value})` };
-        backgroundClasses = 'bg-cover bg-center bg-fixed';
-    } else if (backgroundSetting.type === 'gradient') {
-        backgroundStyle = { backgroundImage: backgroundSetting.value };
-        backgroundClasses = '';
-    }
-  }
 
   return (
     <>
+      <AppBackground />
       <NotificationManager />
-      <div 
-        className={`min-h-screen text-gray-200 font-sans flex flex-col ${backgroundClasses}`}
-        style={backgroundStyle}
-      >
+      <div className="min-h-screen text-slate-800 dark:text-slate-200 font-sans flex flex-col">
         <Header onOpenSettings={onOpenSettings} onOpenProfile={() => setIsProfileModalOpen(true)} />
         <main className="container mx-auto p-4 md:p-6 lg:p-8 flex-grow pb-28">
           <div className="max-w-5xl mx-auto">
-            <div className={`${contentContainerClasses} rounded-3xl shadow-2xl shadow-slate-900/50 border border-slate-700/60`}>
+            <div className="bg-white/40 dark:bg-slate-900/60 backdrop-blur-xl rounded-3xl shadow-2xl shadow-slate-300/50 dark:shadow-black/50 border border-white/30 dark:border-slate-700/50">
               <div className={`p-4 sm:p-6 lg:p-8 ${animationClass}`}>{renderView()}</div>
             </div>
           </div>
@@ -155,8 +137,8 @@ const AppContent: React.FC = () => {
   
   if (isLoading) {
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-900">
-            <Loader2 className="w-12 h-12 text-indigo-400 animate-spin" />
+        <div className="min-h-screen flex items-center justify-center">
+            <Loader2 className="w-12 h-12 text-indigo-500 animate-spin" />
         </div>
     );
   }
