@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSettings } from '../hooks/useSettings';
-import { X, User as UserIcon, Upload, Check, Loader2, UserCheck, Sparkles } from 'lucide-react';
+import { X, User as UserIcon, Upload, Check, Loader2, UserCheck } from 'lucide-react';
 import eventBus from '../utils/eventBus';
-import ImageGenerationModal from './ImageGenerationModal';
 
 const PREMADE_AVATARS = [
     'https://storage.googleapis.com/lbwl-e99a9.appspot.com/premade-avatars/avatar1.png',
@@ -38,7 +37,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     // Control state
     const [isLoading, setIsLoading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const [isGenerationModalOpen, setIsGenerationModalOpen] = useState(false);
 
 
     useEffect(() => {
@@ -138,9 +136,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                                         <img src={url} alt="Premade Avatar" className="w-full h-full rounded-full object-cover"/>
                                     </button>
                                 ))}
-                                <button onClick={() => setIsGenerationModalOpen(true)} className="w-14 h-14 rounded-full bg-slate-700 flex items-center justify-center" title="Tạo bằng AI">
-                                    <Sparkles className="w-6 h-6 text-indigo-400" />
-                                </button>
                             </div>
                         </div>
 
@@ -190,15 +185,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                     </div>
                 </div>
             </div>
-            {isGenerationModalOpen && (
-                <ImageGenerationModal
-                    isOpen={isGenerationModalOpen}
-                    onClose={() => setIsGenerationModalOpen(false)}
-                    onSave={(imageUrl) => {
-                        handlePremadeAvatarSelect(imageUrl);
-                    }}
-                />
-            )}
         </>
     );
 };
