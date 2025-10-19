@@ -68,8 +68,9 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                 // Revert on failure
                 setLocalAvatar(profile.photoURL);
                 eventBus.dispatch('notification', { type: 'error', message: 'Tải ảnh lên thất bại.' });
+            } finally {
+                setIsLoading(false);
             }
-            setIsLoading(false);
             // The useEffect hook listening to profile.photoURL will sync the permanent URL
         }
     };
