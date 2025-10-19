@@ -54,8 +54,6 @@ export interface LeaderboardEntry {
     photoURL: string | null;
 }
 
-const ANONYMOUS_NAME = 'Người dùng ẩn danh';
-
 const generatedWordsToVocabulary = (words: GeneratedWord[]): VocabularyWord[] => {
     return words.map(w => ({
         id: crypto.randomUUID(),
@@ -87,7 +85,7 @@ export const createUserDocument = async (user: User): Promise<void> => {
     if (!snap.exists()) {
       const { email, displayName, photoURL } = user;
       const initialGermanWords = generatedWordsToVocabulary(defaultGermanWords);
-      const initialData: Omit<UserDoc, 'history'> = {
+      const initialData: Omit<UserDoc, 'history' | 'leaderboardName'> = {
         uid: user.uid,
         email: email ?? null,
         displayName: displayName ?? '',
@@ -116,14 +114,13 @@ export const createUserDocument = async (user: User): Promise<void> => {
           totalWords: initialGermanWords.length,
         },
         aiTutorHistory: [],
-        leaderboardName: '',
       };
       tx.set(userRef, initialData);
 
       // Create initial public leaderboard entry
       const initialPublicData: PublicLeaderboardEntry = {
         uid: user.uid,
-        name: '',
+        name: displayName ?? '',
         longestStreak: 0,
         totalWords: initialGermanWords.length,
         photoURL: photoURL ?? null,
@@ -196,7 +193,7 @@ export const updateUserLeaderboardEntry = async (uid: string): Promise<void> => 
 
       const publicData: PublicLeaderboardEntry = {
         uid: userData.uid,
-        name: userData.leaderboardName || '',
+        name: userData.displayName || '',
         longestStreak: userData.stats?.longestStreak || 0,
         totalWords: userData.stats?.totalWords || 0,
         photoURL: userData.photoURL || null,

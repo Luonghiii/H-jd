@@ -3,40 +3,21 @@ import { useSettings } from '../hooks/useSettings';
 import { X, User as UserIcon, Upload, Check, Loader2, UserCheck, Sparkles, Camera } from 'lucide-react';
 import eventBus from '../utils/eventBus';
 import ImageGenerationModal from './ImageGenerationModal';
-
-const ANONYMOUS_NAME = 'Người dùng ẩn danh';
+import { resizeAndCropImageAsDataUrl } from '../services/storageService';
 
 interface ProfileModalProps {
     isOpen: boolean;
     onClose: () => void;
 }
 
-const dataURLtoBlob = (dataurl: string): Blob => {
-    const arr = dataurl.split(',');
-    const mimeMatch = arr[0].match(/:(.*?);/);
-    if (!mimeMatch) throw new Error("Invalid data URL");
-    const mime = mimeMatch[1];
-    const bstr = atob(arr[1]);
-    let n = bstr.length;
-    const u8arr = new Uint8Array(n);
-    while (n--) {
-        u8arr[n] = bstr.charCodeAt(n);
-    }
-    return new Blob([u8arr], { type: mime });
-}
-
 const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
-    const { profile, leaderboardName: initialLeaderboardName, updateUserProfile, updateAvatarFromFile, setLeaderboardName } = useSettings();
+    const { profile, updateUserProfile } = useSettings();
     
     // User profile fields state
     const [displayName, setDisplayName] = useState('');
     const [username, setUsername] = useState('');
     const [dob, setDob] = useState('');
     
-    // Leaderboard state
-    const [leaderboardName, setLeaderboardNameState] = useState('');
-    const [isAnonymous, setIsAnonymous] = useState(false);
-
     // Avatar state
     const [localAvatar, setLocalAvatar] = useState<string | null>(null);
     
@@ -48,22 +29,15 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     const [isAvatarLoading, setIsAvatarLoading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-
     useEffect(() => {
         if (isOpen) {
             setDisplayName(profile.displayName || '');
             setUsername(profile.username || '');
             setDob(profile.dob || '');
             setLocalAvatar(profile.photoURL);
-
-            const isAnon = initialLeaderboardName === ANONYMOUS_NAME;
-            setIsAnonymous(isAnon);
-            setLeaderboardNameState(isAnon ? '' : initialLeaderboardName || '');
         }
-    }, [isOpen, profile, initialLeaderboardName]);
+    }, [isOpen, profile]);
 
-    // This effect ensures the local avatar state is updated if the global state changes
-    // (e.g., after a successful upload completes).
     useEffect(() => {
         if (isOpen) {
             setLocalAvatar(profile.photoURL);
@@ -77,8 +51,9 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
         if (file) {
             setIsAvatarLoading(true);
             try {
-                const newUrl = await updateAvatarFromFile(file);
-                setLocalAvatar(newUrl);
+                const dataUrl = await resizeAndCropImageAsDataUrl(file);
+                await updateUserProfile({ photoURL: dataUrl });
+                setLocalAvatar(dataUrl);
                 eventBus.dispatch('notification', { type: 'success', message: 'Cập nhật ảnh đại diện thành công!' });
             } catch (error: any) {
                 eventBus.dispatch('notification', { type: 'error', message: error.message || 'Tải ảnh lên thất bại do lỗi không xác định.' });
@@ -91,13 +66,8 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     const handleSaveGeneratedAvatar = async (imageUrl: string) => {
         setIsAvatarLoading(true);
         try {
-            const blob = dataURLtoBlob(imageUrl);
-            const fileType = blob.type || 'image/jpeg';
-            const fileName = `ai-avatar.${fileType.split('/')[1] || 'jpg'}`;
-            const file = new File([blob], fileName, { type: fileType });
-
-            const newUrl = await updateAvatarFromFile(file);
-            setLocalAvatar(newUrl);
+            await updateUserProfile({ photoURL: imageUrl });
+            setLocalAvatar(imageUrl);
             eventBus.dispatch('notification', { type: 'success', message: 'Đã lưu avatar do AI tạo!' });
         } catch (error: any) {
             eventBus.dispatch('notification', { type: 'error', message: error.message || 'Lưu avatar thất bại.' });
@@ -108,16 +78,12 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
 
     const handleSave = async () => {
         setIsLoading(true);
-        const nameToSave = isAnonymous ? ANONYMOUS_NAME : leaderboardName.trim();
-
-        await Promise.all([
-            updateUserProfile({
-                displayName: displayName.trim(),
-                username: username.trim(),
-                dob: dob,
-            }),
-            setLeaderboardName(nameToSave)
-        ]);
+        
+        await updateUserProfile({
+            displayName: displayName.trim(),
+            username: username.trim(),
+            dob: dob,
+        });
         
         setIsLoading(false);
         eventBus.dispatch('notification', { type: 'success', message: 'Đã lưu hồ sơ!' });
@@ -173,6 +139,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                             <div>
                                 <label className="text-sm font-medium text-gray-300">Tên hiển thị</label>
                                 <input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)} className="w-full mt-1 px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-md" />
+                                <p className="text-xs text-gray-500 mt-1">Tên này sẽ xuất hiện trên Bảng xếp hạng. Để trống để ẩn danh.</p>
                             </div>
                              <div>
                                 <label className="text-sm font-medium text-gray-300">Username</label>
@@ -183,29 +150,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                                 <input type="date" value={dob} onChange={e => setDob(e.target.value)} className="w-full mt-1 px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-md" />
                             </div>
                         </div>
-
-                         {/* Leaderboard Section */}
-                        <div className="space-y-4 pt-4 border-t border-slate-700">
-                            <div className="flex items-center gap-2">
-                               <UserCheck className="w-5 h-5 text-indigo-400" />
-                               <h3 className="text-lg font-semibold text-white">Cài đặt Bảng xếp hạng</h3>
-                            </div>
-                            <div>
-                                <label className="text-sm font-medium text-gray-300">Tên trên Bảng xếp hạng</label>
-                                <input type="text" value={leaderboardName} onChange={e => setLeaderboardNameState(e.target.value)} disabled={isAnonymous || isLoading} className="w-full mt-1 px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-md disabled:opacity-50" />
-                            </div>
-                            <div className="flex items-center">
-                                <input 
-                                    id="anonymous-toggle" 
-                                    type="checkbox" 
-                                    checked={isAnonymous} 
-                                    onChange={(e) => setIsAnonymous(e.target.checked)}
-                                    className="w-4 h-4 text-indigo-600 bg-gray-700 border-gray-600 rounded focus:ring-indigo-600"
-                                />
-                                <label htmlFor="anonymous-toggle" className="ml-2 text-sm text-gray-300">Ẩn danh trên bảng xếp hạng</label>
-                            </div>
-                        </div>
-
                     </div>
                     <div className="p-4 bg-slate-900/50 flex justify-end">
                         <button onClick={handleSave} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg disabled:bg-indigo-400" disabled={isLoading || isAvatarLoading}>

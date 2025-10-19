@@ -42,10 +42,12 @@ const executeWithKeyRotation = async <T>(apiCall: (ai: GoogleGenAI) => Promise<T
             const isKeyError = /4..|quota|invalid|permission/i.test(error.message);
 
             if (isKeyError) {
-                const message = i < totalKeys - 1
-                    ? `Khóa API ${keyIdentifier} thất bại. Đang thử khóa tiếp theo...`
-                    : `Khóa API ${keyIdentifier} thất bại. Không còn khóa nào để thử.`;
-                eventBus.dispatch('notification', { type: 'warning', message });
+                // Only show "Trying next..." if there are more keys to try.
+                // This prevents the redundant "No more keys to try" message.
+                if (i < totalKeys - 1) {
+                    const message = `Khóa API ${keyIdentifier} thất bại. Đang thử khóa tiếp theo...`;
+                    eventBus.dispatch('notification', { type: 'warning', message });
+                }
                 keyIndex = (keyIndex + 1) % totalKeys; // Move to the next key
             } else {
                 eventBus.dispatch('notification', { type: 'error', message: 'Một lỗi API không mong muốn đã xảy ra.' });
@@ -54,6 +56,11 @@ const executeWithKeyRotation = async <T>(apiCall: (ai: GoogleGenAI) => Promise<T
         }
     }
     
+    // After the loop, if we're here, all keys have failed.
+    eventBus.dispatch('notification', { 
+        type: 'error', 
+        message: 'Tất cả các khóa API đều không hợp lệ hoặc không có quyền. Vui lòng kiểm tra lại trong Cài đặt.' 
+    });
     throw new Error("All API keys failed.");
 };
 

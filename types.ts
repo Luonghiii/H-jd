@@ -40,7 +40,6 @@ export interface UserDoc {
     settings: any;
     stats: UserStats;
     aiTutorHistory: ConversationSession[];
-    leaderboardName?: string;
 }
 
 export interface WordInfo {

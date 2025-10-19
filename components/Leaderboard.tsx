@@ -22,7 +22,7 @@ const DisplayNamePrompt: React.FC = () => {
             <UserCheck className="w-12 h-12 text-indigo-400 mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-white mb-2">Tham gia Bảng xếp hạng</h2>
             <p className="text-gray-400 mb-6">
-                Vui lòng thiết lập tên hiển thị trong <strong className="text-white">Hồ sơ cá nhân</strong> của bạn (nhấp vào avatar ở góc trên bên phải) để xuất hiện trên bảng xếp hạng.
+                Vui lòng thiết lập <strong className="text-white">"Tên hiển thị"</strong> trong Hồ sơ cá nhân của bạn (nhấp vào avatar ở góc trên bên phải) để xuất hiện trên bảng xếp hạng.
             </p>
         </div>
     );
@@ -30,7 +30,7 @@ const DisplayNamePrompt: React.FC = () => {
 
 
 const Leaderboard: React.FC = () => {
-    const { leaderboardName, isSettingsLoading } = useSettings();
+    const { profile, isSettingsLoading } = useSettings();
     const { currentUser } = useAuth();
     const [activeTab, setActiveTab] = useState<LeaderboardTab>('streak');
     const [streakData, setStreakData] = useState<LeaderboardEntry[]>([]);
@@ -44,8 +44,8 @@ const Leaderboard: React.FC = () => {
             setIsLoading(true);
             setError(null);
             try {
-                // Only fetch data if the user has opted-in to the leaderboard
-                if (leaderboardName) {
+                // Only fetch data if the user has opted-in to the leaderboard by setting a display name
+                if (profile.displayName) {
                     const [streaks, words] = await Promise.all([
                         getLeaderboardData('longestStreak'),
                         getLeaderboardData('totalWords'),
@@ -61,13 +61,13 @@ const Leaderboard: React.FC = () => {
             }
         };
         fetchData();
-    }, [leaderboardName, isSettingsLoading]);
+    }, [profile.displayName, isSettingsLoading]);
 
     if (isSettingsLoading) {
         return <div className="text-center"><Loader2 className="w-8 h-8 animate-spin" /></div>;
     }
     
-    if (!leaderboardName) {
+    if (!profile.displayName) {
         return <DisplayNamePrompt />;
     }
 

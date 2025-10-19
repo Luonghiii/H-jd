@@ -3,7 +3,6 @@ import { TargetLanguage, LearningLanguage, ConversationSession, UserStats } from
 import { useAuth } from './useAuth';
 import { onUserDataSnapshot, updateUserData, updateUserLeaderboardEntry } from '../services/firestoreService';
 import { setApiKeys } from '../services/geminiService';
-import { uploadAvatar } from '../services/storageService';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 
@@ -45,12 +44,9 @@ interface SettingsContextType {
   aiTutorHistory: ConversationSession[];
   saveTutorSession: (session: ConversationSession) => Promise<void>;
   clearTutorHistory: () => Promise<void>;
-  leaderboardName: string | null;
-  setLeaderboardName: (name: string) => Promise<void>;
   updateWordCountStat: (count: number) => Promise<void>;
   profile: UserProfile;
   updateUserProfile: (updates: Partial<UserProfile>) => Promise<void>;
-  updateAvatarFromFile: (file: File) => Promise<string>;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -66,11 +62,9 @@ const defaultState = {
       currentStreak: 0,
       longestStreak: 0,
       lastActivityDate: '',
-      // wordOfTheDay: undefined, // REMOVED to prevent Firestore error with undefined
       totalWords: 0,
     } as UserStats,
     aiTutorHistory: [] as ConversationSession[],
-    leaderboardName: null as string | null,
     profile: {
         displayName: '',
         username: '',
@@ -104,7 +98,6 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
             userApiKeys: data.settings?.userApiKeys || defaultState.userApiKeys,
             stats: { ...defaultState.stats, ...data.stats },
             aiTutorHistory: data.aiTutorHistory || defaultState.aiTutorHistory,
-            leaderboardName: data.leaderboardName || null,
             profile: {
                 displayName: data.displayName || currentUser.displayName || '',
                 username: data.username || '',
@@ -251,16 +244,9 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     await updateUserData(currentUser.uid, { aiTutorHistory: [] });
   }, [currentUser]);
   
-  const setLeaderboardName = useCallback(async (name: string) => {
-    if (!currentUser) return;
-    await updateUserData(currentUser.uid, { leaderboardName: name });
-    await updateUserLeaderboardEntry(currentUser.uid);
-  }, [currentUser]);
-
   const updateWordCountStat = useCallback(async (count: number) => {
     if (!currentUser) return;
     const userRef = doc(db, 'users', currentUser.uid);
-    // Use updateDoc with dot notation to avoid overwriting other stats
     await updateDoc(userRef, { 'stats.totalWords': count });
     await updateUserLeaderboardEntry(currentUser.uid);
   }, [currentUser]);
@@ -269,14 +255,6 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     if (!currentUser) return;
     await updateUserData(currentUser.uid, updates);
     await updateUserLeaderboardEntry(currentUser.uid);
-  }, [currentUser]);
-
-  const updateAvatarFromFile = useCallback(async (file: File): Promise<string> => {
-      if (!currentUser) throw new Error("User not authenticated.");
-      const newPhotoURL = await uploadAvatar(currentUser.uid, file);
-      await updateUserData(currentUser.uid, { photoURL: newPhotoURL });
-      await updateUserLeaderboardEntry(currentUser.uid);
-      return newPhotoURL;
   }, [currentUser]);
 
   const hasApiKey = !!process.env.API_KEY || appState.userApiKeys.length > 0;
@@ -305,12 +283,9 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     aiTutorHistory: appState.aiTutorHistory,
     saveTutorSession,
     clearTutorHistory,
-    leaderboardName: appState.leaderboardName,
-    setLeaderboardName,
     updateWordCountStat,
     profile: appState.profile,
     updateUserProfile,
-    updateAvatarFromFile,
   };
 
   return (
