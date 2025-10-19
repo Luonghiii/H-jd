@@ -45,7 +45,8 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ currentView, setCurrentView
           {navItems.map((item, index) => (
             <li
               key={item.view}
-              ref={el => itemRefs.current[index] = el}
+              // FIX: The ref callback should not return a value. Changed to a block body.
+              ref={el => { itemRefs.current[index] = el; }}
               className="z-10 flex-1"
             >
               <button

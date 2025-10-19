@@ -54,13 +54,33 @@ const QuickReview: React.FC = () => {
             <div className="flex-grow flex flex-col justify-center">
                 <div className="[perspective:1000px]" onClick={() => setIsFlipped(!isFlipped)}>
                     <div 
-                        className="relative w-full h-32 rounded-lg [transform-style:preserve-3d] transition-transform duration-500 cursor-pointer"
-                        style={{ transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'}}
+                        className="relative w-full h-32 rounded-lg transition-transform duration-500 cursor-pointer [will-change:transform]"
+                        style={{
+                            transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
+                            transformStyle: 'preserve-3d',
+                            WebkitTransformStyle: 'preserve-3d', // For Safari/iOS
+                        }}
                     >
-                        <div className="absolute w-full h-full [backface-visibility:hidden] flex items-center justify-center p-2 bg-slate-700 rounded-lg">
+                        <div 
+                            key={currentWord.id + '-front'} 
+                            className="absolute w-full h-full flex items-center justify-center p-2 bg-slate-700 rounded-lg"
+                            style={{
+                                backfaceVisibility: 'hidden',
+                                WebkitBackfaceVisibility: 'hidden', // For Safari/iOS
+                            }}
+                        >
                             <p className="text-xl font-bold text-white text-center">{currentWord.word}</p>
                         </div>
-                        <div className="absolute w-full h-full [backface-visibility:hidden] [transform:rotateY(180deg)] flex items-center justify-center p-2 bg-indigo-500 rounded-lg">
+                        <div 
+                            key={currentWord.id + '-back'} 
+                            className="absolute w-full h-full flex items-center justify-center p-2 bg-indigo-500 rounded-lg"
+                            style={{
+                                backfaceVisibility: 'hidden',
+                                WebkitBackfaceVisibility: 'hidden', // For Safari/iOS
+                                transform: 'rotateY(180deg)',
+                                WebkitTransform: 'rotateY(180deg)', // For Safari/iOS
+                            }}
+                        >
                             <p className="text-xl font-bold text-white text-center">{currentWord.translation[targetLanguage]}</p>
                         </div>
                     </div>
@@ -139,18 +159,11 @@ const Home: React.FC<HomeProps> = ({ setCurrentView }) => {
 
   const featureCards = [
     {
-      view: View.Practice,
-      icon: PenSquare,
-      title: 'Luyện tập Viết',
-      description: 'Cải thiện kỹ năng viết và ghi nhớ từ bằng cách dịch.',
-      color: 'from-blue-500 to-blue-400',
-    },
-    {
-      view: View.Flashcards,
-      icon: Layers,
-      title: 'Thẻ ghi nhớ',
-      description: 'Ôn tập từ vựng nhanh chóng với thẻ lật hai mặt cổ điển.',
-      color: 'from-purple-500 to-purple-400',
+      view: View.Learn,
+      icon: BrainCircuit,
+      title: 'Ôn luyện',
+      description: 'Củng cố kiến thức qua ôn tập thông minh, luyện viết và thẻ ghi nhớ.',
+      color: 'from-blue-500 to-purple-500',
     },
     {
       view: View.Games,
@@ -228,7 +241,7 @@ const Home: React.FC<HomeProps> = ({ setCurrentView }) => {
 
       <div>
         <h2 className="text-2xl font-bold text-white mb-4">Các chế độ học</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {featureCards.map((card) => (
             <div
               key={card.view}

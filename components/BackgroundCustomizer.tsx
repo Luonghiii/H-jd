@@ -1,15 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { useSettings } from '../hooks/useSettings';
-import { Palette, Image, Wand2, X, Plus } from 'lucide-react';
-
-const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = error => reject(error);
-    });
-};
+import { Palette, Image, Wand2, X, Plus, Loader2 } from 'lucide-react';
+import { resizeBackgroundImageAsDataUrl } from '../services/storageService';
+import eventBus from '../utils/eventBus';
 
 const gradients = [
     { name: 'Hoàng hôn', value: 'linear-gradient(to right top, #304352, #d7d2cc)' },
@@ -29,6 +22,7 @@ const BackgroundCustomizer: React.FC<BackgroundCustomizerProps> = ({ isOpen, onC
     const { backgroundSetting, setBackgroundImage, setBackgroundGradient, clearBackgroundSetting, customGradients, addCustomGradient, removeCustomGradient } = useSettings();
     const [color1, setColor1] = useState('#2a5298');
     const [color2, setColor2] = useState('#1e3c72');
+    const [isUploading, setIsUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     if (!isOpen) return null;
@@ -40,13 +34,16 @@ const BackgroundCustomizer: React.FC<BackgroundCustomizerProps> = ({ isOpen, onC
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (file) {
+            setIsUploading(true);
             try {
-                const base64Url = await fileToBase64(file);
-                setBackgroundImage(base64Url);
-                onClose();
-            } catch (e) {
+                const base64Url = await resizeBackgroundImageAsDataUrl(file);
+                await setBackgroundImage(base64Url);
+                eventBus.dispatch('notification', { type: 'success', message: 'Đã cập nhật ảnh nền!' });
+            } catch (e: any) {
                 console.error("Could not process file.", e);
-                alert("Không thể xử lý tệp ảnh.");
+                eventBus.dispatch('notification', { type: 'error', message: e.message || "Không thể xử lý tệp ảnh." });
+            } finally {
+                setIsUploading(false);
             }
         }
     };
@@ -66,7 +63,7 @@ const BackgroundCustomizer: React.FC<BackgroundCustomizerProps> = ({ isOpen, onC
     const newGradientPreview = `linear-gradient(to right top, ${color1}, ${color2})`;
 
     return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 p-4 flex items-center justify-center" onClick={onClose}>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 p-4 flex items-center justify-center">
             <input 
                 type="file" 
                 ref={fileInputRef} 
@@ -140,10 +137,11 @@ const BackgroundCustomizer: React.FC<BackgroundCustomizerProps> = ({ isOpen, onC
                 <div className="space-y-3 pt-3 border-t border-slate-700">
                     <button 
                         onClick={handleUploadClick}
-                        className="w-full flex items-center gap-3 px-3 py-2 text-sm text-left bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-xl transition duration-300"
+                        disabled={isUploading}
+                        className="w-full flex items-center justify-center gap-3 px-3 py-2 text-sm text-left bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-xl transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        <Image className="w-5 h-5 text-gray-300" />
-                        Tải ảnh lên
+                        {isUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Image className="w-5 h-5 text-gray-300" />}
+                        {isUploading ? 'Đang xử lý...' : 'Tải ảnh lên'}
                     </button>
                     <button 
                         onClick={handleRemove}

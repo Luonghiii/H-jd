@@ -102,13 +102,33 @@ const Review: React.FC<ReviewProps> = ({ onBack }) => {
 
             <div className="[perspective:1000px]" onClick={() => setIsFlipped(!isFlipped)}>
                 <div 
-                  className="relative w-full h-64 rounded-2xl shadow-xl [transform-style:preserve-d] transition-transform duration-500 cursor-pointer"
-                  style={{ transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'}}
+                  className="relative w-full h-64 rounded-2xl shadow-xl transition-transform duration-500 cursor-pointer [will-change:transform]"
+                  style={{
+                    transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
+                    transformStyle: 'preserve-3d',
+                    WebkitTransformStyle: 'preserve-3d', // For Safari/iOS
+                  }}
                 >
-                  <div className="absolute w-full h-full [backface-visibility:hidden] flex items-center justify-center p-4 bg-slate-700 rounded-2xl border border-slate-600">
+                  <div 
+                    key={currentWord.id + '-front'} 
+                    className="absolute w-full h-full flex items-center justify-center p-4 bg-slate-700 rounded-2xl border border-slate-600"
+                    style={{
+                      backfaceVisibility: 'hidden',
+                      WebkitBackfaceVisibility: 'hidden', // For Safari/iOS
+                    }}
+                  >
                     <p className="text-3xl font-bold text-white text-center">{currentWord.word}</p>
                   </div>
-                  <div className="absolute w-full h-full [backface-visibility:hidden] [transform:rotateY(180deg)] flex items-center justify-center p-4 bg-indigo-500 rounded-2xl">
+                  <div 
+                    key={currentWord.id + '-back'} 
+                    className="absolute w-full h-full flex items-center justify-center p-4 bg-indigo-500 rounded-2xl"
+                    style={{
+                      backfaceVisibility: 'hidden',
+                      WebkitBackfaceVisibility: 'hidden', // For Safari/iOS
+                      transform: 'rotateY(180deg)',
+                      WebkitTransform: 'rotateY(180deg)', // For Safari/iOS
+                    }}
+                  >
                     <p className="text-3xl font-bold text-white text-center">{currentWord.translation[targetLanguage]}</p>
                   </div>
                 </div>

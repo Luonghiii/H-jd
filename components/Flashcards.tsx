@@ -145,20 +145,42 @@ const Flashcards: React.FC<FlashcardsProps> = ({ onBack }) => {
     <div className="space-y-6 animate-fade-in">
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-bold text-white">Thẻ {currentIndex + 1} / {cardWords.length}</h2>
-        <button onClick={onBack} className="text-sm text-indigo-400 hover:underline">Thay đổi lựa chọn</button>
+        <button onClick={() => setView('setup')} className="text-sm text-indigo-400 hover:underline">Thay đổi lựa chọn</button>
       </div>
       
       <div className="[perspective:1000px]">
-        <div 
+        <div
           onClick={() => setIsFlipped(!isFlipped)}
-          className="relative w-full h-64 rounded-2xl shadow-xl [transform-style:preserve-d] transition-transform duration-500 cursor-pointer"
-          style={{ transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'}}
+          className="relative w-full h-64 rounded-2xl shadow-xl transition-transform duration-500 cursor-pointer [will-change:transform]"
+          style={{
+            transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
+            transformStyle: 'preserve-3d',
+            WebkitTransformStyle: 'preserve-3d', // For Safari/iOS
+          }}
         >
-          <div className="absolute w-full h-full [backface-visibility:hidden] flex items-center justify-center p-4 bg-slate-700 rounded-2xl border border-slate-600">
+          {/* Front of the card */}
+          <div
+            key={currentWord.id + '-front'}
+            className="absolute w-full h-full flex items-center justify-center p-4 bg-slate-700 rounded-2xl border border-slate-600"
+            style={{
+              backfaceVisibility: 'hidden',
+              WebkitBackfaceVisibility: 'hidden', // For Safari/iOS
+            }}
+          >
             <p className="text-3xl font-bold text-white text-center">{currentWord.word}</p>
             <button onClick={(e) => { e.stopPropagation(); openInspector(currentWord); }} className="absolute top-2 right-2 p-2 text-gray-300 hover:text-white hover:bg-black/20 rounded-full" aria-label="Inspect word"><Info className="w-5 h-5" /></button>
           </div>
-          <div className="absolute w-full h-full [backface-visibility:hidden] [transform:rotateY(180deg)] flex items-center justify-center p-4 bg-indigo-500 rounded-2xl">
+          {/* Back of the card */}
+          <div
+            key={currentWord.id + '-back'}
+            className="absolute w-full h-full flex items-center justify-center p-4 bg-indigo-500 rounded-2xl"
+            style={{
+              backfaceVisibility: 'hidden',
+              WebkitBackfaceVisibility: 'hidden', // For Safari/iOS
+              transform: 'rotateY(180deg)',
+              WebkitTransform: 'rotateY(180deg)', // For Safari/iOS
+            }}
+          >
             <p className="text-3xl font-bold text-white text-center">{currentWord.translation[targetLanguage]}</p>
             <button onClick={(e) => { e.stopPropagation(); openInspector(currentWord); }} className="absolute top-2 right-2 p-2 text-gray-200 hover:text-white hover:bg-black/20 rounded-full" aria-label="Inspect word"><Info className="w-5 h-5" /></button>
           </div>
