@@ -1,9 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { TargetLanguage, LearningLanguage, ConversationSession, UserStats } from '../types';
 import { useAuth } from './useAuth';
-import { onUserDataSnapshot, updateUserData } from '../services/firestoreService';
+import { onUserDataSnapshot, updateUserData, updateUserLeaderboardEntry } from '../services/firestoreService';
 import { setApiKeys } from '../services/geminiService';
-import { uploadAvatar, uploadAvatarFrame } from '../services/storageService';
+import { uploadAvatar } from '../services/storageService';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 
@@ -19,7 +19,6 @@ interface UserProfile {
     username: string;
     dob: string;
     photoURL: string | null;
-    avatarFrame: string;
 }
 
 interface SettingsContextType {
@@ -53,8 +52,6 @@ interface SettingsContextType {
   updateUserProfile: (updates: Partial<UserProfile>) => Promise<void>;
   updateAvatarFromFile: (file: File) => Promise<void>;
   updateAvatarFromUrl: (url: string) => Promise<void>;
-  updateAvatarFrame: (frameId: string) => Promise<void>;
-  updateAvatarFrameFromFile: (file: File) => Promise<void>;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -80,7 +77,6 @@ const defaultState = {
         username: '',
         dob: '',
         photoURL: null,
-        avatarFrame: ''
     } as UserProfile,
 };
 
@@ -115,7 +111,6 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
                 username: data.username || '',
                 dob: data.dob || '',
                 photoURL: data.photoURL || currentUser.photoURL || null,
-                avatarFrame: data.avatarFrame || ''
             }
           };
           setAppState(combinedState);
@@ -164,6 +159,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     };
     
     await updateUserData(currentUser.uid, { stats: newStats });
+    await updateUserLeaderboardEntry(currentUser.uid);
     
   }, [currentUser, appState.stats]);
 
@@ -249,6 +245,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
   const setLeaderboardName = useCallback(async (name: string) => {
     if (!currentUser) return;
     await updateUserData(currentUser.uid, { leaderboardName: name });
+    await updateUserLeaderboardEntry(currentUser.uid);
   }, [currentUser]);
 
   const updateWordCountStat = useCallback(async (count: number) => {
@@ -256,33 +253,26 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     const userRef = doc(db, 'users', currentUser.uid);
     // Use updateDoc with dot notation to avoid overwriting other stats
     await updateDoc(userRef, { 'stats.totalWords': count });
+    await updateUserLeaderboardEntry(currentUser.uid);
   }, [currentUser]);
 
   const updateUserProfile = useCallback(async (updates: Partial<UserProfile>) => {
     if (!currentUser) return;
     await updateUserData(currentUser.uid, updates);
+    await updateUserLeaderboardEntry(currentUser.uid);
   }, [currentUser]);
 
   const updateAvatarFromFile = useCallback(async (file: File) => {
       if (!currentUser) return;
       const newPhotoURL = await uploadAvatar(currentUser.uid, file);
       await updateUserData(currentUser.uid, { photoURL: newPhotoURL });
+      await updateUserLeaderboardEntry(currentUser.uid);
   }, [currentUser]);
 
   const updateAvatarFromUrl = useCallback(async (url: string) => {
       if (!currentUser) return;
       await updateUserData(currentUser.uid, { photoURL: url });
-  }, [currentUser]);
-
-  const updateAvatarFrame = useCallback(async (frameId: string) => {
-    if (!currentUser) return;
-    await updateUserData(currentUser.uid, { avatarFrame: frameId });
-  }, [currentUser]);
-
-  const updateAvatarFrameFromFile = useCallback(async (file: File) => {
-    if (!currentUser) return;
-    const newFrameURL = await uploadAvatarFrame(currentUser.uid, file);
-    await updateUserData(currentUser.uid, { avatarFrame: newFrameURL });
+      await updateUserLeaderboardEntry(currentUser.uid);
   }, [currentUser]);
 
   const hasApiKey = !!process.env.API_KEY || appState.userApiKeys.length > 0;
@@ -318,8 +308,6 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     updateUserProfile,
     updateAvatarFromFile,
     updateAvatarFromUrl,
-    updateAvatarFrame,
-    updateAvatarFrameFromFile,
   };
 
   return (

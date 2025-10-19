@@ -140,9 +140,6 @@ const Header: React.FC<{ onOpenSettings: () => void; onOpenProfile: () => void; 
                         <UserIcon className="w-6 h-6 text-gray-400" />
                     </div>
                 )}
-                {profile.avatarFrame && (
-                    <img src={profile.avatarFrame} alt="Avatar Frame" className="absolute inset-0 w-full h-full pointer-events-none" />
-                )}
             </button>
             <ProfileDropdown 
                 isOpen={isProfileOpen}

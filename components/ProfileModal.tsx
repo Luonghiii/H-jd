@@ -13,14 +13,6 @@ const PREMADE_AVATARS = [
     'https://storage.googleapis.com/lbwl-e99a9.appspot.com/premade-avatars/avatar6.png',
 ];
 
-const AVATAR_FRAMES = [
-    { id: 'none', name: 'Mặc định', url: '' },
-    { id: 'gold', name: 'Vàng', url: 'https://storage.googleapis.com/lbwl-e99a9.appspot.com/avatar-frames/frame_gold.png' },
-    { id: 'silver', name: 'Bạc', url: 'https://storage.googleapis.com/lbwl-e99a9.appspot.com/avatar-frames/frame_silver.png' },
-    { id: 'neon', name: 'Neon', url: 'https://storage.googleapis.com/lbwl-e99a9.appspot.com/avatar-frames/frame_neon.png' },
-    { id: 'rainbow', name: 'Cầu vồng', url: 'https://storage.googleapis.com/lbwl-e99a9.appspot.com/avatar-frames/frame_rainbow.png' },
-];
-
 const ANONYMOUS_NAME = 'Người dùng ẩn danh';
 
 interface ProfileModalProps {
@@ -29,7 +21,7 @@ interface ProfileModalProps {
 }
 
 const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
-    const { profile, leaderboardName: initialLeaderboardName, updateUserProfile, updateAvatarFromFile, updateAvatarFromUrl, updateAvatarFrame, setLeaderboardName, updateAvatarFrameFromFile } = useSettings();
+    const { profile, leaderboardName: initialLeaderboardName, updateUserProfile, updateAvatarFromFile, updateAvatarFromUrl, setLeaderboardName } = useSettings();
     
     // User profile fields state
     const [displayName, setDisplayName] = useState('');
@@ -42,14 +34,11 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
 
     // Avatar state
     const [localAvatar, setLocalAvatar] = useState<string | null>(null);
-    const [localFrame, setLocalFrame] = useState('');
 
     // Control state
     const [isLoading, setIsLoading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const frameFileInputRef = useRef<HTMLInputElement>(null);
     const [isGenerationModalOpen, setIsGenerationModalOpen] = useState(false);
-    const [generationType, setGenerationType] = useState<'avatar' | 'frame'>('avatar');
 
 
     useEffect(() => {
@@ -58,7 +47,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
             setUsername(profile.username || '');
             setDob(profile.dob || '');
             setLocalAvatar(profile.photoURL);
-            setLocalFrame(profile.avatarFrame);
 
             const isAnon = initialLeaderboardName === ANONYMOUS_NAME;
             setIsAnonymous(isAnon);
@@ -88,37 +76,12 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
             // The useEffect hook will later sync localAvatar with the permanent URL from Firestore
         }
     };
-    
-    const handleFrameFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            // Optimistic UI update
-            const localUrl = URL.createObjectURL(file);
-            setLocalFrame(localUrl);
-
-            setIsLoading(true);
-            try {
-                await updateAvatarFrameFromFile(file);
-                eventBus.dispatch('notification', { type: 'success', message: 'Cập nhật khung thành công!' });
-            } catch (error) {
-                // Revert
-                setLocalFrame(profile.avatarFrame);
-                eventBus.dispatch('notification', { type: 'error', message: 'Tải khung lên thất bại.' });
-            }
-            setIsLoading(false);
-        }
-    };
 
     const handlePremadeAvatarSelect = async (url: string) => {
         setLocalAvatar(url); // Optimistic UI update
         setIsLoading(true);
         await updateAvatarFromUrl(url);
         setIsLoading(false);
-    };
-    
-    const handleFrameSelect = async (frameUrl: string) => {
-        setLocalFrame(frameUrl); // Optimistic UI update
-        await updateAvatarFrame(frameUrl);
     };
 
     const handleSave = async () => {
@@ -158,7 +121,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                                         <UserIcon className="w-12 h-12 text-gray-400" />
                                     </div>
                                 )}
-                                {localFrame && <img src={localFrame} alt="Frame" className="absolute inset-0 w-full h-full pointer-events-none" />}
                                 {isLoading && <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin"/></div>}
                             </div>
                             <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
@@ -176,28 +138,9 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                                         <img src={url} alt="Premade Avatar" className="w-full h-full rounded-full object-cover"/>
                                     </button>
                                 ))}
-                                <button onClick={() => { setGenerationType('avatar'); setIsGenerationModalOpen(true); }} className="w-14 h-14 rounded-full bg-slate-700 flex items-center justify-center" title="Tạo bằng AI">
+                                <button onClick={() => setIsGenerationModalOpen(true)} className="w-14 h-14 rounded-full bg-slate-700 flex items-center justify-center" title="Tạo bằng AI">
                                     <Sparkles className="w-6 h-6 text-indigo-400" />
                                 </button>
-                            </div>
-                        </div>
-                        
-                        {/* Avatar Frames */}
-                        <div>
-                            <p className="text-sm font-medium text-gray-300 mb-2">Chọn khung avatar</p>
-                            <div className="flex flex-wrap gap-2 justify-center">
-                               {AVATAR_FRAMES.map(frame => (
-                                    <button key={frame.id} onClick={() => handleFrameSelect(frame.url)} className={`w-14 h-14 rounded-full p-0.5 relative flex items-center justify-center ${localFrame === frame.url ? 'bg-indigo-500' : 'bg-slate-700'}`}>
-                                        {frame.url ? <img src={frame.url} alt={frame.name} className="w-full h-full" /> : <div className="text-xs">Không</div>}
-                                    </button>
-                               ))}
-                                <button onClick={() => { setGenerationType('frame'); setIsGenerationModalOpen(true); }} className="w-14 h-14 rounded-full bg-slate-700 flex items-center justify-center" title="Tạo bằng AI">
-                                    <Sparkles className="w-6 h-6 text-indigo-400" />
-                                </button>
-                                <button onClick={() => frameFileInputRef.current?.click()} className="w-14 h-14 rounded-full bg-slate-700 flex items-center justify-center" title="Tải lên khung của bạn">
-                                    <Upload className="w-6 h-6 text-indigo-400" />
-                                </button>
-                                <input type="file" ref={frameFileInputRef} onChange={handleFrameFileChange} className="hidden" accept="image/png" />
                             </div>
                         </div>
 
@@ -252,13 +195,8 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                     isOpen={isGenerationModalOpen}
                     onClose={() => setIsGenerationModalOpen(false)}
                     onSave={(imageUrl) => {
-                        if (generationType === 'avatar') {
-                            handlePremadeAvatarSelect(imageUrl);
-                        } else {
-                            handleFrameSelect(imageUrl);
-                        }
+                        handlePremadeAvatarSelect(imageUrl);
                     }}
-                    generationType={generationType}
                 />
             )}
         </>

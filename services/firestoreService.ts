@@ -36,11 +36,22 @@ export interface UserSettings {
   userApiKeys: string[];
 }
 
+export interface PublicLeaderboardEntry {
+    uid: string;
+    name: string;
+    longestStreak: number;
+    totalWords: number;
+    photoURL: string | null;
+}
+
 export interface LeaderboardEntry {
     uid: string;
     name: string;
     value: number;
+    photoURL: string | null;
 }
+
+const ANONYMOUS_NAME = 'Người dùng ẩn danh';
 
 const generatedWordsToVocabulary = (words: GeneratedWord[]): VocabularyWord[] => {
     return words.map(w => ({
@@ -66,6 +77,7 @@ export const createUserDocument = async (user: User): Promise<void> => {
   if (!user) return;
 
   const userRef = doc(db, 'users', user.uid);
+  const leaderboardRef = doc(db, 'leaderboard', user.uid);
 
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(userRef);
@@ -79,7 +91,6 @@ export const createUserDocument = async (user: User): Promise<void> => {
         photoURL: photoURL ?? null,
         username: '',
         dob: '',
-        avatarFrame: '',
         createdAt: serverTimestamp(),
         words: {
             german: initialGermanWords,
@@ -106,6 +117,16 @@ export const createUserDocument = async (user: User): Promise<void> => {
         leaderboardName: '',
       };
       tx.set(userRef, initialData);
+
+      // Create initial public leaderboard entry
+      const initialPublicData: PublicLeaderboardEntry = {
+        uid: user.uid,
+        name: '',
+        longestStreak: 0,
+        totalWords: initialGermanWords.length,
+        photoURL: photoURL ?? null,
+      };
+      tx.set(leaderboardRef, initialPublicData);
     }
   });
 };
@@ -161,29 +182,71 @@ export const appendHistoryEntry = async (uid: string, newEntry: HistoryEntry): P
 };
 
 // =====================
-// Leaderboard Query
+// Leaderboard Sync & Query
 // =====================
-export const getLeaderboardData = async (statField: 'stats.longestStreak' | 'stats.totalWords'): Promise<LeaderboardEntry[]> => {
-    const usersRef = collection(db, 'users');
+
+/**
+ * Creates or updates the public leaderboard document for a user by reading their private data.
+ */
+export const updateUserLeaderboardEntry = async (uid: string): Promise<void> => {
+  if (!uid) return;
+
+  const userRef = doc(db, "users", uid);
+  const leaderboardRef = doc(db, "leaderboard", uid);
+
+  try {
+    await runTransaction(db, async (transaction) => {
+      const userDoc = await transaction.get(userRef);
+      if (!userDoc.exists()) {
+        console.warn("User document not found for leaderboard sync.");
+        return;
+      }
+      const userData = userDoc.data() as UserDoc;
+
+      const publicData: PublicLeaderboardEntry = {
+        uid: userData.uid,
+        name: userData.leaderboardName || '',
+        longestStreak: userData.stats?.longestStreak || 0,
+        totalWords: userData.stats?.totalWords || 0,
+        photoURL: userData.photoURL || null,
+      };
+
+      transaction.set(leaderboardRef, publicData, { merge: true });
+    });
+  } catch (e) {
+    console.error("Leaderboard update transaction failed: ", e);
+    // Silent fail for user, as it's a background sync process.
+  }
+};
+
+
+export const getLeaderboardData = async (statField: 'longestStreak' | 'totalWords'): Promise<LeaderboardEntry[]> => {
+    const leaderboardRef = collection(db, 'leaderboard');
+    
+    // This query assumes the 'leaderboard' collection is world-readable
+    // and that the necessary Firestore indexes have been created.
     const q = query(
-        usersRef,
-        where('leaderboardName', '>', ''), // Use ">" instead of "!=" for a valid composite query
+        leaderboardRef,
         orderBy(statField, 'desc'),
-        limit(10)
+        limit(20) // Fetch more than 10 to filter out users with no name client-side
     );
 
     try {
         const querySnapshot = await getDocs(q);
         const leaderboard: LeaderboardEntry[] = [];
         querySnapshot.forEach((doc) => {
-            const data = doc.data() as UserDoc;
-            leaderboard.push({
-                uid: data.uid,
-                name: data.leaderboardName || 'Người dùng ẩn danh',
-                value: statField === 'stats.longestStreak' ? data.stats.longestStreak : data.stats.totalWords,
-            });
+            const data = doc.data() as PublicLeaderboardEntry;
+            // Filter out users who haven't set a name or are anonymous
+            if (data.name && data.name !== ANONYMOUS_NAME) {
+                leaderboard.push({
+                    uid: data.uid,
+                    name: data.name,
+                    value: data[statField],
+                    photoURL: data.photoURL,
+                });
+            }
         });
-        return leaderboard;
+        return leaderboard.slice(0, 10); // Return top 10 of the filtered results
     } catch (error) {
         console.error("Error getting leaderboard data:", error);
         throw new Error("Could not fetch leaderboard data.");

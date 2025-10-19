@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSettings } from '../hooks/useSettings';
 import { useAuth } from '../hooks/useAuth';
 import { getLeaderboardData, LeaderboardEntry } from '../services/firestoreService';
-import { Trophy, Flame, BookOpen, UserCheck, Loader2 } from 'lucide-react';
+import { Trophy, Flame, BookOpen, UserCheck, Loader2, User as UserIcon } from 'lucide-react';
 
 type LeaderboardTab = 'streak' | 'words';
 
@@ -39,15 +39,18 @@ const Leaderboard: React.FC = () => {
 
     useEffect(() => {
         const fetchData = async () => {
-            if (!leaderboardName) return;
+            if (isSettingsLoading) return;
             setIsLoading(true);
             try {
-                const [streaks, words] = await Promise.all([
-                    getLeaderboardData('stats.longestStreak'),
-                    getLeaderboardData('stats.totalWords'),
-                ]);
-                setStreakData(streaks);
-                setWordData(words);
+                // Only fetch data if the user has opted-in to the leaderboard
+                if (leaderboardName) {
+                    const [streaks, words] = await Promise.all([
+                        getLeaderboardData('longestStreak'),
+                        getLeaderboardData('totalWords'),
+                    ]);
+                    setStreakData(streaks);
+                    setWordData(words);
+                }
             } catch (error) {
                 console.error("Failed to fetch leaderboard data", error);
             } finally {
@@ -55,7 +58,7 @@ const Leaderboard: React.FC = () => {
             }
         };
         fetchData();
-    }, [leaderboardName]);
+    }, [leaderboardName, isSettingsLoading]);
 
     if (isSettingsLoading) {
         return <div className="text-center"><Loader2 className="w-8 h-8 animate-spin" /></div>;
@@ -92,13 +95,22 @@ const Leaderboard: React.FC = () => {
                         const rank = index + 1;
                         const isCurrentUser = entry.uid === currentUser?.uid;
                         return (
-                            <div key={entry.uid} className={`flex items-center p-4 rounded-2xl border transition-all duration-300 ${isCurrentUser ? 'bg-indigo-600/30 border-indigo-500 scale-105 shadow-lg shadow-indigo-500/20' : 'bg-slate-800/50 border-slate-700'}`}>
-                                <div className="flex items-center gap-4 w-1/6">
+                            <div key={entry.uid} className={`flex items-center p-3 sm:p-4 rounded-2xl border transition-all duration-300 ${isCurrentUser ? 'bg-indigo-600/30 border-indigo-500 scale-105 shadow-lg shadow-indigo-500/20' : 'bg-slate-800/50 border-slate-700'}`}>
+                                <div className="flex items-center gap-3 sm:gap-4 flex-shrink-0">
                                     <span className="font-bold text-lg w-6 text-center">{rank}</span>
                                     <PodiumIcon rank={rank} />
                                 </div>
-                                <p className={`flex-grow font-semibold truncate ${isCurrentUser ? 'text-white' : 'text-gray-200'}`}>{entry.name}</p>
-                                <div className="flex items-center gap-2 font-bold text-lg text-cyan-300">
+                                <div className="flex items-center gap-3 flex-grow min-w-0 mx-3 sm:mx-4">
+                                    {entry.photoURL ? (
+                                        <img src={entry.photoURL} alt={entry.name} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+                                    ) : (
+                                        <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0">
+                                            <UserIcon className="w-6 h-6 text-gray-400" />
+                                        </div>
+                                    )}
+                                    <p className={`font-semibold truncate ${isCurrentUser ? 'text-white' : 'text-gray-200'}`}>{entry.name}</p>
+                                </div>
+                                <div className="flex items-center gap-2 font-bold text-lg text-cyan-300 flex-shrink-0">
                                     <span>{entry.value}</span>
                                     {activeTab === 'streak' ? <Flame className="w-5 h-5"/> : <BookOpen className="w-5 h-5"/>}
                                 </div>

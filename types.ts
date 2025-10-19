@@ -35,7 +35,6 @@ export interface UserDoc {
     photoURL: string | null;
     username?: string;
     dob?: string; // Date of Birth YYYY-MM-DD
-    avatarFrame?: string;
     createdAt: any;
     words: Record<string, VocabularyWord[]>;
     settings: any;

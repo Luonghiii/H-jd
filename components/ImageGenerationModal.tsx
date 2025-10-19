@@ -7,19 +7,15 @@ interface ImageGenerationModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSave: (imageUrl: string) => void;
-    generationType: 'avatar' | 'frame';
 }
 
-const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({ isOpen, onClose, onSave, generationType }) => {
+const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({ isOpen, onClose, onSave }) => {
     const [prompt, setPrompt] = useState('');
     const [generatedImage, setGeneratedImage] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
 
-    const isFrame = generationType === 'frame';
-    const title = isFrame ? 'Tạo Khung Avatar bằng AI' : 'Tạo Avatar bằng AI';
-    const placeholder = isFrame 
-        ? "ví dụ: một chiếc khung làm từ lửa và băng, trung tâm trong suốt" 
-        : "ví dụ: một chú mèo robot dễ thương đội mũ phi hành gia";
+    const title = 'Tạo Avatar bằng AI';
+    const placeholder = "ví dụ: một chú mèo robot dễ thương đội mũ phi hành gia";
 
     const handleGenerate = async () => {
         if (!prompt.trim()) return;
@@ -27,16 +23,20 @@ const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({ isOpen, onC
         setIsLoading(true);
         setGeneratedImage(null);
         
-        const finalPrompt = isFrame && !prompt.includes('transparent')
-            ? `${prompt}, transparent center`
-            : prompt;
-
         try {
-            const imageUrl = await generateImageFromPrompt(finalPrompt);
+            const imageUrl = await generateImageFromPrompt(prompt);
             setGeneratedImage(imageUrl);
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error generating image:", error);
-            eventBus.dispatch('notification', { type: 'error', message: 'Tạo ảnh thất bại. Vui lòng thử lại.' });
+            let message = 'Tạo ảnh thất bại. Vui lòng thử lại.';
+            if (error.message?.includes('permission denied')) {
+                message = 'Khóa API không có quyền truy cập model tạo ảnh. Vui lòng kiểm tra quyền hoặc bật thanh toán trên dự án Google Cloud của bạn.';
+            } else if (error.message?.toLowerCase().includes('quota')) {
+                message = 'Đã đạt giới hạn API (quota). Vui lòng thử lại sau.';
+            } else if (error.message === "All API keys failed.") {
+                message = 'Tất cả các khóa API đều không hợp lệ hoặc không có quyền. Vui lòng kiểm tra lại trong Cài đặt.';
+            }
+            eventBus.dispatch('notification', { type: 'error', message });
         }
         setIsLoading(false);
     };
