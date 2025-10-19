@@ -3,7 +3,7 @@ import { useVocabulary, themeTranslationMap } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
 import { VocabularyWord } from '../types';
 import { generateQuizForWord } from '../services/geminiService';
-import { RefreshCw, Dices, Trophy, Flame, Star, ArrowLeft } from 'lucide-react';
+import { RefreshCw, Dices, Trophy, Flame, Star, ArrowLeft, ChevronDown } from 'lucide-react';
 import { useInspector } from '../hooks/useInspector';
 import { useHistory } from '../hooks/useHistory';
 
@@ -236,26 +236,31 @@ const LuckyWheel: React.FC<LuckyWheelProps> = ({ onBack }) => {
   
   const renderSetupView = () => (
     <div className="space-y-6">
-        <div>
-            <h3 className="font-semibold text-white mb-2">1. Chọn chủ đề</h3>
-            <div className="flex flex-wrap gap-2 p-3 bg-slate-800/50 border border-slate-700 rounded-2xl">
-                <button
-                    onClick={() => handleThemeToggle('all')}
-                    className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has('all') ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 hover:bg-slate-600'}`}
-                >
-                    Tất cả
-                </button>
-                {availableThemes.map(theme => (
+        <details className="group bg-slate-800/50 border border-slate-700 rounded-2xl">
+            <summary className="list-none p-3 cursor-pointer flex justify-between items-center">
+                <h3 className="font-semibold text-white">1. Chọn chủ đề <span className="text-gray-400 font-normal text-sm">({selectedThemes.has('all') ? 'Tất cả' : `${selectedThemes.size} đã chọn`})</span></h3>
+                <ChevronDown className="w-5 h-5 text-gray-400 transition-transform group-open:rotate-180" />
+            </summary>
+            <div className="p-3 border-t border-slate-600">
+                <div className="flex flex-wrap gap-2">
                     <button
-                        key={theme}
-                        onClick={() => handleThemeToggle(theme)}
-                        className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has(theme) ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 hover:bg-slate-600'}`}
+                        onClick={() => handleThemeToggle('all')}
+                        className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has('all') ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 hover:bg-slate-600'}`}
                     >
-                        {targetLanguage === 'english' ? (themeTranslationMap[theme] || theme) : theme}
+                        Tất cả
                     </button>
-                ))}
+                    {availableThemes.map(theme => (
+                        <button
+                            key={theme}
+                            onClick={() => handleThemeToggle(theme)}
+                            className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has(theme) ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 hover:bg-slate-600'}`}
+                        >
+                            {targetLanguage === 'english' ? (themeTranslationMap[theme] || theme) : theme}
+                        </button>
+                    ))}
+                </div>
             </div>
-        </div>
+        </details>
         <div>
           <h3 className="font-semibold text-white mb-2">2. Chọn từ ({selectedIds.size} / {filteredWordsByTheme.length} đã chọn)</h3>
           <div className="flex gap-2 mb-2">

@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useVocabulary } from '../hooks/useVocabulary';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useVocabulary, themeTranslationMap } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
 import { useHistory } from '../hooks/useHistory';
 import { generateScrambledSentence } from '../services/geminiService';
-import { ArrowLeft, CheckCircle, RefreshCw, Wand2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle, RefreshCw, Wand2, ChevronDown } from 'lucide-react';
 import { VocabularyWord } from '../types';
 import { useInspector } from '../hooks/useInspector';
 
@@ -14,16 +14,22 @@ interface SentenceScrambleProps {
 type GameState = 'setup' | 'loading' | 'playing' | 'correct';
 
 const SentenceScramble: React.FC<SentenceScrambleProps> = ({ onBack }) => {
-    const { words } = useVocabulary();
-    const { learningLanguage, recordActivity } = useSettings();
+    const { words, getAvailableThemes } = useVocabulary();
+    const { learningLanguage, targetLanguage, recordActivity } = useSettings();
     const { addHistoryEntry } = useHistory();
     const { openInspector } = useInspector();
     const [gameState, setGameState] = useState<GameState>('setup');
     const [originalSentence, setOriginalSentence] = useState('');
     const [scrambledWords, setScrambledWords] = useState<string[]>([]);
     const [userSentence, setUserSentence] = useState<string[]>([]);
-    const [selectedTheme, setSelectedTheme] = useState('all');
     const [triggerWord, setTriggerWord] = useState<VocabularyWord | null>(null);
+
+    const [selectedThemes, setSelectedThemes] = useState<Set<string>>(new Set(['all']));
+    const availableThemes = useMemo(() => getAvailableThemes(), [getAvailableThemes]);
+    const wordsForGame = useMemo(() => {
+        if (selectedThemes.has('all')) return words;
+        return words.filter(w => w.theme && selectedThemes.has(w.theme));
+    }, [words, selectedThemes]);
     
     const generateNewSentence = useCallback(async () => {
         setGameState('loading');
@@ -32,7 +38,7 @@ const SentenceScramble: React.FC<SentenceScrambleProps> = ({ onBack }) => {
         setOriginalSentence('');
         setTriggerWord(null);
 
-        const wordsInTheme = selectedTheme === 'all' ? words : words.filter(w => w.theme === selectedTheme);
+        const wordsInTheme = wordsForGame;
         if (wordsInTheme.length === 0) {
             alert('Không có từ nào trong chủ đề này. Vui lòng chọn chủ đề khác.');
             setGameState('setup');
@@ -54,7 +60,7 @@ const SentenceScramble: React.FC<SentenceScrambleProps> = ({ onBack }) => {
             alert("Không thể tạo câu. Vui lòng thử lại.");
             setGameState('setup');
         }
-    }, [words, selectedTheme, learningLanguage]);
+    }, [wordsForGame, learningLanguage]);
 
     const handleWordBankClick = (word: string, index: number) => {
         setUserSentence(prev => [...prev, word]);
@@ -76,9 +82,21 @@ const SentenceScramble: React.FC<SentenceScrambleProps> = ({ onBack }) => {
             recordActivity();
         }
     }, [userSentence, scrambledWords, originalSentence, gameState, addHistoryEntry, recordActivity]);
+    
+    const handleThemeToggle = (theme: string) => {
+        setSelectedThemes(prev => {
+          const newSet = new Set(prev);
+          if (theme === 'all') return new Set(['all']);
+          newSet.delete('all');
+          if (newSet.has(theme)) newSet.delete(theme);
+          else newSet.add(theme);
+          if (newSet.size === 0) return new Set(['all']);
+          return newSet;
+        });
+    };
 
     if (gameState === 'setup') {
-        const themes = ['all', ...Array.from(new Set(words.map(w => w.theme).filter(Boolean))) as string[]];
+        const isStartDisabled = wordsForGame.length === 0;
         return (
              <div className="space-y-6 animate-fade-in text-center">
                  <div className="flex items-center justify-between">
@@ -89,16 +107,30 @@ const SentenceScramble: React.FC<SentenceScrambleProps> = ({ onBack }) => {
                     </button>
                 </div>
                 <p className="text-gray-400">Chọn một chủ đề để AI tạo câu cho bạn sắp xếp.</p>
-                <div className="max-w-md mx-auto">
-                    <label htmlFor="theme-select" className="sr-only">Chọn chủ đề</label>
-                    <select id="theme-select" value={selectedTheme} onChange={e => setSelectedTheme(e.target.value)} className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                        {themes.map(theme => <option key={theme} value={theme}>{theme === 'all' ? 'Tất cả chủ đề' : theme}</option>)}
-                    </select>
-                </div>
-                <button onClick={generateNewSentence} disabled={words.length === 0} className="w-full max-w-xs mx-auto flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98] disabled:bg-indigo-400 disabled:cursor-not-allowed">
+                
+                <details className="group bg-slate-800/50 border border-slate-700 rounded-2xl max-w-md mx-auto text-left">
+                    <summary className="list-none p-3 cursor-pointer flex justify-between items-center">
+                        <h3 className="font-semibold text-white">Chọn chủ đề <span className="text-gray-400 font-normal text-sm">({selectedThemes.has('all') ? 'Tất cả' : `${selectedThemes.size} đã chọn`})</span></h3>
+                        <ChevronDown className="w-5 h-5 text-gray-400 transition-transform group-open:rotate-180" />
+                    </summary>
+                    <div className="p-3 border-t border-slate-600">
+                        <div className="flex flex-wrap gap-2 justify-center">
+                            <button onClick={() => handleThemeToggle('all')} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has('all') ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 hover:bg-slate-600'}`}>
+                              Tất cả ({words.length})
+                            </button>
+                            {availableThemes.map(theme => (
+                              <button key={theme} onClick={() => handleThemeToggle(theme)} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has(theme) ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 hover:bg-slate-600'}`}>
+                                {targetLanguage === 'english' ? (themeTranslationMap[theme] || theme) : theme} ({words.filter(w => w.theme === theme).length})
+                              </button>
+                            ))}
+                        </div>
+                    </div>
+                </details>
+                
+                <button onClick={generateNewSentence} disabled={isStartDisabled} className="w-full max-w-xs mx-auto flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98] disabled:bg-indigo-400 disabled:cursor-not-allowed">
                     Bắt đầu
                 </button>
-                {words.length === 0 && <p className="text-center text-sm text-amber-400">Bạn cần có ít nhất một từ để chơi.</p>}
+                {isStartDisabled && <p className="text-center text-sm text-amber-400">Bạn cần có ít nhất một từ trong chủ đề đã chọn để chơi.</p>}
             </div>
         );
     }

@@ -4,7 +4,7 @@ import { useSettings } from '../hooks/useSettings';
 import { useHistory } from '../hooks/useHistory';
 import { generateHintsForWord } from '../services/geminiService';
 import { VocabularyWord } from '../types';
-import { ArrowLeft, RefreshCw, Lightbulb } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Lightbulb, ChevronDown } from 'lucide-react';
 import { useInspector } from '../hooks/useInspector';
 
 interface WordGuessProps {
@@ -151,13 +151,18 @@ const WordGuess: React.FC<WordGuessProps> = ({ onBack }) => {
                         <span>Quay lại</span>
                     </button>
                 </div>
-                 <div>
-                    <h3 className="font-semibold text-white mb-2">Chọn chủ đề</h3>
-                    <div className="flex flex-wrap justify-center gap-2 p-3 bg-slate-800/50 border border-slate-700 rounded-2xl">
-                        <button onClick={() => handleThemeToggle('all')} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has('all') ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 hover:bg-slate-600'}`}>Tất cả ({words.length})</button>
-                        {availableThemes.map(theme => <button key={theme} onClick={() => handleThemeToggle(theme)} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has(theme) ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 hover:bg-slate-600'}`}>{targetLanguage === 'english' ? (themeTranslationMap[theme] || theme) : theme} ({words.filter(w => w.theme === theme).length})</button>)}
+                <details className="group bg-slate-800/50 border border-slate-700 rounded-2xl max-w-md mx-auto text-left">
+                    <summary className="list-none p-3 cursor-pointer flex justify-between items-center">
+                        <h3 className="font-semibold text-white">Chọn chủ đề <span className="text-gray-400 font-normal text-sm">({selectedThemes.has('all') ? 'Tất cả' : `${selectedThemes.size} đã chọn`})</span></h3>
+                        <ChevronDown className="w-5 h-5 text-gray-400 transition-transform group-open:rotate-180" />
+                    </summary>
+                    <div className="p-3 border-t border-slate-600">
+                        <div className="flex flex-wrap gap-2 justify-center">
+                            <button onClick={() => handleThemeToggle('all')} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has('all') ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 hover:bg-slate-600'}`}>Tất cả ({words.length})</button>
+                            {availableThemes.map(theme => <button key={theme} onClick={() => handleThemeToggle(theme)} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has(theme) ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 hover:bg-slate-600'}`}>{targetLanguage === 'english' ? (themeTranslationMap[theme] || theme) : theme} ({words.filter(w => w.theme === theme).length})</button>)}
+                        </div>
                     </div>
-                </div>
+                </details>
                 <button onClick={startNewGame} disabled={isStartDisabled} className="w-full max-w-xs mx-auto flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98] disabled:bg-indigo-400 disabled:cursor-not-allowed">
                     Bắt đầu
                 </button>
