@@ -92,11 +92,13 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
 
     return (
         <>
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-                <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-lg text-white" onClick={e => e.stopPropagation()}>
-                    <div className="p-6 border-b border-slate-700 flex items-center justify-between">
-                        <h2 className="text-xl font-bold">Chỉnh sửa hồ sơ</h2>
-                        <button onClick={onClose}><X className="w-5 h-5" /></button>
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in" onClick={onClose}>
+                <div className="bg-slate-100/60 backdrop-blur-lg border border-white/30 neu-light rounded-xl w-full max-w-md animate-fade-in-up" onClick={e => e.stopPropagation()}>
+                    <div className="p-6 border-b border-slate-200 flex items-center justify-between">
+                        <h2 className="text-xl font-bold text-slate-800">Chỉnh sửa hồ sơ</h2>
+                        <button onClick={onClose} className="p-1.5 rounded-full text-slate-600 hover:bg-black/10">
+                            <X className="w-5 h-5" />
+                        </button>
                     </div>
                     <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
                         {/* Avatar Section */}
@@ -104,17 +106,17 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                             <div className="relative w-28 h-28 group">
                                 <button
                                     onClick={() => !isAvatarLoading && fileInputRef.current?.click()}
-                                    className="w-full h-full rounded-full overflow-hidden focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 focus:ring-indigo-500"
+                                    className="w-full h-full rounded-full overflow-hidden focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-100 focus:ring-indigo-500"
                                     disabled={isAvatarLoading}
                                 >
                                     {localAvatar ? (
                                         <img src={localAvatar} alt="Avatar" className="w-full h-full object-cover" />
                                     ) : (
-                                        <div className="w-full h-full bg-slate-700 flex items-center justify-center">
-                                            <UserIcon className="w-12 h-12 text-gray-400" />
+                                        <div className="w-full h-full bg-slate-300 flex items-center justify-center">
+                                            <UserIcon className="w-12 h-12 text-slate-500" />
                                         </div>
                                     )}
-                                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
                                         <Camera className="w-8 h-8 text-white"/>
                                     </div>
                                     {isAvatarLoading && (
@@ -128,30 +130,30 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                             <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/png, image/jpeg, image/webp" />
                              <button 
                                 onClick={() => setIsGenerationModalOpen(true)}
-                                className="flex items-center gap-2 px-3 py-1.5 text-sm bg-slate-700 hover:bg-slate-600 rounded-lg"
+                                className="flex items-center gap-2 px-3 py-1.5 text-sm bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg neu-button-light"
                             >
-                                <Sparkles className="w-4 h-4 text-amber-400"/> Tạo bằng AI
+                                <Sparkles className="w-4 h-4 text-amber-500"/> Tạo bằng AI
                             </button>
                         </div>
 
                         {/* Profile Fields */}
-                        <div className="space-y-4 pt-4 border-t border-slate-700">
+                        <div className="space-y-4 pt-4 border-t border-slate-200">
                             <div>
-                                <label className="text-sm font-medium text-gray-300">Tên hiển thị</label>
-                                <input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)} className="w-full mt-1 px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-md" />
-                                <p className="text-xs text-gray-500 mt-1">Tên này sẽ xuất hiện trên Bảng xếp hạng. Để trống để ẩn danh.</p>
+                                <label className="text-sm font-medium text-slate-700">Tên hiển thị</label>
+                                <input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)} className="w-full mt-1 px-3 py-2 bg-slate-200/50 neu-inset-light rounded-lg border-transparent focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+                                <p className="text-xs text-slate-600 mt-1">Tên này sẽ xuất hiện trên Bảng xếp hạng. Để trống để ẩn danh.</p>
                             </div>
                              <div>
-                                <label className="text-sm font-medium text-gray-300">Username</label>
-                                <input type="text" value={username} onChange={e => setUsername(e.target.value)} className="w-full mt-1 px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-md" />
+                                <label className="text-sm font-medium text-slate-700">Username</label>
+                                <input type="text" value={username} onChange={e => setUsername(e.target.value)} className="w-full mt-1 px-3 py-2 bg-slate-200/50 neu-inset-light rounded-lg border-transparent focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
                             </div>
                              <div>
-                                <label className="text-sm font-medium text-gray-300">Ngày sinh</label>
-                                <input type="date" value={dob} onChange={e => setDob(e.target.value)} className="w-full mt-1 px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-md" />
+                                <label className="text-sm font-medium text-slate-700">Ngày sinh</label>
+                                <input type="date" value={dob} onChange={e => setDob(e.target.value)} className="w-full mt-1 px-3 py-2 bg-slate-200/50 neu-inset-light rounded-lg border-transparent focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
                             </div>
                         </div>
                     </div>
-                    <div className="p-4 bg-slate-900/50 flex justify-end">
+                    <div className="p-4 bg-slate-200/50 border-t border-slate-200 flex justify-end">
                         <button onClick={handleSave} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg disabled:bg-indigo-400" disabled={isLoading || isAvatarLoading}>
                            {isLoading ? <Loader2 className="w-5 h-5 animate-spin"/> : 'Lưu'}
                         </button>
