@@ -236,8 +236,8 @@ export const getLeaderboardData = async (statField: 'longestStreak' | 'totalWord
         const leaderboard: LeaderboardEntry[] = [];
         querySnapshot.forEach((doc) => {
             const data = doc.data() as PublicLeaderboardEntry;
-            // Filter out users who haven't set a name or are anonymous
-            if (data.name && data.name !== ANONYMOUS_NAME) {
+            // Filter out users who haven't set a name yet
+            if (data.name) {
                 leaderboard.push({
                     uid: data.uid,
                     name: data.name,

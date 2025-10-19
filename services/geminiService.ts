@@ -302,18 +302,22 @@ export const generateImageForWord = async (word: string): Promise<string> => {
 
 export const generateImageFromPrompt = async (prompt: string): Promise<string> => {
     return executeWithKeyRotation(async (ai) => {
-        const response = await ai.models.generateImages({
-            model: 'imagen-4.0-generate-001',
-            prompt: prompt,
-            config: {
-              numberOfImages: 1,
-              outputMimeType: 'image/png',
-              aspectRatio: '1:1',
-            },
+        const response = await ai.models.generateContent({
+          model: imageModel,
+          contents: {
+            parts: [{ text: prompt }],
+          },
+          config: {
+              responseModalities: [Modality.IMAGE],
+          },
         });
 
-        const base64ImageBytes: string = response.generatedImages[0].image.imageBytes;
-        return `data:image/png;base64,${base64ImageBytes}`;
+        for (const part of response.candidates[0].content.parts) {
+          if (part.inlineData) {
+            return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+          }
+        }
+        throw new Error("No image generated from prompt");
     });
 };
 
