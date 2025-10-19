@@ -29,7 +29,29 @@ import More from './components/More';
 import { I18nProvider } from './hooks/useI18n';
 
 const AppLayout: React.FC<{ onOpenSettings: () => void; }> = ({ onOpenSettings }) => {
-  const [currentView, setCurrentView] = useState<View>(View.Home);
+  const [currentView, _setCurrentView] = useState<View>(View.Home);
+  const [displayedView, setDisplayedView] = useState(currentView);
+  const [animationClass, setAnimationClass] = useState('');
+  const isInitialLoad = useRef(true);
+
+  const setCurrentView = useCallback((newView: View) => {
+    if (newView !== currentView) {
+      setAnimationClass('animate-fade-out');
+      setTimeout(() => {
+        _setCurrentView(newView);
+        setDisplayedView(newView);
+        setAnimationClass('animate-fade-in');
+      }, 250); // Match fade-out duration
+    }
+  }, [currentView]);
+  
+  useEffect(() => {
+    if (isInitialLoad.current) {
+      setAnimationClass('animate-fade-in');
+      isInitialLoad.current = false;
+    }
+  }, []);
+
   const { inspectingWord, closeInspector } = useInspector();
   const { backgroundSetting } = useSettings();
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
@@ -38,7 +60,7 @@ const AppLayout: React.FC<{ onOpenSettings: () => void; }> = ({ onOpenSettings }
   const [isBgCustomizerOpen, setIsBgCustomizerOpen] = useState(false);
 
   const renderView = () => {
-    switch (currentView) {
+    switch (displayedView) {
       case View.Home:
         return <Home setCurrentView={setCurrentView} />;
       case View.Learn:
@@ -87,7 +109,7 @@ const AppLayout: React.FC<{ onOpenSettings: () => void; }> = ({ onOpenSettings }
         <main className="container mx-auto p-4 md:p-6 lg:p-8 flex-grow pb-28">
           <div className="max-w-5xl mx-auto">
             <div className={`${contentContainerClasses} rounded-3xl shadow-2xl shadow-slate-900/50 border border-slate-700/60`}>
-              <div className="p-4 sm:p-6 lg:p-8">{renderView()}</div>
+              <div className={`p-4 sm:p-6 lg:p-8 ${animationClass}`}>{renderView()}</div>
             </div>
           </div>
         </main>
@@ -149,18 +171,18 @@ const AppContent: React.FC = () => {
 
   return (
     <VocabularyProvider>
-        <HistoryProvider>
+      <HistoryProvider>
+        <InspectorProvider>
           <QuickTranslateProvider>
-            <InspectorProvider>
-              <LoginHistoryLogger />
-              <AppLayout onOpenSettings={() => setIsSettingsOpen(true)} />
-              <SettingsModal 
-                  isOpen={isSettingsOpen}
-                  onClose={() => setIsSettingsOpen(false)}
-              />
-            </InspectorProvider>
+            <LoginHistoryLogger />
+            <AppLayout onOpenSettings={() => setIsSettingsOpen(true)} />
+            <SettingsModal
+              isOpen={isSettingsOpen}
+              onClose={() => setIsSettingsOpen(false)}
+            />
           </QuickTranslateProvider>
-        </HistoryProvider>
+        </InspectorProvider>
+      </HistoryProvider>
     </VocabularyProvider>
   );
 }

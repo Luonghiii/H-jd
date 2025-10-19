@@ -3,6 +3,7 @@ import { useSettings } from '../hooks/useSettings';
 import { useHistory } from '../hooks/useHistory';
 import { checkGrammar, generateWritingPrompt } from '../services/geminiService';
 import { ArrowLeft, CheckCircle, RefreshCw, Sparkles, Wand2 } from 'lucide-react';
+import eventBus from '../utils/eventBus';
 
 interface GrammarCheckerProps {
   onBack: () => void;
@@ -42,6 +43,7 @@ const GrammarChecker: React.FC<GrammarCheckerProps> = ({ onBack }) => {
         if (!text.trim() || isLoading) return;
         setIsLoading(true);
         setFeedback(null);
+        eventBus.dispatch('notification', { type: 'info', message: 'AI đang kiểm tra ngữ pháp...' });
         try {
             const result = await checkGrammar(text, learningLanguage, uiLanguage);
             setFeedback(result);

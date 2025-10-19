@@ -1,5 +1,3 @@
-
-
 import React, { useState, useRef } from 'react';
 import { useVocabulary } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
@@ -8,6 +6,7 @@ import { PlusCircle, RefreshCw, Sparkles, Image as ImageIcon, FileText, ArrowLef
 import { generateWordsFromPrompt, getWordsFromImage, getWordsFromFile } from '../services/geminiService';
 import AddWordsReviewModal from './AddWordsReviewModal';
 import { GeneratedWord } from '../types';
+import eventBus from '../utils/eventBus';
 
 const fileToBase64 = (file: File): Promise<{base64: string, mimeType: string}> => {
   return new Promise((resolve, reject) => {
@@ -94,6 +93,7 @@ const AddWord: React.FC<AddWordProps> = ({ onBack }) => {
     if (aiPrompt.trim() && !isAiLoading) {
       setIsAiLoading(true);
       setFeedback(null);
+      eventBus.dispatch('notification', { type: 'info', message: 'AI đang tìm từ vựng...' });
       try {
         const existingWords = words.map(w => w.word);
         const generatedWords = await generateWordsFromPrompt(aiPrompt.trim(), existingWords, learningLanguage);
@@ -135,6 +135,7 @@ const AddWord: React.FC<AddWordProps> = ({ onBack }) => {
     if (uploadedFile && !isUploading) {
         setIsUploading(true);
         setFeedback(null);
+        eventBus.dispatch('notification', { type: 'info', message: 'AI đang phân tích file...' });
         try {
             const { base64, mimeType } = await fileToBase64(uploadedFile);
             const existingWords = words.map(w => w.word);

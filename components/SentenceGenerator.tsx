@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useVocabulary } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
 import { useHistory } from '../hooks/useHistory';
 import { generateSentence } from '../services/geminiService';
 import { VocabularyWord } from '../types';
-import { RefreshCw, Wand2, ArrowLeft } from 'lucide-react';
+import { RefreshCw, Wand2, ArrowLeft, Search } from 'lucide-react';
 import HighlightableText from './HighlightableText';
 
 interface SentenceGeneratorProps {
@@ -19,6 +19,14 @@ const SentenceGenerator: React.FC<SentenceGeneratorProps> = ({ onBack }) => {
     const [generatedSentence, setGeneratedSentence] = useState('');
     const [translation, setTranslation] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+
+    const filteredWords = useMemo(() => {
+        return words.filter(word =>
+            word.word.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            word.translation[uiLanguage].toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    }, [words, searchTerm, uiLanguage]);
 
     const handleWordClick = async (word: VocabularyWord) => {
         if (isLoading) return;
@@ -91,9 +99,19 @@ const SentenceGenerator: React.FC<SentenceGeneratorProps> = ({ onBack }) => {
 
             <div className="pt-2">
                 <h3 className="font-semibold text-slate-800 dark:text-white mb-3">Chọn một từ từ danh sách của bạn:</h3>
+                <div className="relative mb-4">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+                    <input
+                        type="text"
+                        placeholder="Tìm kiếm từ..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md text-slate-800 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                </div>
                 <div className="max-h-[45vh] overflow-y-auto pr-2">
                     <ul className="space-y-3">
-                        {words.map(word => (
+                        {filteredWords.map(word => (
                             <li key={word.id}>
                                 <button
                                     onClick={() => handleWordClick(word)}
@@ -111,6 +129,9 @@ const SentenceGenerator: React.FC<SentenceGeneratorProps> = ({ onBack }) => {
                             </li>
                         ))}
                     </ul>
+                    {filteredWords.length === 0 && (
+                        <p className="text-center text-gray-400 py-8">Không tìm thấy từ nào.</p>
+                    )}
                 </div>
             </div>
         </div>

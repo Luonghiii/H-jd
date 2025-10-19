@@ -71,6 +71,7 @@ export const QuickTranslateProvider: React.FC<{ children: ReactNode }> = ({ chil
   const [data, setData] = useState<QuickTranslateState | null>(null);
   const { words } = useVocabulary();
   const { learningLanguage, uiLanguage } = useSettings();
+  const { openInspector } = useInspector();
 
   const closeQuickTranslate = useCallback(() => {
     setData(null);
@@ -82,7 +83,8 @@ export const QuickTranslateProvider: React.FC<{ children: ReactNode }> = ({ chil
 
     const existingWord = words.find(w => w.word.toLowerCase() === cleanedWord.toLowerCase());
     if (existingWord) {
-      closeQuickTranslate();
+      // It's an existing word, open the full inspector instead.
+      openInspector(existingWord);
       return;
     }
 
@@ -118,7 +120,7 @@ export const QuickTranslateProvider: React.FC<{ children: ReactNode }> = ({ chil
           isLoading: false,
       } : null);
     }
-  }, [words, learningLanguage, uiLanguage, closeQuickTranslate]);
+  }, [words, learningLanguage, uiLanguage, closeQuickTranslate, openInspector]);
 
   return (
     <QuickTranslateContext.Provider value={{ data, openQuickTranslate, closeQuickTranslate }}>

@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useVocabulary } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
 import { useHistory } from '../hooks/useHistory';
 import { generateStory } from '../services/geminiService';
 import { VocabularyWord } from '../types';
-import { Sparkles, RefreshCw, CheckCircle, BookText, ArrowLeft } from 'lucide-react';
+import { Sparkles, RefreshCw, CheckCircle, BookText, ArrowLeft, Search } from 'lucide-react';
 import HighlightableText from './HighlightableText';
+import eventBus from '../utils/eventBus';
 
 interface StoryGeneratorProps {
   onBack: () => void;
@@ -19,6 +20,14 @@ const StoryGenerator: React.FC<StoryGeneratorProps> = ({ onBack }) => {
   const [germanStory, setGermanStory] = useState('');
   const [translation, setTranslation] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const filteredWords = useMemo(() => {
+    return words.filter(word =>
+        word.word.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        word.translation[uiLanguage].toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [words, searchTerm, uiLanguage]);
 
   const handleToggleWord = (word: VocabularyWord) => {
     setGermanStory('');
@@ -38,6 +47,7 @@ const StoryGenerator: React.FC<StoryGeneratorProps> = ({ onBack }) => {
     setIsLoading(true);
     setGermanStory('');
     setTranslation('');
+    eventBus.dispatch('notification', { type: 'info', message: 'AI đang viết truyện...' });
     const wordsForStory = selectedWords.map(w => w.word);
     const aiStory = await generateStory(wordsForStory, uiLanguage, learningLanguage);
     
@@ -76,8 +86,18 @@ const StoryGenerator: React.FC<StoryGeneratorProps> = ({ onBack }) => {
 
       <div>
         <h3 className="font-semibold text-white mb-2">1. Chọn từ của bạn:</h3>
+        <div className="relative mb-2">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+            <input
+              type="text"
+              placeholder="Tìm kiếm từ..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-600 rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+        </div>
         <div className="max-h-[25vh] overflow-y-auto pr-2 bg-slate-800/50 border border-slate-700 rounded-2xl p-3 space-y-2">
-            {words.map(word => {
+            {filteredWords.length > 0 ? filteredWords.map(word => {
                 const isSelected = selectedWords.some(w => w.id === word.id);
                 return (
                     <button
@@ -94,7 +114,7 @@ const StoryGenerator: React.FC<StoryGeneratorProps> = ({ onBack }) => {
                         {isSelected && <CheckCircle className="w-5 h-5 text-indigo-400 flex-shrink-0" />}
                     </button>
                 )
-            })}
+            }) : <p className="text-center text-gray-500">Không tìm thấy từ nào.</p>}
         </div>
       </div>
 

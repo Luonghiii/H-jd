@@ -137,17 +137,40 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const recordActivity = useCallback(async () => {
     if (!currentUser) return;
+
+    let today: string;
+    let yesterday: string;
+
+    try {
+        const response = await fetch("http://worldtimeapi.org/api/timezone/Asia/Ho_Chi_Minh");
+        if (!response.ok) throw new Error('WorldTimeAPI request failed');
+        const timeData = await response.json();
+        
+        today = timeData.datetime.substring(0, 10); // "YYYY-MM-DD"
+        
+        const [year, month, day] = today.split('-').map(Number);
+        const todayUtc = new Date(Date.UTC(year, month - 1, day));
+        todayUtc.setUTCDate(todayUtc.getUTCDate() - 1);
+
+        yesterday = `${todayUtc.getUTCFullYear()}-${String(todayUtc.getUTCMonth() + 1).padStart(2, '0')}-${String(todayUtc.getUTCDate()).padStart(2, '0')}`;
+
+    } catch (error) {
+        console.warn("Could not fetch time from API, falling back to local client time for streak calculation.", error);
+        const now = new Date();
+        today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const yesterdayDate = new Date(now);
+        yesterdayDate.setDate(now.getDate() - 1);
+        yesterday = `${yesterdayDate.getFullYear()}-${String(yesterdayDate.getMonth() + 1).padStart(2, '0')}-${String(yesterdayDate.getDate()).padStart(2, '0')}`;
+    }
     
-    const today = new Date().toISOString().split('T')[0];
     const { lastActivityDate, currentStreak = 0, longestStreak = 0 } = appState.stats;
 
     if (lastActivityDate === today) {
-      return; // Already recorded an activity today
+        return; // Already recorded an activity today
     }
-
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
     
     let newCurrentStreak = 1;
+    // If last activity was yesterday, increment streak
     if (lastActivityDate === yesterday) {
         newCurrentStreak = currentStreak + 1;
     }

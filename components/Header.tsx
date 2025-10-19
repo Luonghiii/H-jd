@@ -10,12 +10,12 @@ import { useI18n } from '../hooks/useI18n';
 const UiLanguageSelector: React.FC = () => {
   const { uiLanguage, setUiLanguage } = useSettings();
 
-  const baseClasses = "px-3 py-1 text-sm font-semibold rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-indigo-500";
-  const activeClasses = "bg-indigo-600 text-white";
-  const inactiveClasses = "bg-slate-700 text-gray-300 hover:bg-slate-600";
+  const baseClasses = "relative z-10 px-4 py-1 text-sm font-semibold rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-indigo-500";
+  const activeClasses = "bg-white/15 text-white";
+  const inactiveClasses = "text-gray-400 hover:text-white";
 
   return (
-    <div className="flex items-center p-1 bg-slate-800 rounded-lg">
+    <div className="flex items-center p-1 bg-black/20 backdrop-blur-sm rounded-full border border-white/10">
       <button 
         onClick={() => setUiLanguage('vietnamese')}
         className={`${baseClasses} ${uiLanguage === 'vietnamese' ? activeClasses : inactiveClasses}`}
@@ -126,7 +126,7 @@ const Header: React.FC<{ onOpenSettings: () => void; onOpenProfile: () => void; 
           <UiLanguageSelector />
           <button
             onClick={onOpenSettings}
-            className="p-2 text-gray-300 hover:bg-slate-700/50 hover:text-white rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-indigo-500"
+            className="p-2 text-gray-300 hover:bg-slate-700/50 hover:text-white rounded-full transition-all duration-150 ease-out active:scale-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-indigo-500"
             aria-label={t('header.settings')}
           >
             <Settings className="w-5 h-5" />
@@ -135,7 +135,7 @@ const Header: React.FC<{ onOpenSettings: () => void; onOpenProfile: () => void; 
           <div className="relative">
             <button
                 onClick={() => setIsProfileOpen(prev => !prev)}
-                className="w-10 h-10 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-indigo-500 relative"
+                className="w-10 h-10 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-indigo-500 relative transition-transform duration-150 ease-out active:scale-90"
             >
                 {profile.photoURL ? (
                     <img src={profile.photoURL} alt="User Avatar" className="w-full h-full rounded-full object-cover" />

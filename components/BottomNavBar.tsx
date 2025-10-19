@@ -52,7 +52,7 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ currentView, setCurrentView
             >
               <button
                 onClick={() => setCurrentView(item.view)}
-                className={`relative w-full flex flex-col items-center justify-center p-1.5 rounded-full transition-colors duration-300 focus:outline-none ${
+                className={`relative w-full flex flex-col items-center justify-center p-1.5 rounded-full transition-all duration-150 ease-out active:scale-95 focus:outline-none ${
                   currentView === item.view ? 'text-white' : 'text-gray-400 hover:text-white'
                 }`}
                 aria-label={item.label}

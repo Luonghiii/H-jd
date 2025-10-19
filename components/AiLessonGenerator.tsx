@@ -24,6 +24,7 @@ const AiLessonGenerator: React.FC<AiLessonGeneratorProps> = ({ onBack }) => {
         if (!theme.trim() || isLoading) return;
         setIsLoading(true);
         setLesson(null);
+        eventBus.dispatch('notification', { type: 'info', message: 'AI đang soạn bài học, vui lòng đợi trong giây lát...' });
         try {
             const result = await generateAiLesson(theme, learningLanguage, uiLanguage);
             if (result) {

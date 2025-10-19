@@ -6,6 +6,47 @@ import { useSettings } from '../hooks/useSettings';
 import { useInspector } from '../hooks/useInspector';
 import { useI18n } from '../hooks/useI18n';
 
+const TimeIsWidgetClock: React.FC = () => {
+  useEffect(() => {
+    const scriptId = 'time-is-widget-script';
+    // Clean up any existing script first to ensure a fresh start
+    const existingScript = document.getElementById(scriptId);
+    if (existingScript) {
+        existingScript.remove();
+    }
+
+    const script = document.createElement('script');
+    script.id = scriptId;
+    script.src = '//widget.time.is/t.js';
+    script.async = true;
+    script.onload = () => {
+      // @ts-ignore
+      if (window.time_is_widget) {
+        // @ts-ignore
+        window.time_is_widget.init({Vietnam_z418:{}});
+      }
+    };
+    document.body.appendChild(script);
+
+    return () => {
+      const scriptElement = document.getElementById(scriptId);
+      if (scriptElement) {
+        document.body.removeChild(scriptElement);
+      }
+    };
+  }, []);
+
+  return (
+    <div className="text-center my-6">
+      <a href="https://time.is/Vietnam" id="time_is_link" rel="nofollow" className="text-xl text-indigo-300 no-underline hover:underline">
+        Thời gian ở Việt Nam:
+      </a>
+      {/* The script will populate this div */}
+      <div id="Vietnam_z418" className="text-4xl font-bold text-slate-100 mt-1"></div>
+    </div>
+  );
+};
+
 
 const QuickReview: React.FC = () => {
     const { words, updateWordSrs } = useVocabulary();
@@ -211,6 +252,7 @@ const Home: React.FC<HomeProps> = ({ setCurrentView }) => {
         <p className="mt-2 text-lg text-gray-400 max-w-2xl mx-auto">
           {t('home.sub_welcome')}
         </p>
+        <TimeIsWidgetClock />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-white">

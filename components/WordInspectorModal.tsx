@@ -15,6 +15,7 @@ export const QuickTranslateModal: React.FC = () => {
     const { uiLanguage } = useSettings();
     const modalRef = useRef<HTMLDivElement>(null);
     const [style, setStyle] = useState<React.CSSProperties>({});
+    const [isAdding, setIsAdding] = useState(false);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -27,38 +28,43 @@ export const QuickTranslateModal: React.FC = () => {
     }, [closeQuickTranslate]);
 
     useEffect(() => {
-        if (data && modalRef.current) {
-            const rect = modalRef.current.getBoundingClientRect();
-            let left = data.position.left;
-            if (left + rect.width > window.innerWidth) {
-                left = window.innerWidth - rect.width - 16;
+        if (data) {
+            setIsAdding(false); // Reset on new word
+            if (modalRef.current) {
+                const rect = modalRef.current.getBoundingClientRect();
+                let left = data.position.left;
+                if (left + rect.width > window.innerWidth) {
+                    left = window.innerWidth - rect.width - 16;
+                }
+                if (left < 16) {
+                    left = 16;
+                }
+                setStyle({
+                    position: 'absolute',
+                    top: `${data.position.top + 8}px`,
+                    left: `${left}px`,
+                });
+            } else {
+                 setStyle({
+                    position: 'absolute',
+                    top: `${data.position.top + 8}px`,
+                    left: `${data.position.left}px`,
+                    opacity: 0, // Render invisible first to measure
+                });
             }
-            if (left < 16) {
-                left = 16;
-            }
-            setStyle({
-                position: 'absolute',
-                top: `${data.position.top + 8}px`,
-                left: `${left}px`,
-            });
-        } else if (data) {
-             setStyle({
-                position: 'absolute',
-                top: `${data.position.top + 8}px`,
-                left: `${data.position.left}px`,
-                opacity: 0, // Render invisible first to measure
-            });
         }
     }, [data]);
     
     if (!data) return null;
 
     const handleAdd = async () => {
-        if (data.isLoading) return;
+        if (data.isLoading || isAdding) return;
+        setIsAdding(true);
         const success = await addWord(data.word, data.translation, uiLanguage, data.theme);
         if (success) {
             eventBus.dispatch('notification', { type: 'success', message: `Đã thêm từ "${data.word}"!` });
         }
+        setIsAdding(false);
         closeQuickTranslate();
     };
 
@@ -91,8 +97,12 @@ export const QuickTranslateModal: React.FC = () => {
                                     <span className="font-semibold text-gray-200">{data.theme}</span>
                                 </div>
                             </div>
-                            <button onClick={handleAdd} className="w-full flex items-center justify-center gap-2 text-sm px-2 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-semibold">
-                                <PlusCircle className="w-4 h-4"/> Thêm vào từ vựng
+                            <button onClick={handleAdd} disabled={isAdding} className="w-full flex items-center justify-center gap-2 text-sm px-2 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-semibold disabled:bg-indigo-500/50 disabled:cursor-wait">
+                                {isAdding ? (
+                                    <Loader2 className="w-4 h-4 animate-spin"/>
+                                ) : (
+                                    <><PlusCircle className="w-4 h-4"/> Thêm vào từ vựng</>
+                                )}
                             </button>
                         </>
                     ) : (

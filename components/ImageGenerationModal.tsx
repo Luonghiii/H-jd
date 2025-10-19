@@ -22,6 +22,7 @@ const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({ isOpen, onC
         
         setIsLoading(true);
         setGeneratedImage(null);
+        eventBus.dispatch('notification', { type: 'info', message: 'AI đang vẽ, quá trình này có thể mất một chút thời gian...' });
         
         try {
             const imageUrl = await generateImageFromPrompt(prompt);

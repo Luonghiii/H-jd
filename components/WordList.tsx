@@ -1,7 +1,7 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useVocabulary } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
-import { Trash2, Search, ImageIcon, Sparkles, Star, ChevronDown, Filter, ArrowUpDown, Download, Upload, ArrowLeft } from 'lucide-react';
+import { Trash2, Search, ImageIcon, Sparkles, Star, ChevronDown, Filter, ArrowUpDown, Download, Upload, ArrowLeft, Loader2 } from 'lucide-react';
 import { VocabularyWord, GeneratedWord } from '../types';
 import ImageEditModal from './ImageEditModal';
 import { generateImageForWord } from '../services/geminiService';
@@ -14,6 +14,19 @@ const WordItem: React.FC<{ word: VocabularyWord }> = ({ word }) => {
   const { uiLanguage } = useSettings();
   const { openInspector } = useInspector();
   const [editingWord, setEditingWord] = useState<VocabularyWord | null>(null);
+
+  // State for smooth image loading
+  const [isImageLoading, setIsImageLoading] = useState(!!word.imageUrl);
+
+  useEffect(() => {
+    // When word.imageUrl changes, reset the loading state.
+    // The onLoad handler on the img tag will set it to false when ready.
+    setIsImageLoading(!!word.imageUrl);
+  }, [word.imageUrl]);
+
+  const handleImageLoad = () => {
+    setIsImageLoading(false);
+  };
 
   const handleSaveImage = (wordId: string, imageUrl: string) => {
     updateWordImage(wordId, imageUrl);
@@ -34,11 +47,24 @@ const WordItem: React.FC<{ word: VocabularyWord }> = ({ word }) => {
         >
           <button 
             onClick={(e) => { e.stopPropagation(); setEditingWord(word); }}
-            className="w-16 h-16 flex-shrink-0 bg-slate-700/50 rounded-xl flex items-center justify-center text-gray-500 hover:bg-slate-700 transition-colors"
+            className="w-16 h-16 flex-shrink-0 bg-slate-700/50 rounded-xl flex items-center justify-center text-gray-500 hover:bg-slate-700 transition-colors relative"
             aria-label={`Edit image for ${word.word}`}
           >
             {word.imageUrl ? (
-              <img src={word.imageUrl} alt={word.word} className="w-full h-full object-cover rounded-xl" />
+              <>
+                {isImageLoading && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-slate-700/80 rounded-xl">
+                    <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+                  </div>
+                )}
+                <img 
+                    src={word.imageUrl} 
+                    alt={word.word} 
+                    className={`w-full h-full object-cover rounded-xl transition-opacity duration-500 ${isImageLoading ? 'opacity-0' : 'opacity-100'}`}
+                    onLoad={handleImageLoad}
+                    onError={handleImageLoad} // Hide loader on error too
+                />
+              </>
             ) : (
               <ImageIcon className="w-8 h-8" />
             )}
