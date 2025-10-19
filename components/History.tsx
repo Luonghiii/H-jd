@@ -3,7 +3,7 @@ import { useHistory } from '../hooks/useHistory';
 import { HistoryEntry } from '../types';
 import { useInspector } from '../hooks/useInspector';
 import { useVocabulary } from '../hooks/useVocabulary';
-import { LogIn, LogOut, PlusSquare, BookOpen, CheckSquare, Award, XCircle, Trash2, Link, Puzzle, Shuffle, BrainCircuit, Volume2, Wand2, Image as ImageIcon, Search, PenSquare, Layers, ChevronDown } from 'lucide-react';
+import { LogIn, LogOut, PlusSquare, BookOpen, CheckSquare, Award, XCircle, Trash2, Link, Puzzle, Shuffle, BrainCircuit, Volume2, Wand2, Image as ImageIcon, Search, PenSquare, Layers, ChevronDown, Dices, RefreshCw } from 'lucide-react';
 
 const ICONS: { [key in HistoryEntry['type']]: React.ElementType } = {
     LOGIN: LogIn,
@@ -24,6 +24,7 @@ const ICONS: { [key in HistoryEntry['type']]: React.ElementType } = {
     GRAMMAR_CHECK_COMPLETED: CheckSquare,
     REVIEW_SESSION_COMPLETED: BrainCircuit,
     SPEECH_GENERATED: Volume2,
+    LUCKY_WHEEL_CORRECT_ANSWER: Dices,
 };
 
 const formatTimeAgo = (timestamp: number) => {
@@ -68,7 +69,7 @@ const isYesterday = (date: Date) => {
 };
 
 const History: React.FC = () => {
-    const { history } = useHistory();
+    const { history, loadMoreHistory, isLoadingMore, hasMore } = useHistory();
     const { openInspector } = useInspector();
     const { words } = useVocabulary();
     const [searchTerm, setSearchTerm] = useState('');
@@ -208,6 +209,17 @@ const History: React.FC = () => {
                     <p className="text-center text-gray-400 py-16">
                         {history.length > 0 ? "Không tìm thấy kết quả phù hợp." : "Chưa có hoạt động nào được ghi lại."}
                     </p>
+                )}
+                 {history.length > 0 && !searchTerm && (
+                    <div className="mt-4 text-center">
+                        {hasMore ? (
+                            <button onClick={loadMoreHistory} disabled={isLoadingMore} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-sm rounded-lg disabled:opacity-50">
+                                {isLoadingMore ? <><RefreshCw className="w-4 h-4 inline mr-2 animate-spin"/> Đang tải...</> : 'Tải thêm'}
+                            </button>
+                        ) : (
+                            <p className="text-sm text-gray-500">Đã tải tất cả lịch sử.</p>
+                        )}
+                    </div>
                 )}
             </div>
         </div>

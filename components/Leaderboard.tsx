@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSettings } from '../hooks/useSettings';
 import { useAuth } from '../hooks/useAuth';
 import { getLeaderboardData, LeaderboardEntry } from '../services/firestoreService';
-import { Trophy, Flame, BookOpen, UserCheck, Loader2, User as UserIcon } from 'lucide-react';
+import { Trophy, Flame, BookOpen, UserCheck, Loader2, User as UserIcon, AlertTriangle } from 'lucide-react';
 
 type LeaderboardTab = 'streak' | 'words';
 
@@ -36,11 +36,13 @@ const Leaderboard: React.FC = () => {
     const [streakData, setStreakData] = useState<LeaderboardEntry[]>([]);
     const [wordData, setWordData] = useState<LeaderboardEntry[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchData = async () => {
             if (isSettingsLoading) return;
             setIsLoading(true);
+            setError(null);
             try {
                 // Only fetch data if the user has opted-in to the leaderboard
                 if (leaderboardName) {
@@ -53,6 +55,7 @@ const Leaderboard: React.FC = () => {
                 }
             } catch (error) {
                 console.error("Failed to fetch leaderboard data", error);
+                setError("Không thể tải bảng xếp hạng. Điều này có thể do các quy tắc bảo mật của Firestore chưa được cấu hình đúng. Vui lòng đảm bảo bạn đã thiết lập quy tắc cho phép đọc công khai collection 'leaderboard'.");
             } finally {
                 setIsLoading(false);
             }
@@ -89,11 +92,18 @@ const Leaderboard: React.FC = () => {
 
             {isLoading ? (
                 <div className="text-center p-10"><Loader2 className="w-8 h-8 animate-spin" /></div>
+            ) : error ? (
+                <div className="text-center p-6 bg-red-500/10 border border-red-500/30 rounded-2xl max-w-md mx-auto">
+                    <AlertTriangle className="w-10 h-10 text-red-400 mx-auto mb-3" />
+                    <h3 className="font-bold text-red-300 mb-2">Lỗi tải dữ liệu</h3>
+                    <p className="text-sm text-red-300/80">{error}</p>
+                </div>
             ) : (
                 <div className="space-y-3">
                     {data.map((entry, index) => {
                         const rank = index + 1;
                         const isCurrentUser = entry.uid === currentUser?.uid;
+                        const displayName = isCurrentUser ? `${entry.name} (Bạn)` : entry.name;
                         return (
                             <div key={entry.uid} className={`flex items-center p-3 sm:p-4 rounded-2xl border transition-all duration-300 ${isCurrentUser ? 'bg-indigo-600/30 border-indigo-500 scale-105 shadow-lg shadow-indigo-500/20' : 'bg-slate-800/50 border-slate-700'}`}>
                                 <div className="flex items-center gap-3 sm:gap-4 flex-shrink-0">
@@ -108,7 +118,7 @@ const Leaderboard: React.FC = () => {
                                             <UserIcon className="w-6 h-6 text-gray-400" />
                                         </div>
                                     )}
-                                    <p className={`font-semibold truncate ${isCurrentUser ? 'text-white' : 'text-gray-200'}`}>{entry.name}</p>
+                                    <p className={`font-semibold truncate ${isCurrentUser ? 'text-white' : 'text-gray-200'}`}>{displayName}</p>
                                 </div>
                                 <div className="flex items-center gap-2 font-bold text-lg text-cyan-300 flex-shrink-0">
                                     <span>{entry.value}</span>

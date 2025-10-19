@@ -5,6 +5,7 @@ import { VocabularyWord } from '../types';
 import { generateQuizForWord } from '../services/geminiService';
 import { RefreshCw, Dices, Trophy, Flame, Star, ArrowLeft } from 'lucide-react';
 import { useInspector } from '../hooks/useInspector';
+import { useHistory } from '../hooks/useHistory';
 
 type Quiz = {
   question: string;
@@ -20,6 +21,7 @@ const LuckyWheel: React.FC<LuckyWheelProps> = ({ onBack }) => {
   const { words, getAvailableThemes } = useVocabulary();
   const { targetLanguage, learningLanguage, stats, updateBestStreak } = useSettings();
   const { openInspector } = useInspector();
+  const { addHistoryEntry } = useHistory();
   
   const availableThemes = useMemo(() => getAvailableThemes(), [getAvailableThemes]);
   const [selectedThemes, setSelectedThemes] = useState<Set<string>>(new Set(['all']));
@@ -120,7 +122,7 @@ const LuckyWheel: React.FC<LuckyWheelProps> = ({ onBack }) => {
   };
   
   const handleAnswer = (option: string) => {
-    if (showResult || !quiz) return;
+    if (showResult || !quiz || !resultWord) return;
     setSelectedAnswer(option);
     if (option === quiz.correctAnswer) {
       setScore(prev => prev + 1);
@@ -129,6 +131,7 @@ const LuckyWheel: React.FC<LuckyWheelProps> = ({ onBack }) => {
       if (newStreak > stats.luckyWheelBestStreak) {
         updateBestStreak(newStreak);
       }
+      addHistoryEntry('LUCKY_WHEEL_CORRECT_ANSWER', `Trả lời đúng câu hỏi cho từ "${resultWord.word}".`, { word: resultWord.word });
     } else {
       setCurrentStreak(0);
     }

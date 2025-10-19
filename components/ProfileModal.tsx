@@ -86,7 +86,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
 
     const handleSave = async () => {
         setIsLoading(true);
-        const nameToSave = isAnonymous ? ANONYMOUS_NAME : (leaderboardName.trim() || ANONYMOUS_NAME);
+        const nameToSave = isAnonymous ? ANONYMOUS_NAME : leaderboardName.trim();
 
         await Promise.all([
             updateUserProfile({

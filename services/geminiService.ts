@@ -61,6 +61,7 @@ const executeWithKeyRotation = async <T>(apiCall: (ai: GoogleGenAI) => Promise<T
 
 const textModel = 'gemini-2.5-flash';
 const imageModel = 'gemini-2.5-flash-image';
+const imagenModel = 'imagen-4.0-generate-001';
 
 const parseJsonResponse = <T>(text: string): T | null => {
     try {
@@ -283,18 +284,19 @@ Return the response as a JSON object.`;
 
 export const generateImageForWord = async (word: string): Promise<string> => {
     return executeWithKeyRotation(async (ai) => {
-        const response = await ai.models.generateContent({
-            model: imageModel,
-            contents: { parts: [{ text: `A clear, simple, high-quality image of: ${word}. Centered object, clean background.` }] },
+        const response = await ai.models.generateImages({
+            model: imagenModel,
+            prompt: `A clear, simple, high-quality image of: ${word}. Centered object, clean background.`,
             config: {
-                responseModalities: [Modality.IMAGE],
+              numberOfImages: 1,
+              outputMimeType: 'image/jpeg',
+              aspectRatio: '1:1',
             },
         });
 
-        for (const part of response.candidates[0].content.parts) {
-            if (part.inlineData) {
-                return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-            }
+        if (response.generatedImages?.[0]?.image?.imageBytes) {
+            const base64ImageBytes: string = response.generatedImages[0].image.imageBytes;
+            return `data:image/jpeg;base64,${base64ImageBytes}`;
         }
         throw new Error("No image generated");
     });
@@ -302,20 +304,19 @@ export const generateImageForWord = async (word: string): Promise<string> => {
 
 export const generateImageFromPrompt = async (prompt: string): Promise<string> => {
     return executeWithKeyRotation(async (ai) => {
-        const response = await ai.models.generateContent({
-          model: imageModel,
-          contents: {
-            parts: [{ text: prompt }],
-          },
-          config: {
-              responseModalities: [Modality.IMAGE],
-          },
+        const response = await ai.models.generateImages({
+            model: imagenModel,
+            prompt: prompt,
+            config: {
+              numberOfImages: 1,
+              outputMimeType: 'image/jpeg',
+              aspectRatio: '1:1',
+            },
         });
 
-        for (const part of response.candidates[0].content.parts) {
-          if (part.inlineData) {
-            return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-          }
+        if (response.generatedImages?.[0]?.image?.imageBytes) {
+          const base64ImageBytes: string = response.generatedImages[0].image.imageBytes;
+          return `data:image/jpeg;base64,${base64ImageBytes}`;
         }
         throw new Error("No image generated from prompt");
     });

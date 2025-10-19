@@ -15,7 +15,10 @@ import {
   orderBy,
   limit,
   getDocs,
-  where
+  where,
+  addDoc,
+  startAfter,
+  QueryDocumentSnapshot
 } from 'firebase/firestore';
 import { User } from 'firebase/auth';
 // FIX: import HistoryEntry
@@ -84,7 +87,7 @@ export const createUserDocument = async (user: User): Promise<void> => {
     if (!snap.exists()) {
       const { email, displayName, photoURL } = user;
       const initialGermanWords = generatedWordsToVocabulary(defaultGermanWords);
-      const initialData: UserDoc = {
+      const initialData: Omit<UserDoc, 'history'> = {
         uid: user.uid,
         email: email ?? null,
         displayName: displayName ?? '',
@@ -104,7 +107,6 @@ export const createUserDocument = async (user: User): Promise<void> => {
           customGradients: [],
           userApiKeys: [],
         },
-        history: [],
         stats: {
           luckyWheelBestStreak: 0,
           currentStreak: 0,
@@ -156,26 +158,15 @@ export const updateUserData = async (uid: string, data: DocumentData): Promise<v
 };
 
 /**
- * Appends a new entry to the user's history array using a transaction.
+ * Appends a new entry to the user's history subcollection.
  */
 export const appendHistoryEntry = async (uid: string, newEntry: HistoryEntry): Promise<void> => {
   if (!uid) return;
-  const userRef = doc(db, 'users', uid);
-
+  const historyCollectionRef = collection(db, 'users', uid, 'history');
   try {
-    await runTransaction(db, async (transaction) => {
-      const userDoc = await transaction.get(userRef);
-      if (!userDoc.exists()) {
-        console.error("User document does not exist for history update.");
-        return;
-      }
-      const data = userDoc.data() as UserDoc;
-      const oldHistory = data.history || [];
-      const newHistory = [newEntry, ...oldHistory].slice(0, 100); // Keep max 100 entries
-      transaction.update(userRef, { history: newHistory });
-    });
+    await addDoc(historyCollectionRef, newEntry);
   } catch (e) {
-    console.error("History update transaction failed: ", e);
+    console.error("History append failed: ", e);
     eventBus.dispatch('notification', { type: 'error', message: 'Không thể lưu lịch sử hoạt động.' });
     throw e;
   }
@@ -223,30 +214,32 @@ export const updateUserLeaderboardEntry = async (uid: string): Promise<void> => 
 export const getLeaderboardData = async (statField: 'longestStreak' | 'totalWords'): Promise<LeaderboardEntry[]> => {
     const leaderboardRef = collection(db, 'leaderboard');
     
-    // This query assumes the 'leaderboard' collection is world-readable
-    // and that the necessary Firestore indexes have been created.
+    // Query for all users who have set a name (not an empty string).
+    // This assumes the 'leaderboard' collection is world-readable.
     const q = query(
         leaderboardRef,
-        orderBy(statField, 'desc'),
-        limit(20) // Fetch more than 10 to filter out users with no name client-side
+        where('name', '!=', '')
     );
 
     try {
         const querySnapshot = await getDocs(q);
-        const leaderboard: LeaderboardEntry[] = [];
+        const allEntries: PublicLeaderboardEntry[] = [];
         querySnapshot.forEach((doc) => {
-            const data = doc.data() as PublicLeaderboardEntry;
-            // Filter out users who haven't set a name yet
-            if (data.name) {
-                leaderboard.push({
-                    uid: data.uid,
-                    name: data.name,
-                    value: data[statField],
-                    photoURL: data.photoURL,
-                });
-            }
+            allEntries.push(doc.data() as PublicLeaderboardEntry);
         });
-        return leaderboard.slice(0, 10); // Return top 10 of the filtered results
+
+        // Sort client-side to avoid complex Firestore indexes and limitations
+        allEntries.sort((a, b) => (b[statField] || 0) - (a[statField] || 0));
+        
+        // Map to the final format and take the top 10
+        const leaderboard = allEntries.slice(0, 10).map(data => ({
+            uid: data.uid,
+            name: data.name,
+            value: data[statField] || 0,
+            photoURL: data.photoURL,
+        }));
+        
+        return leaderboard;
     } catch (error) {
         console.error("Error getting leaderboard data:", error);
         throw new Error("Could not fetch leaderboard data.");
@@ -255,11 +248,11 @@ export const getLeaderboardData = async (statField: 'longestStreak' | 'totalWord
 
 
 // =====================
-// Realtime listener
+// Realtime listeners
 // =====================
+
 /**
- * Lắng nghe realtime thay đổi của document user.
- * Trả về hàm unsubscribe để dừng lắng nghe.
+ * Lắng nghe realtime thay đổi của document user (không bao gồm subcollections).
  */
 export const onUserDataSnapshot = (
   uid: string,
@@ -286,4 +279,58 @@ export const onUserDataSnapshot = (
   );
 
   return unsubscribe;
+};
+
+
+const HISTORY_PAGE_SIZE = 50;
+/**
+ * Gets the initial batch of history entries and listens for new ones.
+ */
+export const onHistorySnapshot = (
+  uid: string,
+  callback: (entries: HistoryEntry[], lastVisible: QueryDocumentSnapshot | null) => void
+): Unsubscribe => {
+  if (!uid) return () => {};
+  const historyCollectionRef = collection(db, 'users', uid, 'history');
+  const q = query(historyCollectionRef, orderBy('timestamp', 'desc'), limit(HISTORY_PAGE_SIZE));
+
+  const unsubscribe = onSnapshot(q, (snapshot) => {
+    const entries: HistoryEntry[] = [];
+    snapshot.forEach(doc => {
+      entries.push(doc.data() as HistoryEntry);
+    });
+    const lastVisible = snapshot.docs[snapshot.docs.length - 1];
+    callback(entries, lastVisible || null);
+  }, (error) => {
+    console.error('Error listening to history snapshot:', error);
+  });
+
+  return unsubscribe;
+};
+
+/**
+ * Fetches the next page of history entries.
+ */
+export const getMoreHistory = async (
+  uid: string,
+  startAfterDoc: QueryDocumentSnapshot | null
+): Promise<{ entries: HistoryEntry[]; lastVisible: QueryDocumentSnapshot | null }> => {
+  if (!uid || !startAfterDoc) return { entries: [], lastVisible: null };
+
+  const historyCollectionRef = collection(db, 'users', uid, 'history');
+  const q = query(
+    historyCollectionRef,
+    orderBy('timestamp', 'desc'),
+    startAfter(startAfterDoc),
+    limit(HISTORY_PAGE_SIZE)
+  );
+  
+  const querySnapshot = await getDocs(q);
+  const entries: HistoryEntry[] = [];
+  querySnapshot.forEach(doc => {
+    entries.push(doc.data() as HistoryEntry);
+  });
+  
+  const lastVisible = querySnapshot.docs[querySnapshot.docs.length - 1];
+  return { entries, lastVisible: lastVisible || null };
 };

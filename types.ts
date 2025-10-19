@@ -38,7 +38,6 @@ export interface UserDoc {
     createdAt: any;
     words: Record<string, VocabularyWord[]>;
     settings: any;
-    history: HistoryEntry[];
     stats: UserStats;
     aiTutorHistory: ConversationSession[];
     leaderboardName?: string;
@@ -57,7 +56,7 @@ export interface ChatMessage {
 
 export interface HistoryEntry {
     id: string;
-    type: 'LOGIN' | 'LOGOUT' | 'WORDS_ADDED' | 'STORY_GENERATED' | 'SENTENCE_GENERATED' | 'IMAGE_OBJECT_IDENTIFIED' | 'QUIZ_COMPLETED' | 'MEMORY_MATCH_WON' | 'MEMORY_MATCH_LOST' | 'SENTENCE_SCRAMBLE_WON' | 'WORD_GUESS_WON' | 'WORD_GUESS_LOST' | 'WORD_LINK_COMPLETED' | 'GRAMMAR_CHECK_COMPLETED' | 'REVIEW_SESSION_COMPLETED' | 'SPEECH_GENERATED' | 'PRACTICE_SESSION_COMPLETED' | 'FLASHCARDS_SESSION_STARTED';
+    type: 'LOGIN' | 'LOGOUT' | 'WORDS_ADDED' | 'STORY_GENERATED' | 'SENTENCE_GENERATED' | 'IMAGE_OBJECT_IDENTIFIED' | 'QUIZ_COMPLETED' | 'MEMORY_MATCH_WON' | 'MEMORY_MATCH_LOST' | 'SENTENCE_SCRAMBLE_WON' | 'WORD_GUESS_WON' | 'WORD_GUESS_LOST' | 'WORD_LINK_COMPLETED' | 'GRAMMAR_CHECK_COMPLETED' | 'REVIEW_SESSION_COMPLETED' | 'SPEECH_GENERATED' | 'PRACTICE_SESSION_COMPLETED' | 'FLASHCARDS_SESSION_STARTED' | 'LUCKY_WHEEL_CORRECT_ANSWER';
     details: string;
     timestamp: number;
     payload?: any;
@@ -93,6 +92,7 @@ export interface UserStats {
     luckyWheelBestStreak: number;
     currentStreak: number;
     longestStreak: number;
+
     lastActivityDate: string; // YYYY-MM-DD
     wordOfTheDay?: {
         wordId: string;
