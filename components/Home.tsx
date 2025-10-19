@@ -1,8 +1,133 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useVocabulary } from '../hooks/useVocabulary';
-import { View } from '../types';
-import { PenSquare, Layers, Dices, ArrowRight, Book, Star, Gamepad2, Sparkles, Flame } from 'lucide-react';
+import { View, VocabularyWord } from '../types';
+import { PenSquare, Layers, Dices, ArrowRight, Book, Star, Gamepad2, Sparkles, Flame, RotateCcw, Calendar, BrainCircuit } from 'lucide-react';
 import { useSettings } from '../hooks/useSettings';
+import { useInspector } from '../hooks/useInspector';
+
+
+const QuickReview: React.FC = () => {
+    const { words, updateWordSrs } = useVocabulary();
+    const { targetLanguage } = useSettings();
+
+    const wordsToReview = useMemo(() => {
+        return words
+            .filter(word => word.nextReview <= Date.now())
+            .sort((a, b) => a.srsLevel - b.srsLevel || a.nextReview - b.nextReview)
+            .slice(0, 5); // Take top 5
+    }, [words]);
+
+    const [currentIndex, setCurrentIndex] = useState(0);
+    const [isFlipped, setIsFlipped] = useState(false);
+    const [completed, setCompleted] = useState(false);
+
+    if (wordsToReview.length === 0 || completed) {
+        return (
+            <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 flex flex-col items-center justify-center text-center h-full">
+                <BrainCircuit className="w-8 h-8 text-emerald-400 mb-2" />
+                <h3 className="font-bold text-white">Ôn tập nhanh</h3>
+                <p className="text-sm text-gray-400 mt-1">
+                    {completed ? "Bạn đã hoàn thành phiên ôn tập nhanh!" : "Không có từ nào cần ôn tập ngay."}
+                </p>
+            </div>
+        );
+    }
+
+    const currentWord = wordsToReview[currentIndex];
+
+    const handlePerformance = (performance: 'hard' | 'good' | 'easy') => {
+        if (!isFlipped) return;
+        
+        updateWordSrs(currentWord.id, performance);
+        
+        if (currentIndex < wordsToReview.length - 1) {
+            setIsFlipped(false);
+            setTimeout(() => setCurrentIndex(prev => prev + 1), 150);
+        } else {
+            setCompleted(true);
+        }
+    };
+
+    return (
+        <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-4 flex flex-col h-full">
+            <h3 className="font-bold text-white mb-2 text-center">Ôn tập nhanh ({currentIndex + 1}/{wordsToReview.length})</h3>
+            <div className="flex-grow flex flex-col justify-center">
+                <div className="[perspective:1000px]" onClick={() => setIsFlipped(!isFlipped)}>
+                    <div 
+                        className="relative w-full h-32 rounded-lg [transform-style:preserve-3d] transition-transform duration-500 cursor-pointer"
+                        style={{ transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'}}
+                    >
+                        <div className="absolute w-full h-full [backface-visibility:hidden] flex items-center justify-center p-2 bg-slate-700 rounded-lg">
+                            <p className="text-xl font-bold text-white text-center">{currentWord.word}</p>
+                        </div>
+                        <div className="absolute w-full h-full [backface-visibility:hidden] [transform:rotateY(180deg)] flex items-center justify-center p-2 bg-indigo-500 rounded-lg">
+                            <p className="text-xl font-bold text-white text-center">{currentWord.translation[targetLanguage]}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {isFlipped ? (
+                 <div className="grid grid-cols-3 gap-2 mt-3 animate-fade-in">
+                    <button onClick={() => handlePerformance('hard')} className="py-2 bg-red-500/20 hover:bg-red-500/40 text-red-300 text-sm font-semibold rounded-lg">Khó</button>
+                    <button onClick={() => handlePerformance('good')} className="py-2 bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 text-sm font-semibold rounded-lg">Tốt</button>
+                    <button onClick={() => handlePerformance('easy')} className="py-2 bg-green-500/20 hover:bg-green-500/40 text-green-300 text-sm font-semibold rounded-lg">Dễ</button>
+                 </div>
+            ) : (
+                <div className="text-center h-[40px] flex items-center justify-center mt-3">
+                    <p className="text-xs text-gray-500">Nhấn vào thẻ để xem đáp án.</p>
+                </div>
+            )}
+        </div>
+    );
+}
+
+const WordOfTheDay: React.FC = () => {
+    const { words, isWordsLoading } = useVocabulary();
+    const { stats, isSettingsLoading, setWordOfTheDay, targetLanguage } = useSettings();
+    const { openInspector } = useInspector();
+    const [word, setWord] = useState<VocabularyWord | null>(null);
+
+    useEffect(() => {
+        if (isWordsLoading || isSettingsLoading || words.length === 0) return;
+
+        const today = new Date().toISOString().split('T')[0];
+        
+        if (stats.wordOfTheDay?.date === today) {
+            const currentWord = words.find(w => w.id === stats.wordOfTheDay?.wordId);
+            setWord(currentWord || null);
+        } else {
+            // Select a new word
+            const wordsNeedingReview = words.filter(w => w.nextReview <= Date.now());
+            const selectionPool = wordsNeedingReview.length > 0 ? wordsNeedingReview : words;
+            const newWord = selectionPool[Math.floor(Math.random() * selectionPool.length)];
+            setWord(newWord);
+            setWordOfTheDay(newWord.id);
+        }
+    }, [words, isWordsLoading, stats.wordOfTheDay, isSettingsLoading, setWordOfTheDay]);
+
+    if (!word) {
+         return (
+            <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 flex flex-col items-center justify-center text-center h-full">
+                <Calendar className="w-8 h-8 text-cyan-400 mb-2" />
+                <h3 className="font-bold text-white">Từ của Ngày</h3>
+                <p className="text-sm text-gray-400 mt-1">Thêm từ vựng để bắt đầu nhận từ mới mỗi ngày.</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-4 flex flex-col h-full cursor-pointer" onClick={() => openInspector(word)}>
+            <h3 className="font-bold text-white mb-2 text-center">Từ của Ngày</h3>
+            <div className="flex-grow flex flex-col items-center justify-center text-center">
+                 {word.imageUrl && <img src={word.imageUrl} alt={word.word} className="w-full h-24 object-contain rounded-md mb-3" />}
+                <p className="text-2xl font-bold text-cyan-300">{word.word}</p>
+                <p className="text-gray-400">{word.translation[targetLanguage]}</p>
+            </div>
+            <p className="text-xs text-gray-500 text-center mt-2">Nhấn để xem chi tiết</p>
+        </div>
+    );
+};
+
 
 interface HomeProps {
   setCurrentView: (view: View) => void;
@@ -95,9 +220,14 @@ const Home: React.FC<HomeProps> = ({ setCurrentView }) => {
             </div>
         </div>
       </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <WordOfTheDay />
+        <QuickReview />
+      </div>
 
       <div>
-        <h2 className="text-2xl font-bold text-white mb-4">Bắt đầu học</h2>
+        <h2 className="text-2xl font-bold text-white mb-4">Các chế độ học</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
           {featureCards.map((card) => (
             <div

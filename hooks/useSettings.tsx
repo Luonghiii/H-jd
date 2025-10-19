@@ -3,6 +3,7 @@ import { TargetLanguage, LearningLanguage, ConversationSession, UserStats } from
 import { useAuth } from './useAuth';
 import { onUserDataSnapshot, updateUserData } from '../services/firestoreService';
 import { setApiKeys } from '../services/geminiService';
+import { uploadAvatar } from '../services/storageService';
 
 export type BackgroundSetting = {
   type: 'image' | 'gradient';
@@ -10,6 +11,14 @@ export type BackgroundSetting = {
 } | null;
 
 const MAX_API_KEYS = 10;
+
+interface UserProfile {
+    displayName: string | null;
+    username: string;
+    dob: string;
+    photoURL: string | null;
+    avatarFrame: string;
+}
 
 interface SettingsContextType {
   targetLanguage: TargetLanguage;
@@ -31,9 +40,18 @@ interface SettingsContextType {
   stats: UserStats;
   updateBestStreak: (streak: number) => Promise<void>;
   recordActivity: () => Promise<void>;
+  setWordOfTheDay: (wordId: string) => Promise<void>;
   aiTutorHistory: ConversationSession[];
   saveTutorSession: (session: ConversationSession) => Promise<void>;
   clearTutorHistory: () => Promise<void>;
+  leaderboardName: string | null;
+  setLeaderboardName: (name: string) => Promise<void>;
+  updateWordCountStat: (count: number) => Promise<void>;
+  profile: UserProfile;
+  updateUserProfile: (updates: Partial<UserProfile>) => Promise<void>;
+  updateAvatarFromFile: (file: File) => Promise<void>;
+  updateAvatarFromUrl: (url: string) => Promise<void>;
+  updateAvatarFrame: (frameId: string) => Promise<void>;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -49,8 +67,18 @@ const defaultState = {
       currentStreak: 0,
       longestStreak: 0,
       lastActivityDate: '',
+      wordOfTheDay: undefined,
+      totalWords: 0,
     } as UserStats,
     aiTutorHistory: [] as ConversationSession[],
+    leaderboardName: null as string | null,
+    profile: {
+        displayName: '',
+        username: '',
+        dob: '',
+        photoURL: null,
+        avatarFrame: ''
+    } as UserProfile,
 };
 
 export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -78,6 +106,14 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
             userApiKeys: data.settings?.userApiKeys || defaultState.userApiKeys,
             stats: { ...defaultState.stats, ...data.stats },
             aiTutorHistory: data.aiTutorHistory || defaultState.aiTutorHistory,
+            leaderboardName: data.leaderboardName || null,
+            profile: {
+                displayName: data.displayName || currentUser.displayName || '',
+                username: data.username || '',
+                dob: data.dob || '',
+                photoURL: data.photoURL || currentUser.photoURL || null,
+                avatarFrame: data.avatarFrame || ''
+            }
           };
           setAppState(combinedState);
           setApiKeys(combinedState.userApiKeys);
@@ -190,6 +226,12 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     await updateUserData(currentUser.uid, { stats: { luckyWheelBestStreak: streak } });
   }, [currentUser]);
 
+  const setWordOfTheDay = useCallback(async (wordId: string) => {
+    if (!currentUser) return;
+    const today = new Date().toISOString().split('T')[0];
+    await updateUserData(currentUser.uid, { stats: { wordOfTheDay: { wordId, date: today } } });
+  }, [currentUser]);
+
   const saveTutorSession = useCallback(async (session: ConversationSession) => {
     if (!currentUser) return;
     const newHistory = [session, ...appState.aiTutorHistory].slice(0, 50); // Limit history size
@@ -200,7 +242,37 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     if (!currentUser) return;
     await updateUserData(currentUser.uid, { aiTutorHistory: [] });
   }, [currentUser]);
+  
+  const setLeaderboardName = useCallback(async (name: string) => {
+    if (!currentUser) return;
+    await updateUserData(currentUser.uid, { leaderboardName: name });
+  }, [currentUser]);
 
+  const updateWordCountStat = useCallback(async (count: number) => {
+    if (!currentUser) return;
+    await updateUserData(currentUser.uid, { stats: { totalWords: count } });
+  }, [currentUser]);
+
+  const updateUserProfile = useCallback(async (updates: Partial<UserProfile>) => {
+    if (!currentUser) return;
+    await updateUserData(currentUser.uid, updates);
+  }, [currentUser]);
+
+  const updateAvatarFromFile = useCallback(async (file: File) => {
+      if (!currentUser) return;
+      const newPhotoURL = await uploadAvatar(currentUser.uid, file);
+      await updateUserData(currentUser.uid, { photoURL: newPhotoURL });
+  }, [currentUser]);
+
+  const updateAvatarFromUrl = useCallback(async (url: string) => {
+      if (!currentUser) return;
+      await updateUserData(currentUser.uid, { photoURL: url });
+  }, [currentUser]);
+
+  const updateAvatarFrame = useCallback(async (frameId: string) => {
+    if (!currentUser) return;
+    await updateUserData(currentUser.uid, { avatarFrame: frameId });
+  }, [currentUser]);
 
   const hasApiKey = !!process.env.API_KEY || appState.userApiKeys.length > 0;
 
@@ -224,9 +296,18 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     stats: appState.stats,
     updateBestStreak,
     recordActivity,
+    setWordOfTheDay,
     aiTutorHistory: appState.aiTutorHistory,
     saveTutorSession,
     clearTutorHistory,
+    leaderboardName: appState.leaderboardName,
+    setLeaderboardName,
+    updateWordCountStat,
+    profile: appState.profile,
+    updateUserProfile,
+    updateAvatarFromFile,
+    updateAvatarFromUrl,
+    updateAvatarFrame,
   };
 
   return (

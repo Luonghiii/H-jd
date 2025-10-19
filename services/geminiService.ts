@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
-import { VocabularyWord, WordInfo, TargetLanguage, LearningLanguage, ChatMessage, GeneratedWord, Quiz } from '../types';
+import { VocabularyWord, WordInfo, TargetLanguage, LearningLanguage, ChatMessage, GeneratedWord, Quiz, AiLesson } from '../types';
 import eventBus from '../utils/eventBus';
 
 let currentApiIndex = 0;
@@ -540,5 +540,57 @@ export const checkGrammar = async (text: string, learningLanguage: LearningLangu
             }
         });
         return parseJsonResponse<{ correctedText: string; feedback: { error: string; correction: string; explanation: string }[] }>(response.text);
+    });
+};
+
+export const generateAiLesson = async (theme: string, learningLanguage: LearningLanguage, targetLanguage: TargetLanguage): Promise<AiLesson | null> => {
+    return executeWithKeyRotation(async (ai) => {
+        const systemInstruction = `You are a language teacher AI. Create a mini-lesson for a user learning ${learningLanguage}. The user's native language is ${targetLanguage}.
+The lesson must be about the theme: "${theme}".
+Structure the output as a single JSON object.
+The lesson should contain four parts:
+1.  "vocabulary": An array of 10-12 useful vocabulary words related to the theme. Each object should have "word" (in ${learningLanguage}) and "translation" (in ${targetLanguage}).
+2.  "dialogue": A short, practical dialogue between two speakers (e.g., A and B) using some of the vocabulary. It should be an array of objects, each with "speaker" and "line" (in ${learningLanguage}).
+3.  "story": A very short, simple story (3-5 sentences) that incorporates some of the vocabulary. The story should be in ${learningLanguage}.
+4.  "grammarTip": A simple, relevant grammar tip related to the vocabulary or dialogue. The object should have "title" and "explanation" (in ${targetLanguage}).
+All content should be suitable for an A2/B1 level learner.`;
+
+        const response = await ai.models.generateContent({
+            model: textModel,
+            contents: `Generate a lesson about "${theme}".`,
+            config: {
+                systemInstruction,
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        vocabulary: {
+                            type: Type.ARRAY,
+                            items: {
+                                type: Type.OBJECT,
+                                properties: { word: { type: Type.STRING }, translation: { type: Type.STRING } },
+                                required: ["word", "translation"]
+                            }
+                        },
+                        dialogue: {
+                            type: Type.ARRAY,
+                            items: {
+                                type: Type.OBJECT,
+                                properties: { speaker: { type: Type.STRING }, line: { type: Type.STRING } },
+                                required: ["speaker", "line"]
+                            }
+                        },
+                        story: { type: Type.STRING },
+                        grammarTip: {
+                            type: Type.OBJECT,
+                            properties: { title: { type: Type.STRING }, explanation: { type: Type.STRING } },
+                            required: ["title", "explanation"]
+                        }
+                    },
+                    required: ["vocabulary", "dialogue", "story", "grammarTip"]
+                }
+            }
+        });
+        return parseJsonResponse<AiLesson>(response.text);
     });
 };

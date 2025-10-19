@@ -60,10 +60,10 @@ export const themeTranslationMap: Record<string, string> = {
 
 const srsIntervalsDays = [1, 3, 7, 14, 30, 90, 180, 365];
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
-const MINUTE_IN_MS = 60 * 1000;
+const MINUTE_IN_MS = 60 * 60 * 1000;
 
 export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { learningLanguage } = useSettings();
+  const { learningLanguage, updateWordCountStat } = useSettings();
   const { currentUser, isLoading: isAuthLoading } = useAuth();
   const [words, setWords] = useState<VocabularyWord[]>([]);
   const [isWordsLoading, setIsWordsLoading] = useState(true);
@@ -101,8 +101,9 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
           await updateUserData(currentUser.uid, {
               words: { [learningLanguage]: newWords }
           });
+          await updateWordCountStat(newWords.length);
       }
-  }, [currentUser, learningLanguage]);
+  }, [currentUser, learningLanguage, updateWordCountStat]);
 
   const addWord = useCallback(async (word: string, providedTranslation: string, language: TargetLanguage, theme?: string) => {
     let vietnamese = '';

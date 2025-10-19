@@ -3,7 +3,7 @@ import { useHistory } from '../hooks/useHistory';
 import { HistoryEntry } from '../types';
 import { useInspector } from '../hooks/useInspector';
 import { useVocabulary } from '../hooks/useVocabulary';
-import { LogIn, LogOut, PlusSquare, BookOpen, CheckSquare, Award, XCircle, Trash2, Link, Puzzle, Shuffle, BrainCircuit, Volume2, Wand2, Image as ImageIcon, Search, PenSquare, Layers } from 'lucide-react';
+import { LogIn, LogOut, PlusSquare, BookOpen, CheckSquare, Award, XCircle, Trash2, Link, Puzzle, Shuffle, BrainCircuit, Volume2, Wand2, Image as ImageIcon, Search, PenSquare, Layers, ChevronDown } from 'lucide-react';
 
 const ICONS: { [key in HistoryEntry['type']]: React.ElementType } = {
     LOGIN: LogIn,
@@ -74,15 +74,13 @@ const History: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
 
     const groupedHistory = useMemo(() => {
-        const filtered = searchTerm 
-            ? history.filter(entry => 
+        const filtered = searchTerm
+            ? history.filter(entry =>
                 entry.details.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                // FIX: Add type check for payload.word to ensure it's a string before calling string methods.
                 (entry.payload?.word && typeof entry.payload.word === 'string' && entry.payload.word.toLowerCase().includes(searchTerm.toLowerCase()))
               )
             : history;
 
-        // FIX: Use a generic parameter on `reduce` for safer type inference instead of casting the initial value.
         return filtered.reduce<Record<string, HistoryEntry[]>>((acc, entry) => {
             const entryDate = new Date(entry.timestamp);
             let key = '';
@@ -107,6 +105,22 @@ const History: React.FC = () => {
             return acc;
         }, {});
     }, [history, searchTerm]);
+
+    const sortedGroupKeys = useMemo(() => {
+        const keys = Object.keys(groupedHistory);
+        return keys.sort((a, b) => {
+            if (a === 'Hôm nay') return -1;
+            if (b === 'Hôm nay') return 1;
+            if (a === 'Hôm qua') return -1;
+            if (b === 'Hôm qua') return 1;
+            
+            const timestampA = groupedHistory[a][0]?.timestamp || 0;
+            const timestampB = groupedHistory[b][0]?.timestamp || 0;
+            
+            return timestampB - timestampA;
+        });
+    }, [groupedHistory]);
+
 
     const handleEntryClick = (entry: HistoryEntry) => {
         if (entry.payload?.word) {
@@ -155,11 +169,16 @@ const History: React.FC = () => {
             
             <div className="max-h-[55vh] overflow-y-auto pr-2">
                 {Object.keys(groupedHistory).length > 0 ? (
-                    <div className="space-y-6">
-                        {Object.entries(groupedHistory).map(([date, entries]) => (
-                            <div key={date}>
-                                <h3 className="text-lg font-semibold text-white mb-3 sticky top-0 bg-slate-900/80 backdrop-blur-sm py-2 z-10">{date}</h3>
-                                <div className="space-y-3">
+                    <div className="space-y-4">
+                        {sortedGroupKeys.map(date => {
+                            const entries = groupedHistory[date];
+                            return (
+                            <details key={date} className="group" open={date === 'Hôm nay'}>
+                                <summary className="list-none flex items-center justify-between cursor-pointer p-3 bg-slate-800/60 rounded-xl sticky top-0 backdrop-blur-sm border-b border-slate-700">
+                                    <h3 className="font-semibold text-white">{date} ({entries.length})</h3>
+                                    <ChevronDown className="w-5 h-5 text-gray-400 group-open:rotate-180 transition-transform"/>
+                                </summary>
+                                <div className="space-y-3 mt-2">
                                     {entries.map(entry => {
                                         const Icon = ICONS[entry.type] || BookOpen;
                                         const isClickable = !!entry.payload?.word && words.some(w => w.word === entry.payload.word);
@@ -167,7 +186,7 @@ const History: React.FC = () => {
                                             <div 
                                                 key={entry.id}
                                                 onClick={() => handleEntryClick(entry)}
-                                                className={`flex items-start gap-4 p-4 rounded-xl transition-colors ${isClickable ? 'cursor-pointer bg-slate-800/50 hover:bg-slate-700/50' : 'bg-slate-800/50'}`}
+                                                className={`flex items-start gap-4 p-4 rounded-xl ${isClickable ? 'cursor-pointer bg-slate-800/50 hover:bg-slate-700/50 hover:scale-[1.01] transition-all duration-200' : 'bg-slate-800/50'}`}
                                             >
                                                 <div className="p-2 bg-slate-700/50 rounded-full flex-shrink-0 mt-1">
                                                     <Icon className="w-5 h-5 text-gray-300" />
@@ -182,8 +201,8 @@ const History: React.FC = () => {
                                         )
                                     })}
                                 </div>
-                            </div>
-                        ))}
+                            </details>
+                        )})}
                     </div>
                 ) : (
                     <p className="text-center text-gray-400 py-16">

@@ -160,7 +160,7 @@ const Practice: React.FC = () => {
           </div>
           <div className="max-h-[20vh] overflow-y-auto pr-2 bg-slate-800/50 border border-slate-700 rounded-2xl p-3 space-y-2">
             {themeFilteredWords.map(word => (
-              <div key={word.id} onClick={() => handleToggleWord(word.id)} className="flex items-center p-2 rounded-xl hover:bg-slate-700/50 cursor-pointer">
+              <div key={word.id} onClick={() => handleToggleWord(word.id)} className="flex items-center p-2 rounded-xl hover:bg-slate-700/50 cursor-pointer transition-colors">
                 <input 
                   type="checkbox" 
                   checked={selectedIds.has(word.id)}

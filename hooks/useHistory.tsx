@@ -39,7 +39,8 @@ export const HistoryProvider: React.FC<{ children: ReactNode }> = ({ children })
       type,
       details,
       timestamp: Date.now(),
-      payload,
+      // Conditionally add payload only if it's not undefined to prevent Firestore errors.
+      ...(payload !== undefined && { payload }),
     };
     
     try {

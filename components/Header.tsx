@@ -1,6 +1,10 @@
-import React from 'react';
-import { BookOpen, LogOut, Settings, Flame } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { BookOpen, Settings, Flame, User as UserIcon, Edit, LogOut } from 'lucide-react';
 import { useSettings } from '../hooks/useSettings';
+import { useAuth } from '../hooks/useAuth';
+import { useHistory } from '../hooks/useHistory';
+import { auth } from '../services/firebase';
+import { signOut } from 'firebase/auth';
 
 const TargetLanguageSelector: React.FC = () => {
   const { targetLanguage, setTargetLanguage } = useSettings();
@@ -52,7 +56,58 @@ const StreakDisplay: React.FC = () => {
   )
 }
 
-const Header: React.FC<{ onLogout: () => void; onOpenSettings: () => void; }> = ({ onLogout, onOpenSettings }) => {
+const ProfileDropdown: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  onLogout: () => void;
+  onEditProfile: () => void;
+}> = ({ isOpen, onClose, onLogout, onEditProfile }) => {
+  const { profile } = useSettings();
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        onClose();
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [onClose]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div ref={dropdownRef} className="absolute top-full right-0 mt-2 w-64 bg-slate-800/90 backdrop-blur-md border border-slate-700 rounded-xl shadow-2xl p-4 z-50 animate-fade-in-up">
+        <div className="flex flex-col items-center pb-3 border-b border-slate-700">
+            <p className="font-bold text-white truncate">{profile.displayName || 'Người dùng'}</p>
+            {profile.username && <p className="text-sm text-gray-400">@{profile.username}</p>}
+        </div>
+        <div className="py-2">
+            <button onClick={onEditProfile} className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md hover:bg-slate-700">
+                <Edit className="w-4 h-4 text-gray-400" />
+                <span>Chỉnh sửa hồ sơ</span>
+            </button>
+             <button onClick={onLogout} className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md text-red-400 hover:bg-red-500/10">
+                <LogOut className="w-4 h-4" />
+                <span>Đăng xuất</span>
+            </button>
+        </div>
+    </div>
+  );
+};
+
+
+const Header: React.FC<{ onOpenSettings: () => void; onOpenProfile: () => void; }> = ({ onOpenSettings, onOpenProfile }) => {
+  const { addHistoryEntry } = useHistory();
+  const { profile } = useSettings();
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  
+  const handleLogout = async () => {
+    await addHistoryEntry('LOGOUT', 'Đã đăng xuất.');
+    await signOut(auth);
+  };
+  
   return (
     <header className="py-4 px-4 sm:px-8">
       <div className="container mx-auto flex items-center justify-between">
@@ -72,13 +127,33 @@ const Header: React.FC<{ onLogout: () => void; onOpenSettings: () => void; }> = 
           >
             <Settings className="w-5 h-5" />
           </button>
-          <button
-            onClick={onLogout}
-            className="p-2 text-gray-300 hover:bg-slate-700/50 hover:text-white rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-indigo-500"
-            aria-label="Đăng xuất"
-          >
-            <LogOut className="w-5 h-5" />
-          </button>
+          
+          <div className="relative">
+            <button
+                onClick={() => setIsProfileOpen(prev => !prev)}
+                className="w-10 h-10 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-indigo-500 relative"
+            >
+                {profile.photoURL ? (
+                    <img src={profile.photoURL} alt="User Avatar" className="w-full h-full rounded-full object-cover" />
+                ) : (
+                    <div className="w-full h-full rounded-full bg-slate-700 flex items-center justify-center">
+                        <UserIcon className="w-6 h-6 text-gray-400" />
+                    </div>
+                )}
+                {profile.avatarFrame && (
+                    <img src={profile.avatarFrame} alt="Avatar Frame" className="absolute inset-0 w-full h-full pointer-events-none" />
+                )}
+            </button>
+            <ProfileDropdown 
+                isOpen={isProfileOpen}
+                onClose={() => setIsProfileOpen(false)}
+                onLogout={handleLogout}
+                onEditProfile={() => {
+                    setIsProfileOpen(false);
+                    onOpenProfile();
+                }}
+            />
+          </div>
         </div>
       </div>
     </header>

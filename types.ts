@@ -28,6 +28,23 @@ export interface GeneratedWord {
     theme: string;
 }
 
+export interface UserDoc {
+    uid: string;
+    email: string | null;
+    displayName: string | null;
+    photoURL: string | null;
+    username?: string;
+    dob?: string; // Date of Birth YYYY-MM-DD
+    avatarFrame?: string;
+    createdAt: any;
+    words: Record<string, VocabularyWord[]>;
+    settings: any;
+    history: HistoryEntry[];
+    stats: UserStats;
+    aiTutorHistory: ConversationSession[];
+    leaderboardName?: string;
+}
+
 export interface WordInfo {
     partOfSpeech: string;
     gender?: string; // e.g., for German
@@ -56,7 +73,8 @@ export enum View {
   Review = 'review',
   Games = 'games',
   AiTools = 'aitools',
-  History = 'history'
+  History = 'history',
+  Leaderboard = 'leaderboard',
 }
 
 export interface Quiz {
@@ -77,4 +95,16 @@ export interface UserStats {
     currentStreak: number;
     longestStreak: number;
     lastActivityDate: string; // YYYY-MM-DD
+    wordOfTheDay?: {
+        wordId: string;
+        date: string; // YYYY-MM-DD
+    },
+    totalWords: number;
+}
+
+export interface AiLesson {
+    vocabulary: { word: string; translation: string; }[];
+    dialogue: { speaker: string; line: string; }[];
+    story: string;
+    grammarTip: { title: string; explanation: string; };
 }

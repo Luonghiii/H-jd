@@ -18,23 +18,24 @@ import PrivacyPolicyModal from './components/PrivacyPolicyModal';
 import TermsOfServiceModal from './components/TermsOfServiceModal';
 import History from './components/History';
 import { View } from './types';
-import { Home as HomeIcon, BookOpen, Feather, PenSquare, Sparkles, Layers, Gamepad2, History as HistoryIcon, BrainCircuit } from 'lucide-react';
+import { Home as HomeIcon, BookOpen, Feather, PenSquare, Sparkles, Layers, Gamepad2, History as HistoryIcon, BrainCircuit, Trophy as TrophyIcon } from 'lucide-react';
 import SettingsModal from './components/SettingsModal';
+import ProfileModal from './components/ProfileModal';
 import Games from './components/Games';
 import AiTools from './components/AiTools';
 import Review from './components/Review';
 import ApiKeySetup from './components/ApiKeySetup';
 import NotificationManager from './components/NotificationManager';
-import { auth } from './services/firebase';
-import { signOut } from 'firebase/auth';
 import { Loader2 } from 'lucide-react';
+import Leaderboard from './components/Leaderboard';
 
-const AppLayout: React.FC<{ onLogout: () => void; onOpenSettings: () => void; }> = ({ onLogout, onOpenSettings }) => {
+const AppLayout: React.FC<{ onOpenSettings: () => void; }> = ({ onOpenSettings }) => {
   const [currentView, setCurrentView] = useState<View>(View.Home);
   const { inspectingWord, closeInspector } = useInspector();
   const { backgroundSetting } = useSettings();
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
   const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   const renderView = () => {
     switch (currentView) {
@@ -56,6 +57,8 @@ const AppLayout: React.FC<{ onLogout: () => void; onOpenSettings: () => void; }>
         return <AiTools />;
       case View.History:
         return <History />;
+      case View.Leaderboard:
+        return <Leaderboard />;
       default:
         return <Home setCurrentView={setCurrentView} />;
     }
@@ -67,6 +70,7 @@ const AppLayout: React.FC<{ onLogout: () => void; onOpenSettings: () => void; }>
     { view: View.Practice, label: 'Luyện tập', icon: PenSquare },
     { view: View.Flashcards, label: 'Thẻ ghi nhớ', icon: Layers },
     { view: View.Games, label: 'Trò chơi', icon: Gamepad2 },
+    { view: View.Leaderboard, label: 'Bảng xếp hạng', icon: TrophyIcon },
     { view: View.AiTools, label: 'Công cụ AI', icon: Sparkles },
     { view: View.Add, label: 'Thêm từ', icon: Feather },
     { view: View.List, label: 'Danh sách từ', icon: BookOpen },
@@ -96,7 +100,7 @@ const AppLayout: React.FC<{ onLogout: () => void; onOpenSettings: () => void; }>
         className={`min-h-screen text-gray-200 font-sans flex flex-col ${backgroundClasses}`}
         style={backgroundStyle}
       >
-        <Header onLogout={onLogout} onOpenSettings={onOpenSettings} />
+        <Header onOpenSettings={onOpenSettings} onOpenProfile={() => setIsProfileModalOpen(true)} />
         <main className="container mx-auto p-4 md:p-6 lg:p-8 flex-grow">
           <div className="max-w-5xl mx-auto">
             <div className={`${contentContainerClasses} rounded-3xl shadow-2xl shadow-slate-900/50 border border-slate-700/60`}>
@@ -137,6 +141,7 @@ const AppLayout: React.FC<{ onLogout: () => void; onOpenSettings: () => void; }>
       )}
       <PrivacyPolicyModal isOpen={isPrivacyModalOpen} onClose={() => setIsPrivacyModalOpen(false)} />
       <TermsOfServiceModal isOpen={isTermsModalOpen} onClose={() => setIsTermsModalOpen(false)} />
+      <ProfileModal isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} />
     </>
   );
 };
@@ -162,11 +167,6 @@ const AppContent: React.FC = () => {
   const { hasApiKey } = useSettings();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
-  const handleLogout = async (addHistoryEntry: (type: any, details: string) => Promise<void>) => {
-    await addHistoryEntry('LOGOUT', 'Đã đăng xuất.');
-    await signOut(auth);
-  };
-
   if (isLoading) {
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-900">
@@ -186,26 +186,18 @@ const AppContent: React.FC = () => {
   return (
     <VocabularyProvider>
         <HistoryProvider>
+          <InspectorProvider>
             <LoginHistoryLogger />
-            <LogoutWrapper onLogout={handleLogout} onOpenSettings={() => setIsSettingsOpen(true)} />
+            <AppLayout onOpenSettings={() => setIsSettingsOpen(true)} />
             <SettingsModal 
                 isOpen={isSettingsOpen}
                 onClose={() => setIsSettingsOpen(false)}
             />
+          </InspectorProvider>
         </HistoryProvider>
     </VocabularyProvider>
   );
 }
-
-// A new wrapper component to access useHistory for the logout function
-const LogoutWrapper: React.FC<{onLogout: (addHistoryEntry: any) => Promise<void>, onOpenSettings: () => void}> = ({ onLogout, onOpenSettings }) => {
-    const { addHistoryEntry } = useHistory();
-    return (
-        <InspectorProvider>
-            <AppLayout onLogout={() => onLogout(addHistoryEntry)} onOpenSettings={onOpenSettings} />
-        </InspectorProvider>
-    );
-};
 
 const App: React.FC = () => {
   return (

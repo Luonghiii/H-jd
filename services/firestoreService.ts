@@ -10,10 +10,16 @@ import {
   serverTimestamp,
   DocumentData,
   Unsubscribe,
+  query,
+  collection,
+  orderBy,
+  limit,
+  getDocs,
+  where
 } from 'firebase/firestore';
 import { User } from 'firebase/auth';
 // FIX: import HistoryEntry
-import { ConversationSession, GeneratedWord, HistoryEntry, UserStats, VocabularyWord } from '../types';
+import { ConversationSession, GeneratedWord, HistoryEntry, UserStats, VocabularyWord, UserDoc } from '../types';
 import eventBus from '../utils/eventBus';
 import { defaultGermanWords } from '../data/german_words';
 import { defaultEnglishWords } from '../data/english_words';
@@ -30,18 +36,10 @@ export interface UserSettings {
   userApiKeys: string[];
 }
 
-export interface UserDoc {
-  uid: string;
-  email: string | null;
-  displayName: string | null;
-  photoURL: string | null;
-  createdAt: any;
-  words: Record<string, VocabularyWord[]>;
-  settings: UserSettings;
-  // FIX: history should be of type HistoryEntry[] to prevent type errors in components.
-  history: HistoryEntry[];
-  stats: UserStats;
-  aiTutorHistory: ConversationSession[];
+export interface LeaderboardEntry {
+    uid: string;
+    name: string;
+    value: number;
 }
 
 const generatedWordsToVocabulary = (words: GeneratedWord[]): VocabularyWord[] => {
@@ -73,14 +71,18 @@ export const createUserDocument = async (user: User): Promise<void> => {
     const snap = await tx.get(userRef);
     if (!snap.exists()) {
       const { email, displayName, photoURL } = user;
+      const initialGermanWords = generatedWordsToVocabulary(defaultGermanWords);
       const initialData: UserDoc = {
         uid: user.uid,
         email: email ?? null,
-        displayName: displayName ?? null,
+        displayName: displayName ?? '',
         photoURL: photoURL ?? null,
+        username: '',
+        dob: '',
+        avatarFrame: '',
         createdAt: serverTimestamp(),
         words: {
-            german: generatedWordsToVocabulary(defaultGermanWords),
+            german: initialGermanWords,
             english: generatedWordsToVocabulary(defaultEnglishWords),
             chinese: generatedWordsToVocabulary(defaultChineseWords),
         },
@@ -97,8 +99,11 @@ export const createUserDocument = async (user: User): Promise<void> => {
           currentStreak: 0,
           longestStreak: 0,
           lastActivityDate: '',
+          wordOfTheDay: undefined,
+          totalWords: initialGermanWords.length,
         },
         aiTutorHistory: [],
+        leaderboardName: '',
       };
       tx.set(userRef, initialData);
     }
@@ -153,6 +158,36 @@ export const appendHistoryEntry = async (uid: string, newEntry: HistoryEntry): P
     eventBus.dispatch('notification', { type: 'error', message: 'Không thể lưu lịch sử hoạt động.' });
     throw e;
   }
+};
+
+// =====================
+// Leaderboard Query
+// =====================
+export const getLeaderboardData = async (statField: 'stats.longestStreak' | 'stats.totalWords'): Promise<LeaderboardEntry[]> => {
+    const usersRef = collection(db, 'users');
+    const q = query(
+        usersRef,
+        where('leaderboardName', '!=', ''), // Only fetch users who have set a name
+        orderBy(statField, 'desc'),
+        limit(10)
+    );
+
+    try {
+        const querySnapshot = await getDocs(q);
+        const leaderboard: LeaderboardEntry[] = [];
+        querySnapshot.forEach((doc) => {
+            const data = doc.data() as UserDoc;
+            leaderboard.push({
+                uid: data.uid,
+                name: data.leaderboardName || 'Người dùng ẩn danh',
+                value: statField === 'stats.longestStreak' ? data.stats.longestStreak : data.stats.totalWords,
+            });
+        });
+        return leaderboard;
+    } catch (error) {
+        console.error("Error getting leaderboard data:", error);
+        throw new Error("Could not fetch leaderboard data.");
+    }
 };
 
 
