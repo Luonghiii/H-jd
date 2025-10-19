@@ -51,7 +51,6 @@ interface SettingsContextType {
   profile: UserProfile;
   updateUserProfile: (updates: Partial<UserProfile>) => Promise<void>;
   updateAvatarFromFile: (file: File) => Promise<string>;
-  updateAvatarFromUrl: (url: string) => Promise<void>;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -280,12 +279,6 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
       return newPhotoURL;
   }, [currentUser]);
 
-  const updateAvatarFromUrl = useCallback(async (url: string) => {
-      if (!currentUser) return;
-      await updateUserData(currentUser.uid, { photoURL: url });
-      await updateUserLeaderboardEntry(currentUser.uid);
-  }, [currentUser]);
-
   const hasApiKey = !!process.env.API_KEY || appState.userApiKeys.length > 0;
 
   const contextValue = {
@@ -318,7 +311,6 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     profile: appState.profile,
     updateUserProfile,
     updateAvatarFromFile,
-    updateAvatarFromUrl,
   };
 
   return (

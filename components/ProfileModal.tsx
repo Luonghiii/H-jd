@@ -11,8 +11,22 @@ interface ProfileModalProps {
     onClose: () => void;
 }
 
+const dataURLtoBlob = (dataurl: string): Blob => {
+    const arr = dataurl.split(',');
+    const mimeMatch = arr[0].match(/:(.*?);/);
+    if (!mimeMatch) throw new Error("Invalid data URL");
+    const mime = mimeMatch[1];
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], { type: mime });
+}
+
 const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
-    const { profile, leaderboardName: initialLeaderboardName, updateUserProfile, updateAvatarFromFile, setLeaderboardName, updateAvatarFromUrl } = useSettings();
+    const { profile, leaderboardName: initialLeaderboardName, updateUserProfile, updateAvatarFromFile, setLeaderboardName } = useSettings();
     
     // User profile fields state
     const [displayName, setDisplayName] = useState('');
@@ -77,10 +91,16 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     const handleSaveGeneratedAvatar = async (imageUrl: string) => {
         setIsAvatarLoading(true);
         try {
-            await updateAvatarFromUrl(imageUrl);
+            const blob = dataURLtoBlob(imageUrl);
+            const fileType = blob.type || 'image/jpeg';
+            const fileName = `ai-avatar.${fileType.split('/')[1] || 'jpg'}`;
+            const file = new File([blob], fileName, { type: fileType });
+
+            const newUrl = await updateAvatarFromFile(file);
+            setLocalAvatar(newUrl);
             eventBus.dispatch('notification', { type: 'success', message: 'Đã lưu avatar do AI tạo!' });
-        } catch (error) {
-            eventBus.dispatch('notification', { type: 'error', message: 'Lưu avatar thất bại.' });
+        } catch (error: any) {
+            eventBus.dispatch('notification', { type: 'error', message: error.message || 'Lưu avatar thất bại.' });
         } finally {
             setIsAvatarLoading(false);
         }
@@ -139,7 +159,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                                 </button>
                             </div>
 
-                            <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
+                            <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/png, image/jpeg, image/webp" />
                              <button 
                                 onClick={() => setIsGenerationModalOpen(true)}
                                 className="flex items-center gap-2 px-3 py-1.5 text-sm bg-slate-700 hover:bg-slate-600 rounded-lg"

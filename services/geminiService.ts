@@ -12,16 +12,15 @@ export const setApiKeys = (keys: string[]) => {
 const executeWithKeyRotation = async <T>(apiCall: (ai: GoogleGenAI) => Promise<T>): Promise<T> => {
     const systemApiKey = process.env.API_KEY;
     
-    // If user has provided keys, use them exclusively. Otherwise, fall back to the system key.
-    const keysToTry: string[] = [];
-    if (userApiKeys.length > 0) {
-        keysToTry.push(...userApiKeys);
-    } else if (systemApiKey) {
+    // Create a list of keys to try, prioritizing user-provided keys.
+    const keysToTry: string[] = [...userApiKeys];
+    if (systemApiKey && !userApiKeys.includes(systemApiKey)) {
         keysToTry.push(systemApiKey);
     }
 
+
     if (keysToTry.length === 0) {
-        eventBus.dispatch('apiKeyNotification', { type: 'error', message: 'Không có khóa API nào được cấu hình. Vui lòng thêm khóa trong Cài đặt.' });
+        eventBus.dispatch('notification', { type: 'error', message: 'Không có khóa API nào được cấu hình. Vui lòng thêm khóa trong Cài đặt.' });
         throw new Error("All API keys failed.");
     }
 
@@ -46,10 +45,10 @@ const executeWithKeyRotation = async <T>(apiCall: (ai: GoogleGenAI) => Promise<T
                 const message = i < totalKeys - 1
                     ? `Khóa API ${keyIdentifier} thất bại. Đang thử khóa tiếp theo...`
                     : `Khóa API ${keyIdentifier} thất bại. Không còn khóa nào để thử.`;
-                eventBus.dispatch('apiKeyNotification', { type: 'warning', message });
+                eventBus.dispatch('notification', { type: 'warning', message });
                 keyIndex = (keyIndex + 1) % totalKeys; // Move to the next key
             } else {
-                eventBus.dispatch('apiKeyNotification', { type: 'error', message: 'Một lỗi API không mong muốn đã xảy ra.' });
+                eventBus.dispatch('notification', { type: 'error', message: 'Một lỗi API không mong muốn đã xảy ra.' });
                 throw error; // Rethrow non-key related errors
             }
         }
