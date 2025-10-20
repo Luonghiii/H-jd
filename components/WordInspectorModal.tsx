@@ -171,7 +171,10 @@ const WordInspectorModal: React.FC<WordInspectorModalProps> = ({ isOpen, word, o
 
   useEffect(() => {
     if (isOpen) {
-      // Reset state when modal opens or word changes
+      // This effect runs ONLY when the modal is opened for the first time
+      // or when the `word` prop itself changes. It does NOT run on tab changes.
+      
+      // Reset all states
       setActiveTab('info');
       setWordInfo(null);
       setExampleSentence('');
@@ -182,17 +185,8 @@ const WordInspectorModal: React.FC<WordInspectorModalProps> = ({ isOpen, word, o
       setRewrittenSentence('');
       setIsEditing(false);
       setEditableStateFromWord(word);
-    }
-  }, [isOpen, word]);
 
-  useEffect(() => {
-    if (chatContainerRef.current) {
-        chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
-    }
-  }, [chatHistory]);
-  
-  useEffect(() => {
-    if (isOpen && activeTab === 'info') {
+      // Fetch the main info for the 'info' tab immediately
       const fetchInfo = async () => {
         setIsInfoLoading(true);
         try {
@@ -206,8 +200,14 @@ const WordInspectorModal: React.FC<WordInspectorModalProps> = ({ isOpen, word, o
       };
       fetchInfo();
     }
-  }, [isOpen, activeTab, word, uiLanguage, learningLanguage]);
+  }, [isOpen, word]);
 
+  useEffect(() => {
+    if (chatContainerRef.current) {
+        chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [chatHistory]);
+  
   const handlePlaySpeech = async () => {
       if (isSpeechLoading || isAudioPlaying) return;
 
@@ -362,7 +362,7 @@ const WordInspectorModal: React.FC<WordInspectorModalProps> = ({ isOpen, word, o
                   </div>
                 ) : (
                   <div className="space-y-4 text-gray-300">
-                      {isInfoLoading ? <p>Đang tải thông tin...</p> : hasValidInfo ? (
+                      {isInfoLoading ? <div className="flex justify-center items-center h-48"><Loader2 className="w-8 h-8 animate-spin text-indigo-400" /></div> : hasValidInfo ? (
                           <>
                             {word.imageUrl && <img src={word.imageUrl} alt={word.word} className="w-full h-48 object-contain rounded-xl bg-slate-700/50 p-2"/>}
                             {word.theme && <p><strong className="text-white font-semibold">Chủ đề:</strong> {word.theme}</p>}

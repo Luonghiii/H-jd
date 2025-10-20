@@ -6,6 +6,49 @@ import { useAuth } from './useAuth';
 import { onUserDataSnapshot, updateUserData } from '../services/firestoreService';
 import eventBus from '../utils/eventBus';
 
+// SRS Calculation Logic
+// PerformanceRating: 0-2 (hard), 3 (good), 4-5 (easy)
+type PerformanceRating = 0 | 1 | 2 | 3 | 4 | 5;
+
+const intervals = [
+  1, // level 1: 1 day
+  2, // level 2: 2 days
+  4, // level 3: 4 days
+  7, // level 4: 1 week
+  14, // level 5: 2 weeks
+  30, // level 6: 1 month
+  90, // level 7: 3 months
+  180, // level 8: 6 months
+  365, // level 9: 1 year
+];
+
+const calculateSrs = (currentSrsLevel: number, performance: PerformanceRating) => {
+    let newSrsLevel = currentSrsLevel;
+
+    if (performance < 3) { // 'hard'
+        newSrsLevel = Math.max(0, currentSrsLevel - 1);
+    } else { // 'good' or 'easy'
+        newSrsLevel = currentSrsLevel + 1;
+    }
+    
+    newSrsLevel = Math.min(newSrsLevel, intervals.length);
+
+    const now = new Date();
+    const oneDay = 24 * 60 * 60 * 1000;
+    
+    let nextReviewDate = now.getTime();
+    if (newSrsLevel > 0) {
+        // -1 because intervals is 0-indexed for levels 1+
+        nextReviewDate += intervals[newSrsLevel - 1] * oneDay;
+    } else {
+        // For new words or words rated as 'hard' at level 0, review again soon.
+        nextReviewDate += 10 * 60 * 1000; // 10 minutes
+    }
+
+    return { newSrsLevel, nextReviewDate };
+};
+// End SRS Logic
+
 // FIX: Export themeTranslationMap to resolve import errors.
 export const themeTranslationMap: Record<string, string> = {
   'Thức ăn': 'Food',
@@ -42,255 +85,215 @@ export const themeTranslationMap: Record<string, string> = {
   'Cảm xúc': 'Feelings',
 };
 
+// FIX: Define the context type that was missing.
 interface VocabularyContextType {
   words: VocabularyWord[];
   isWordsLoading: boolean;
-  addWord: (word: string, translation: string, language: TargetLanguage, theme?: string) => Promise<boolean>;
+  addWord: (word: string, translation: string, language: TargetLanguage, theme?: string, imageUrl?: string) => Promise<boolean>;
   addMultipleWords: (newWords: GeneratedWord[]) => Promise<number>;
   deleteWord: (id: string) => Promise<void>;
   updateWord: (id: string, updates: Partial<VocabularyWord>) => Promise<void>;
   updateWordImage: (wordId: string, imageUrl: string | null) => Promise<void>;
-  updateWordSpeechAudio: (wordId: string, audioB64: string) => Promise<void>;
-  updateWordSrs: (wordId: string, performance: 'hard' | 'good' | 'easy') => Promise<void>;
-  getWordsForStory: (count: number) => VocabularyWord[];
   getAvailableThemes: () => string[];
   toggleWordStar: (id: string) => Promise<void>;
-  lastDeletedWord: { word: VocabularyWord; index: number } | null;
+  lastDeletedWord: VocabularyWord | null;
   undoDelete: () => Promise<void>;
+  updateWordSpeechAudio: (wordId: string, audioB64: string) => Promise<void>;
+  updateWordSrs: (wordId: string, performance: 'hard' | 'good' | 'easy') => Promise<void>;
 }
 
 const VocabularyContext = createContext<VocabularyContextType | undefined>(undefined);
 
-const srsIntervalsDays = [1, 3, 7, 14, 30, 90, 180, 365];
-const DAY_IN_MS = 24 * 60 * 60 * 1000;
-const MINUTE_IN_MS = 60 * 60 * 1000;
-
+// FIX: Implement and export the missing VocabularyProvider component.
 export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { learningLanguage, updateWordCountStat } = useSettings();
-  const { currentUser, isLoading: isAuthLoading } = useAuth();
-  const [words, setWords] = useState<VocabularyWord[]>([]);
-  const [isWordsLoading, setIsWordsLoading] = useState(true);
-  const initialLoadDoneRef = useRef(false);
-  
-  const [lastDeletedWord, setLastDeletedWord] = useState<{ word: VocabularyWord; index: number } | null>(null);
-  const undoTimerRef = useRef<number | null>(null);
-  
-  useEffect(() => {
-    if (isAuthLoading) {
-      return;
-    }
+    const { currentUser } = useAuth();
+    const { learningLanguage, updateWordCountStat } = useSettings();
+    const [words, setWords] = useState<VocabularyWord[]>([]);
+    const [isWordsLoading, setIsWordsLoading] = useState(true);
+    const [lastDeletedWord, setLastDeletedWord] = useState<VocabularyWord | null>(null);
+    const undoTimeoutRef = useRef<number | null>(null);
 
-    setIsWordsLoading(true);
-    initialLoadDoneRef.current = false;
-
-    if (currentUser?.uid) {
-      const unsubscribe = onUserDataSnapshot(currentUser.uid, (data) => {
-        const wordsByLang = data?.words?.[learningLanguage] || [];
-        setWords(wordsByLang);
-        if (!initialLoadDoneRef.current) {
+    useEffect(() => {
+        if (!currentUser) {
+            setWords([]);
             setIsWordsLoading(false);
-            initialLoadDoneRef.current = true;
+            return;
         }
-      });
-      return () => unsubscribe();
-    } else {
-      setWords([]);
-      setIsWordsLoading(false);
-    }
-  }, [currentUser, isAuthLoading, learningLanguage]);
 
-  const persistWords = useCallback(async (newWords: VocabularyWord[]) => {
-      if (currentUser?.uid) {
-          await updateUserData(currentUser.uid, {
-              words: { [learningLanguage]: newWords }
-          });
-          await updateWordCountStat(newWords.length);
-      }
-  }, [currentUser, learningLanguage, updateWordCountStat]);
+        setIsWordsLoading(true);
+        const unsubscribe = onUserDataSnapshot(currentUser.uid, (data) => {
+            if (data && data.words && data.words[learningLanguage]) {
+                setWords(data.words[learningLanguage]);
+            } else {
+                setWords([]);
+            }
+            setIsWordsLoading(false);
+        });
 
-  const addWord = useCallback(async (word: string, providedTranslation: string, language: TargetLanguage, theme?: string): Promise<boolean> => {
-    const trimmedWord = word.trim();
-    if (!trimmedWord) return false;
+        return () => unsubscribe();
+    }, [currentUser, learningLanguage]);
 
-    const alreadyExists = words.some(w => w.word.toLowerCase() === trimmedWord.toLowerCase());
-    if (alreadyExists) {
-        eventBus.dispatch('notification', { type: 'warning', message: `Từ "${trimmedWord}" đã có trong danh sách của bạn.` });
-        return false;
-    }
-    
-    let vietnamese = '';
-    let english = '';
+    useEffect(() => {
+        if (currentUser) {
+            updateWordCountStat(words.length);
+        }
+    }, [words.length, currentUser, updateWordCountStat]);
 
-    if (language === 'vietnamese') {
-      vietnamese = providedTranslation;
-      english = await translateWord(trimmedWord, 'English', learningLanguage);
-    } else {
-      english = providedTranslation;
-      vietnamese = await translateWord(trimmedWord, 'Vietnamese', learningLanguage);
-    }
 
-    const newWord: VocabularyWord = {
-      id: crypto.randomUUID(),
-      word: trimmedWord,
-      translation: { vietnamese, english },
-      createdAt: Date.now(),
-      isStarred: false,
-      srsLevel: 0,
-      nextReview: Date.now(),
-    };
-    
-    // Firestore does not accept `undefined` values.
-    // Only add the theme property if it's a non-empty string.
-    if (theme) {
-      newWord.theme = theme;
-    }
-    
-    const newWordsList = [newWord, ...words];
-    await persistWords(newWordsList);
-    return true;
-  }, [learningLanguage, persistWords, words]);
-  
-  const addMultipleWords = useCallback(async (newWords: GeneratedWord[]): Promise<number> => {
-    const existingWordStrings = new Set(words.map(w => w.word.toLowerCase()));
-    const uniqueNewWords = newWords.filter(nw => 
-        nw.word && !existingWordStrings.has(nw.word.toLowerCase())
-    );
+    const addWord = useCallback(async (word: string, translationStr: string, language: TargetLanguage, theme?: string, imageUrl?: string): Promise<boolean> => {
+        if (!currentUser) return false;
 
-    if (uniqueNewWords.length === 0) return 0;
+        const trimmedWord = word.trim();
+        if (words.some(w => w.word.toLowerCase() === trimmedWord.toLowerCase())) {
+            eventBus.dispatch('notification', { type: 'warning', message: `Từ "${trimmedWord}" đã tồn tại.` });
+            return false;
+        }
 
-    const wordsToAdd: VocabularyWord[] = uniqueNewWords.map(nw => {
         const newWord: VocabularyWord = {
             id: crypto.randomUUID(),
-            word: nw.word,
-            translation: { vietnamese: nw.translation_vi, english: nw.translation_en },
+            word: trimmedWord,
+            translation: {
+                vietnamese: language === 'vietnamese' ? translationStr : '',
+                english: language === 'english' ? translationStr : '',
+            },
+            theme,
+            createdAt: Date.now(),
+            isStarred: false,
+            imageUrl,
+            srsLevel: 0,
+            nextReview: Date.now(),
+        };
+
+        if (language === 'vietnamese' && !newWord.translation.english) {
+            newWord.translation.english = await translateWord(trimmedWord, 'English', learningLanguage);
+        } else if (language === 'english' && !newWord.translation.vietnamese) {
+            newWord.translation.vietnamese = await translateWord(trimmedWord, 'Vietnamese', learningLanguage);
+        }
+        
+        const newWords = [...words, newWord];
+        await updateUserData(currentUser.uid, { [`words.${learningLanguage}`]: newWords });
+        return true;
+    }, [currentUser, words, learningLanguage]);
+
+
+    const addMultipleWords = useCallback(async (newWords: GeneratedWord[]): Promise<number> => {
+        if (!currentUser || newWords.length === 0) return 0;
+
+        const existingWordSet = new Set(words.map(w => w.word.toLowerCase()));
+        const wordsToAdd = newWords.filter(w => !existingWordSet.has(w.word.toLowerCase()));
+
+        if (wordsToAdd.length === 0) return 0;
+        
+        const vocabularyToAdd: VocabularyWord[] = wordsToAdd.map(w => ({
+            id: crypto.randomUUID(),
+            word: w.word,
+            translation: {
+                vietnamese: w.translation_vi,
+                english: w.translation_en,
+            },
+            theme: w.theme,
             createdAt: Date.now(),
             isStarred: false,
             srsLevel: 0,
             nextReview: Date.now(),
+        }));
+
+        const updatedWords = [...words, ...vocabularyToAdd];
+        await updateUserData(currentUser.uid, { [`words.${learningLanguage}`]: updatedWords });
+        return wordsToAdd.length;
+    }, [currentUser, words, learningLanguage]);
+
+    const deleteWord = useCallback(async (id: string): Promise<void> => {
+        if (!currentUser) return;
+
+        const wordToDelete = words.find(w => w.id === id);
+        if (wordToDelete) {
+            setLastDeletedWord(wordToDelete);
+            if (undoTimeoutRef.current) {
+                clearTimeout(undoTimeoutRef.current);
+            }
+            undoTimeoutRef.current = window.setTimeout(() => setLastDeletedWord(null), 5000);
+        }
+
+        const newWords = words.filter(w => w.id !== id);
+        await updateUserData(currentUser.uid, { [`words.${learningLanguage}`]: newWords });
+    }, [currentUser, words, learningLanguage]);
+
+    const undoDelete = useCallback(async () => {
+        if (!currentUser || !lastDeletedWord) return;
+        const newWords = [...words, lastDeletedWord].sort((a,b) => b.createdAt - a.createdAt);
+        await updateUserData(currentUser.uid, { [`words.${learningLanguage}`]: newWords });
+        setLastDeletedWord(null);
+        if (undoTimeoutRef.current) {
+            clearTimeout(undoTimeoutRef.current);
+        }
+    }, [currentUser, words, learningLanguage, lastDeletedWord]);
+
+
+    const updateWord = useCallback(async (id: string, updates: Partial<VocabularyWord>): Promise<void> => {
+        if (!currentUser) return;
+        const newWords = words.map(w => (w.id === id ? { ...w, ...updates } : w));
+        await updateUserData(currentUser.uid, { [`words.${learningLanguage}`]: newWords });
+    }, [currentUser, words, learningLanguage]);
+
+    const updateWordImage = (wordId: string, imageUrl: string | null) => updateWord(wordId, { imageUrl: imageUrl ?? undefined });
+    const updateWordSpeechAudio = (wordId: string, audioB64: string) => updateWord(wordId, { speechAudio: audioB64 });
+    const toggleWordStar = (id: string) => {
+        const word = words.find(w => w.id === id);
+        if (word) updateWord(id, { isStarred: !word.isStarred });
+    };
+
+    const getAvailableThemes = useCallback((): string[] => {
+        const themes = new Set<string>();
+        words.forEach(word => {
+            if (word.theme) themes.add(word.theme);
+        });
+        return Array.from(themes).sort();
+    }, [words]);
+
+    const updateWordSrs = useCallback(async (wordId: string, performance: 'hard' | 'good' | 'easy'): Promise<void> => {
+        if (!currentUser) return;
+
+        const performanceMap: Record<typeof performance, PerformanceRating> = {
+            hard: 0,
+            good: 3,
+            easy: 5
         };
-        // Firestore does not accept `undefined` values.
-        // Only add the theme property if it exists and is a non-empty string.
-        if (nw.theme) {
-            newWord.theme = nw.theme;
-        }
-        return newWord;
-    });
-    
-    const newWordsList = [...wordsToAdd, ...words];
-    await persistWords(newWordsList);
-    return uniqueNewWords.length;
-  }, [persistWords, words]);
+        
+        const wordToUpdate = words.find(w => w.id === wordId);
+        if (!wordToUpdate) return;
+        
+        const { newSrsLevel, nextReviewDate } = calculateSrs(wordToUpdate.srsLevel, performanceMap[performance]);
 
-  const deleteWord = useCallback(async (id: string) => {
-    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+        const newWords = words.map(w => 
+            w.id === wordId 
+            ? { ...w, srsLevel: newSrsLevel, nextReview: nextReviewDate } 
+            : w
+        );
 
-    const originalIndex = words.findIndex(w => w.id === id);
-    if (originalIndex === -1) return;
+        await updateUserData(currentUser.uid, { [`words.${learningLanguage}`]: newWords });
+    }, [currentUser, words, learningLanguage]);
 
-    const wordToDelete = words[originalIndex];
-    const newWords = words.filter(word => word.id !== id);
-    
-    await persistWords(newWords);
+    const value: VocabularyContextType = {
+        words,
+        isWordsLoading,
+        addWord,
+        addMultipleWords,
+        deleteWord,
+        updateWord,
+        updateWordImage,
+        getAvailableThemes,
+        toggleWordStar,
+        lastDeletedWord,
+        undoDelete,
+        updateWordSpeechAudio,
+        updateWordSrs
+    };
 
-    setLastDeletedWord({ word: wordToDelete, index: originalIndex });
-    undoTimerRef.current = window.setTimeout(() => setLastDeletedWord(null), 5000);
-  }, [persistWords, words]);
-
-  const undoDelete = useCallback(async () => {
-    if (!lastDeletedWord) return;
-    if (undoTimerRef.current) {
-      clearTimeout(undoTimerRef.current);
-      undoTimerRef.current = null;
-    }
-    
-    const newWordsList = [...words];
-    newWordsList.splice(lastDeletedWord.index, 0, lastDeletedWord.word);
-    
-    await persistWords(newWordsList);
-
-    setLastDeletedWord(null);
-  }, [lastDeletedWord, persistWords, words]);
-  
-  const updateWord = useCallback(async (id: string, updates: Partial<VocabularyWord>) => {
-    const newWords = words.map(word => word.id === id ? { ...word, ...updates } : word);
-    await persistWords(newWords);
-  }, [persistWords, words]);
-  
-  const updateWordSrs = useCallback(async (wordId: string, performance: 'hard' | 'good' | 'easy') => {
-    const word = words.find(w => w.id === wordId);
-    if (!word) return;
-
-    let newSrsLevel = word.srsLevel;
-    let nextReview;
-
-    switch (performance) {
-        case 'hard':
-            newSrsLevel = 0;
-            nextReview = Date.now() + 10 * MINUTE_IN_MS;
-            break;
-        case 'good':
-            newSrsLevel = Math.min(newSrsLevel + 1, srsIntervalsDays.length - 1);
-            nextReview = Date.now() + srsIntervalsDays[newSrsLevel] * DAY_IN_MS;
-            break;
-        case 'easy':
-            newSrsLevel = Math.min(newSrsLevel + 2, srsIntervalsDays.length - 1);
-            nextReview = Date.now() + srsIntervalsDays[newSrsLevel] * DAY_IN_MS;
-            break;
-    }
-    
-    const newWords = words.map(w => w.id === wordId ? { ...w, srsLevel: newSrsLevel, nextReview } : w);
-    await persistWords(newWords);
-  }, [persistWords, words]);
-
-  const toggleWordStar = useCallback(async (id: string) => {
-    const newWords = words.map(word =>
-      word.id === id ? { ...word, isStarred: !word.isStarred } : word
-    );
-    await persistWords(newWords);
-  }, [persistWords, words]);
-
-  const updateWordImage = useCallback(async (wordId: string, imageUrl: string | null) => {
-    const newWords = words.map(word => {
-      if (word.id === wordId) {
-        // Create a new object to avoid mutating state
-        const updatedWord = { ...word };
-        if (imageUrl) {
-          updatedWord.imageUrl = imageUrl;
-        } else {
-          // Firestore does not accept 'undefined'. Deleting the key is the correct way.
-          delete updatedWord.imageUrl;
-        }
-        return updatedWord;
-      }
-      return word;
-    });
-    await persistWords(newWords);
-  }, [persistWords, words]);
-
-  const updateWordSpeechAudio = useCallback(async (wordId: string, audioB64: string) => {
-    const newWords = words.map(word => 
-      word.id === wordId ? { ...word, speechAudio: audioB64 } : word
-    );
-    await persistWords(newWords);
-  }, [persistWords, words]);
-
-  const getWordsForStory = useCallback((count: number): VocabularyWord[] => {
-    const shuffled = [...words].sort(() => 0.5 - Math.random());
-    return shuffled.slice(0, count);
-  }, [words]);
-
-  const getAvailableThemes = useCallback((): string[] => {
-    const themes = new Set(words.map(word => word.theme).filter(Boolean) as string[]);
-    return Array.from(themes).sort();
-  }, [words]);
-
-  return (
-    <VocabularyContext.Provider value={{ words, isWordsLoading, addWord, addMultipleWords, deleteWord, updateWord, updateWordImage, updateWordSpeechAudio, updateWordSrs, getWordsForStory, getAvailableThemes, toggleWordStar, lastDeletedWord, undoDelete }}>
-      {children}
-    </VocabularyContext.Provider>
-  );
+    return <VocabularyContext.Provider value={value}>{children}</VocabularyContext.Provider>;
 };
 
+// FIX: Implement and export the missing useVocabulary hook.
 export const useVocabulary = (): VocabularyContextType => {
   const context = useContext(VocabularyContext);
   if (context === undefined) {

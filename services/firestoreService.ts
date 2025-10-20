@@ -21,7 +21,7 @@ import {
   QueryDocumentSnapshot
 } from 'firebase/firestore';
 import { User } from 'firebase/auth';
-import { ConversationSession, GeneratedWord, HistoryEntry, UserStats, VocabularyWord, UserDoc } from '../types';
+import { AiAssistantMessage, ConversationSession, GeneratedWord, HistoryEntry, UserStats, VocabularyWord, UserDoc } from '../types';
 import eventBus from '../utils/eventBus';
 import { defaultGermanWords } from '../data/german_words';
 import { defaultEnglishWords } from '../data/english_words';
@@ -115,6 +115,7 @@ export const createUserDocument = async (user: User): Promise<void> => {
             totalWords: initialGermanWords.length,
             },
             aiTutorHistory: [],
+            aiAssistantSessions: [],
         };
         tx.set(userRef, initialData);
 

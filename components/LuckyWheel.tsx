@@ -247,7 +247,7 @@ const LuckyWheel: React.FC<LuckyWheelProps> = ({ onBack }) => {
                 <div className="flex flex-wrap gap-2">
                     <button
                         onClick={() => handleThemeToggle('all')}
-                        className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has('all') ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 hover:bg-slate-600'}`}
+                        className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has('all') ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 text-gray-200 hover:bg-slate-600'}`}
                     >
                         Tất cả
                     </button>
@@ -255,7 +255,7 @@ const LuckyWheel: React.FC<LuckyWheelProps> = ({ onBack }) => {
                         <button
                             key={theme}
                             onClick={() => handleThemeToggle(theme)}
-                            className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has(theme) ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 hover:bg-slate-600'}`}
+                            className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has(theme) ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 text-gray-200 hover:bg-slate-600'}`}
                         >
                             {targetLanguage === 'english' ? (themeTranslationMap[theme] || theme) : theme}
                         </button>
@@ -266,8 +266,8 @@ const LuckyWheel: React.FC<LuckyWheelProps> = ({ onBack }) => {
         <div>
           <h3 className="font-semibold text-white mb-2">2. Chọn từ ({selectedIds.size} / {filteredWordsByTheme.length} đã chọn)</h3>
           <div className="flex gap-2 mb-2">
-              <button onClick={handleSelectAll} className="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded-lg">Chọn tất cả</button>
-              <button onClick={handleDeselectAll} className="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded-lg">Bỏ chọn tất cả</button>
+              <button onClick={handleSelectAll} className="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded-lg text-gray-200">Chọn tất cả</button>
+              <button onClick={handleDeselectAll} className="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded-lg text-gray-200">Bỏ chọn tất cả</button>
           </div>
           <div className="max-h-[25vh] overflow-y-auto pr-2 bg-slate-800/50 border border-slate-700 rounded-2xl p-3 space-y-2">
               {filteredWordsByTheme.length > 0 ? filteredWordsByTheme.map(word => (
@@ -286,7 +286,7 @@ const LuckyWheel: React.FC<LuckyWheelProps> = ({ onBack }) => {
               <h3 className="font-semibold text-white mb-2">3. Thời gian quay</h3>
               <div className="flex justify-center gap-2">
                   {[1, 2, 3, 5, 10].map(d => (
-                      <button key={d} onClick={() => setDuration(d)} className={`px-4 py-2 text-sm rounded-xl transition-colors ${duration === d ? 'bg-indigo-600 text-white' : 'bg-slate-700 hover:bg-slate-600'}`}>{d}s</button>
+                      <button key={d} onClick={() => setDuration(d)} className={`px-4 py-2 text-sm rounded-xl transition-colors ${duration === d ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-gray-200 hover:bg-slate-600'}`}>{d}s</button>
                   ))}
               </div>
           </div>

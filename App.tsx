@@ -28,6 +28,9 @@ import Vocabulary from './components/Vocabulary';
 import BottomNavBar from './components/BottomNavBar';
 import More from './components/More';
 import { I18nProvider } from './hooks/useI18n';
+import { AiAssistantProvider } from './hooks/useAiAssistant';
+import AiAssistant from './components/AiAssistant';
+import { ActivityTrackerProvider } from './hooks/useActivityTracker';
 
 const AppLayout: React.FC<{ onOpenSettings: () => void; }> = ({ onOpenSettings }) => {
   const [currentView, _setCurrentView] = useState<View>(View.Home);
@@ -110,6 +113,7 @@ const AppLayout: React.FC<{ onOpenSettings: () => void; }> = ({ onOpenSettings }
       <TermsOfServiceModal isOpen={isTermsModalOpen} onClose={() => setIsTermsModalOpen(false)} />
       <ProfileModal isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} />
       <BackgroundCustomizer isOpen={isBgCustomizerOpen} onClose={() => setIsBgCustomizerOpen(false)} />
+      <AiAssistant setCurrentView={setCurrentView} />
     </>
   );
 };
@@ -157,12 +161,16 @@ const AppContent: React.FC = () => {
         <HistoryProvider>
           <InspectorProvider>
             <QuickTranslateProvider>
-              <LoginHistoryLogger />
-              <AppLayout onOpenSettings={() => setIsSettingsOpen(true)} />
-              <SettingsModal
-                isOpen={isSettingsOpen}
-                onClose={() => setIsSettingsOpen(false)}
-              />
+              <ActivityTrackerProvider>
+                <AiAssistantProvider>
+                  <LoginHistoryLogger />
+                  <AppLayout onOpenSettings={() => setIsSettingsOpen(true)} />
+                  <SettingsModal
+                    isOpen={isSettingsOpen}
+                    onClose={() => setIsSettingsOpen(false)}
+                  />
+                </AiAssistantProvider>
+              </ActivityTrackerProvider>
             </QuickTranslateProvider>
           </InspectorProvider>
         </HistoryProvider>

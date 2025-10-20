@@ -96,7 +96,8 @@ const AddWord: React.FC<AddWordProps> = ({ onBack }) => {
       eventBus.dispatch('notification', { type: 'info', message: 'AI đang tìm từ vựng...' });
       try {
         const existingWords = words.map(w => w.word);
-        const generatedWords = await generateWordsFromPrompt(aiPrompt.trim(), existingWords, learningLanguage);
+        const themes = getAvailableThemes();
+        const generatedWords = await generateWordsFromPrompt(aiPrompt.trim(), existingWords, learningLanguage, themes);
         if (generatedWords && generatedWords.length > 0) {
             setWordsForReview(generatedWords);
             setIsReviewModalOpen(true);
@@ -139,15 +140,16 @@ const AddWord: React.FC<AddWordProps> = ({ onBack }) => {
         try {
             const { base64, mimeType } = await fileToBase64(uploadedFile);
             const existingWords = words.map(w => w.word);
+            const themes = getAvailableThemes();
             let generatedWords;
             let sourceText = '';
 
             if (uploadedFile.type.startsWith('image/')) {
                 sourceText = 'ảnh';
-                generatedWords = await getWordsFromImage(base64, mimeType, existingWords, learningLanguage);
+                generatedWords = await getWordsFromImage(base64, mimeType, existingWords, learningLanguage, themes);
             } else {
                 sourceText = 'file';
-                generatedWords = await getWordsFromFile(base64, mimeType, existingWords, learningLanguage);
+                generatedWords = await getWordsFromFile(base64, mimeType, existingWords, learningLanguage, themes);
             }
 
             if (generatedWords && generatedWords.length > 0) {

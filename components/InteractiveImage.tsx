@@ -4,7 +4,7 @@ import { useSettings } from '../hooks/useSettings';
 import { useHistory } from '../hooks/useHistory';
 import { identifyObjectInImage } from '../services/geminiService';
 import { GeneratedWord } from '../types';
-import { Upload, Sparkles, PlusCircle, X, RefreshCw, Camera } from 'lucide-react';
+import { Upload, Sparkles, PlusCircle, X, RefreshCw, Camera, ArrowLeft } from 'lucide-react';
 
 const fileToBase64 = (file: File): Promise<{base64: string, mimeType: string}> => {
   return new Promise((resolve, reject) => {
@@ -171,13 +171,18 @@ const InteractiveImage: React.FC<{onBack: () => void;}> = ({onBack}) => {
     if (cameraActive) {
         return (
              <div className="space-y-4">
-                <h2 className="text-2xl font-bold text-white">Sử dụng Camera</h2>
+                <div className="flex items-center justify-between">
+                    <h2 className="text-2xl font-bold text-white">Sử dụng Camera</h2>
+                     <button onClick={cleanupCamera} className="flex-shrink-0 flex items-center gap-2 px-3 py-2 text-sm bg-slate-700/50 hover:bg-slate-700 text-gray-200 font-semibold rounded-xl transition-colors">
+                        <X className="w-4 h-4" />
+                        <span>Hủy</span>
+                    </button>
+                </div>
                 <div className="relative w-full max-w-full mx-auto aspect-video bg-black rounded-lg overflow-hidden">
                     <video ref={videoRef} autoPlay playsInline className="w-full h-full object-contain"></video>
                 </div>
                 <div className="flex gap-2">
                     <button onClick={handleCapture} className="flex-1 px-4 py-3 bg-indigo-600 rounded-lg text-white font-semibold">Chụp ảnh</button>
-                    <button onClick={cleanupCamera} className="px-4 py-3 bg-slate-700 rounded-lg text-white">Hủy</button>
                 </div>
              </div>
         );
@@ -185,16 +190,22 @@ const InteractiveImage: React.FC<{onBack: () => void;}> = ({onBack}) => {
 
     return (
         <div className="space-y-4">
-            <h2 className="text-2xl font-bold text-white">Khám phá qua Ảnh</h2>
+            <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-white">Khám phá qua Ảnh</h2>
+                <button onClick={onBack} className="flex-shrink-0 flex items-center gap-2 px-3 py-2 text-sm bg-slate-700/50 hover:bg-slate-700 text-gray-200 font-semibold rounded-xl transition-colors">
+                    <ArrowLeft className="w-4 h-4" />
+                    <span>Quay lại</span>
+                </button>
+            </div>
             {!imageFile ? (
                 <div className="text-center space-y-4">
                     <p className="text-gray-400">Tải ảnh lên hoặc dùng camera, sau đó nhấp vào bất kỳ đối tượng nào để xác định.</p>
                     <div className="flex flex-col sm:flex-row gap-4">
                         <input type="file" id="image-upload" className="hidden" onChange={handleFileChange} accept="image/*" />
-                        <label htmlFor="image-upload" className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg cursor-pointer">
+                        <label htmlFor="image-upload" className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg cursor-pointer text-white">
                             <Upload className="w-5 h-5"/> Tải ảnh lên
                         </label>
-                        <button onClick={handleCameraOpen} className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg">
+                        <button onClick={handleCameraOpen} className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg text-white">
                             <Camera className="w-5 h-5"/> Dùng Camera
                         </button>
                     </div>

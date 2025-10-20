@@ -1,14 +1,13 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { useVocabulary } from '../hooks/useVocabulary';
-import { View, VocabularyWord } from '../types';
+import { useVocabulary } from './hooks/useVocabulary';
+import { View, VocabularyWord } from './types';
 import { PenSquare, Layers, Dices, ArrowRight, Book, Star, Gamepad2, Sparkles, Flame, RotateCcw, Calendar, BrainCircuit } from 'lucide-react';
-import { useSettings } from '../hooks/useSettings';
-import { useInspector } from '../hooks/useInspector';
+import { useSettings } from './hooks/useSettings';
+import { useInspector } from './hooks/useInspector';
 
 
 const QuickReview: React.FC = () => {
     const { words, updateWordSrs } = useVocabulary();
-    // FIX: Replaced targetLanguage with uiLanguage.
     const { uiLanguage } = useSettings();
 
     const wordsToReview = useMemo(() => {
@@ -55,7 +54,6 @@ const QuickReview: React.FC = () => {
             <div className="flex-grow flex flex-col justify-center">
                 <div className="[perspective:1000px]" onClick={() => setIsFlipped(!isFlipped)}>
                     <div 
-                        // FIX: Changed preserve-d to preserve-3d
                         className="relative w-full h-32 rounded-lg [transform-style:preserve-3d] transition-transform duration-500 cursor-pointer"
                         style={{ transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'}}
                     >
@@ -85,7 +83,6 @@ const QuickReview: React.FC = () => {
 
 const WordOfTheDay: React.FC = () => {
     const { words, isWordsLoading } = useVocabulary();
-    // FIX: Replaced targetLanguage with uiLanguage.
     const { stats, isSettingsLoading, setWordOfTheDay, uiLanguage } = useSettings();
     const { openInspector } = useInspector();
     const [word, setWord] = useState<VocabularyWord | null>(null);

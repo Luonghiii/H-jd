@@ -3,9 +3,10 @@ import { useVocabulary, themeTranslationMap } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
 import { useHistory } from '../hooks/useHistory';
 import { generateScrambledSentence } from '../services/geminiService';
-import { ArrowLeft, CheckCircle, RefreshCw, Wand2, ChevronDown } from 'lucide-react';
+import { ArrowLeft, CheckCircle, RefreshCw, Wand2, ChevronDown, Sparkles } from 'lucide-react';
 import { VocabularyWord } from '../types';
 import { useInspector } from '../hooks/useInspector';
+import AiWordSelectorModal from './AiWordSelectorModal';
 
 interface SentenceScrambleProps {
   onBack: () => void;
@@ -15,7 +16,6 @@ type GameState = 'setup' | 'loading' | 'playing' | 'correct';
 
 const SentenceScramble: React.FC<SentenceScrambleProps> = ({ onBack }) => {
     const { words, getAvailableThemes } = useVocabulary();
-    // FIX: Replaced 'targetLanguage' with 'uiLanguage' from settings and aliased for compatibility.
     const { learningLanguage, uiLanguage: targetLanguage, recordActivity } = useSettings();
     const { addHistoryEntry } = useHistory();
     const { openInspector } = useInspector();
@@ -24,6 +24,7 @@ const SentenceScramble: React.FC<SentenceScrambleProps> = ({ onBack }) => {
     const [scrambledWords, setScrambledWords] = useState<string[]>([]);
     const [userSentence, setUserSentence] = useState<string[]>([]);
     const [triggerWord, setTriggerWord] = useState<VocabularyWord | null>(null);
+    const [isAiModalOpen, setIsAiModalOpen] = useState(false);
 
     const [selectedThemes, setSelectedThemes] = useState<Set<string>>(new Set(['all']));
     const availableThemes = useMemo(() => getAvailableThemes(), [getAvailableThemes]);
@@ -113,65 +114,92 @@ const SentenceScramble: React.FC<SentenceScrambleProps> = ({ onBack }) => {
     const handleSelectAll = () => setSelectedIds(new Set(themeFilteredWords.map(w => w.id)));
     const handleDeselectAll = () => setSelectedIds(new Set());
 
+    const handleAiSelect = (aiWords: VocabularyWord[]) => {
+      const newIds = new Set(aiWords.map(w => w.id));
+      setSelectedIds(newIds);
+      setIsAiModalOpen(false);
+    };
+
     if (gameState === 'setup') {
         const isStartDisabled = wordsForGame.length === 0;
         return (
-             <div className="space-y-6 animate-fade-in">
-                 <div className="flex items-center justify-between">
-                    <h2 className="text-2xl font-bold text-white">Sắp xếp câu</h2>
-                    <button onClick={onBack} className="flex-shrink-0 flex items-center gap-2 px-3 py-2 text-sm bg-slate-700/50 hover:bg-slate-700 text-gray-200 font-semibold rounded-xl transition-colors">
-                        <ArrowLeft className="w-4 h-4" />
-                        <span>Quay lại</span>
-                    </button>
-                </div>
-                <p className="text-gray-400 text-center">Chọn từ để AI tạo câu cho bạn sắp xếp.</p>
-                
-                <details className="group bg-slate-800/50 border border-slate-700 rounded-2xl">
-                    <summary className="list-none p-3 cursor-pointer flex justify-between items-center">
-                        <h3 className="font-semibold text-white">1. Chọn chủ đề <span className="text-gray-400 font-normal text-sm">({selectedThemes.has('all') ? 'Tất cả' : `${selectedThemes.size} đã chọn`})</span></h3>
-                        <ChevronDown className="w-5 h-5 text-gray-400 transition-transform group-open:rotate-180" />
-                    </summary>
-                    <div className="p-3 border-t border-slate-600">
-                        <div className="flex flex-wrap gap-2 justify-center">
-                            <button onClick={() => handleThemeToggle('all')} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has('all') ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 hover:bg-slate-600'}`}>{`Tất cả (${words.length})`}</button>
-                            {availableThemes.map(theme => (
-                              <button key={theme} onClick={() => handleThemeToggle(theme)} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has(theme) ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 hover:bg-slate-600'}`}>
-                                {targetLanguage === 'english' ? (themeTranslationMap[theme] || theme) : theme} ({words.filter(w => w.theme === theme).length})
-                              </button>
-                            ))}
-                        </div>
-                    </div>
-                </details>
+            <>
+              <div className="space-y-6 animate-fade-in">
+                  <div className="flex items-center justify-between">
+                      <h2 className="text-2xl font-bold text-white">Sắp xếp câu</h2>
+                      <button onClick={onBack} className="flex-shrink-0 flex items-center gap-2 px-3 py-2 text-sm bg-slate-700/50 hover:bg-slate-700 text-gray-200 font-semibold rounded-xl transition-colors">
+                          <ArrowLeft className="w-4 h-4" />
+                          <span>Quay lại</span>
+                      </button>
+                  </div>
+                  <p className="text-gray-400 text-center">Chọn từ để AI tạo câu cho bạn sắp xếp.</p>
+                  
+                  <div>
+                      <h3 className="font-semibold text-white mb-2">Lựa chọn từ</h3>
+                      <button 
+                          onClick={() => setIsAiModalOpen(true)}
+                          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600/20 text-indigo-300 border border-indigo-500/50 rounded-xl hover:bg-indigo-600/40"
+                      >
+                          <Sparkles className="w-5 h-5" />
+                          Nhờ AI chọn giúp
+                      </button>
+                  </div>
 
-                 <div>
-                    <h3 className="font-semibold text-white mb-2">2. Chọn từ ({selectedIds.size} / {themeFilteredWords.length} đã chọn)</h3>
-                    <div className="flex gap-2 mb-2">
-                        <button onClick={handleSelectAll} className="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded-lg">Chọn tất cả</button>
-                        <button onClick={handleDeselectAll} className="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded-lg">Bỏ chọn tất cả</button>
-                    </div>
-                    <div className="max-h-[20vh] overflow-y-auto pr-2 bg-slate-800/50 border border-slate-700 rounded-2xl p-3 space-y-2">
-                        {themeFilteredWords.map(word => (
-                        <div key={word.id} onClick={() => handleToggleWord(word.id)} className="flex items-center p-2 rounded-xl hover:bg-slate-700/50 cursor-pointer transition-colors">
-                            <input 
-                            type="checkbox" 
-                            checked={selectedIds.has(word.id)}
-                            readOnly
-                            className="w-5 h-5 mr-3 bg-slate-900 border-slate-600 text-indigo-500 focus:ring-indigo-600 rounded-md pointer-events-none"
-                            />
-                            <div>
-                                <p className="font-medium text-white hover:underline" onClick={(e) => { e.stopPropagation(); openInspector(word); }}>{word.word}</p>
-                                <p className="text-sm text-gray-400">{word.translation[targetLanguage]}</p>
+                  <details className="group bg-slate-800/50 border border-slate-700 rounded-2xl">
+                      <summary className="list-none p-3 cursor-pointer flex justify-between items-center">
+                          <h3 className="font-semibold text-white">Hoặc, chọn thủ công...</h3>
+                          <ChevronDown className="w-5 h-5 text-gray-400 transition-transform group-open:rotate-180" />
+                      </summary>
+                      <div className="p-3 border-t border-slate-600 space-y-4">
+                          <div>
+                            <h3 className="font-semibold text-white">1. Chọn chủ đề <span className="text-gray-400 font-normal text-sm">({selectedThemes.has('all') ? 'Tất cả' : `${selectedThemes.size} đã chọn`})</span></h3>
+                            <div className="flex flex-wrap gap-2 mt-2 justify-center">
+                                <button onClick={() => handleThemeToggle('all')} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has('all') ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 text-gray-200 hover:bg-slate-600'}`}>{`Tất cả (${words.length})`}</button>
+                                {availableThemes.map(theme => (
+                                  <button key={theme} onClick={() => handleThemeToggle(theme)} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has(theme) ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 text-gray-200 hover:bg-slate-600'}`}>
+                                    {targetLanguage === 'english' ? (themeTranslationMap[theme] || theme) : theme} ({words.filter(w => w.theme === theme).length})
+                                  </button>
+                                ))}
                             </div>
-                        </div>
-                        ))}
-                    </div>
-                </div>
-                
-                <button onClick={generateNewSentence} disabled={isStartDisabled} className="w-full max-w-xs mx-auto flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98] disabled:bg-indigo-400 disabled:cursor-not-allowed">
-                    Bắt đầu
-                </button>
-                {isStartDisabled && <p className="text-center text-sm text-amber-400">Bạn cần có ít nhất một từ để chơi.</p>}
-            </div>
+                          </div>
+                          <div>
+                              <h3 className="font-semibold text-white mb-2">2. Chọn từ ({selectedIds.size} / {themeFilteredWords.length} đã chọn)</h3>
+                              <div className="flex gap-2 mb-2">
+                                  <button onClick={handleSelectAll} className="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded-lg text-gray-200">Chọn tất cả</button>
+                                  <button onClick={handleDeselectAll} className="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded-lg text-gray-200">Bỏ chọn tất cả</button>
+                              </div>
+                              <div className="max-h-[20vh] overflow-y-auto pr-2 bg-slate-800/50 border border-slate-700 rounded-2xl p-3 space-y-2">
+                                  {themeFilteredWords.map(word => (
+                                  <div key={word.id} onClick={() => handleToggleWord(word.id)} className="flex items-center p-2 rounded-xl hover:bg-slate-700/50 cursor-pointer transition-colors">
+                                      <input 
+                                      type="checkbox" 
+                                      checked={selectedIds.has(word.id)}
+                                      readOnly
+                                      className="w-5 h-5 mr-3 bg-slate-900 border-slate-600 text-indigo-500 focus:ring-indigo-600 rounded-md pointer-events-none"
+                                      />
+                                      <div>
+                                          <p className="font-medium text-white hover:underline" onClick={(e) => { e.stopPropagation(); openInspector(word); }}>{word.word}</p>
+                                          <p className="text-sm text-gray-400">{word.translation[targetLanguage]}</p>
+                                      </div>
+                                  </div>
+                                  ))}
+                              </div>
+                          </div>
+                      </div>
+                  </details>
+                  
+                  <button onClick={generateNewSentence} disabled={isStartDisabled} className="w-full max-w-xs mx-auto flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98] disabled:bg-indigo-400 disabled:cursor-not-allowed">
+                      Bắt đầu
+                  </button>
+                  {isStartDisabled && <p className="text-center text-sm text-amber-400">Bạn cần có ít nhất một từ để chơi.</p>}
+              </div>
+              <AiWordSelectorModal 
+                isOpen={isAiModalOpen}
+                onClose={() => setIsAiModalOpen(false)}
+                availableWords={themeFilteredWords}
+                onConfirm={handleAiSelect}
+              />
+            </>
         );
     }
     

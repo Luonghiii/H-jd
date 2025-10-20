@@ -29,6 +29,18 @@ export interface GeneratedWord {
     theme: string;
 }
 
+export interface AiAssistantMessage {
+    role: 'user' | 'model';
+    text: string;
+    timestamp: number;
+}
+
+export interface AiAssistantSession {
+    id: number;
+    startTime: number;
+    messages: AiAssistantMessage[];
+}
+
 export interface UserDoc {
     uid: string;
     email: string | null;
@@ -41,6 +53,8 @@ export interface UserDoc {
     settings: any;
     stats: UserStats;
     aiTutorHistory: ConversationSession[];
+    aiAssistantSessions?: AiAssistantSession[];
+    aiAssistantBackground?: string;
 }
 
 export interface WordInfo {
@@ -76,6 +90,14 @@ export enum View {
   Learn = 'learn',
   Vocabulary = 'vocabulary',
   More = 'more',
+  Quiz = 'quiz',
+  LuckyWheel = 'luckywheel',
+  MemoryMatch = 'memorymatch',
+  WordLink = 'wordlink',
+  WordGuess = 'wordguess',
+  SentenceScramble = 'sentencescramble',
+  ListeningPractice = 'listening',
+  VocabularyDuel = 'duel',
 }
 
 export interface Quiz {

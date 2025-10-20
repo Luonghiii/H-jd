@@ -1,9 +1,18 @@
-import { GoogleGenAI, Type, Modality } from "@google/genai";
-import { VocabularyWord, WordInfo, TargetLanguage, LearningLanguage, ChatMessage, GeneratedWord, Quiz, AiLesson, UserStats } from '../types';
+import { GoogleGenAI, Type, Modality, FunctionDeclaration } from "@google/genai";
+import { VocabularyWord, WordInfo, TargetLanguage, LearningLanguage, ChatMessage, GeneratedWord, Quiz, AiLesson, UserStats, Turn, HistoryEntry, AiAssistantMessage, View } from '../types';
 import eventBus from '../utils/eventBus';
 
 let currentApiIndex = 0;
 let userApiKeys: string[] = [];
+
+// FIX: Define types used internally but not exported from their origin files.
+type Feedback = {
+    correctedText: string;
+    feedback: { error: string; correction: string; explanation: string }[];
+} | null;
+
+type DuelContext = { mode: 'theme', theme: string } | { mode: 'longest', startingLetter: string } | { mode: 'chain', lastWord: string } | { mode: 'first', theme: string };
+
 
 export const setApiKeys = (keys: string[]) => {
     userApiKeys = keys;
@@ -44,351 +53,346 @@ const executeWithKeyRotation = async <T>(apiCall: (ai: GoogleGenAI) => Promise<T
                 // Silently try the next key without spamming notifications.
                 keyIndex = (keyIndex + 1) % totalKeys;
             } else {
-                eventBus.dispatch('notification', { type: 'error', message: 'Một lỗi API không mong muốn đã xảy ra.' });
-                throw error; // Rethrow non-key related errors
+                eventBus.dispatch('notification', { type: 'error', message: 'Lỗi API không xác định. Vui lòng thử lại.' });
+                throw error; // Re-throw non-key related errors
             }
         }
     }
-    
-    // After the loop, if we're here, all keys have failed.
-    eventBus.dispatch('notification', { 
-        type: 'error', 
-        message: 'Tất cả các khóa API đều không hợp lệ hoặc không có quyền. Vui lòng kiểm tra lại trong Cài đặt.' 
-    });
+
+    eventBus.dispatch('notification', { type: 'error', message: 'Tất cả các khóa API đều không hợp lệ hoặc đã hết hạn mức.' });
     throw new Error("All API keys failed.");
 };
 
-
-const textModel = 'gemini-2.5-flash';
-const imageModel = 'gemini-2.5-flash-image';
-const imagenModel = 'imagen-4.0-generate-001';
-
-const parseJsonResponse = <T>(text: string): T | null => {
-    try {
-        const match = text.match(/```json\s*([\s\S]*?)\s*```/);
-        if (match && match[1]) {
-            return JSON.parse(match[1]) as T;
-        }
-        return JSON.parse(text) as T;
-    } catch (error) {
-        console.error("Failed to parse JSON response:", text, error);
-        return null;
-    }
-};
-
-const quickWordAnalysisSchema = {
-    type: Type.OBJECT,
-    properties: {
-        translation: {
-            type: Type.STRING,
-            description: "The translation of the word."
-        },
-        partOfSpeech: {
-            type: Type.STRING,
-            description: "The part of speech of the word (e.g., Noun, Verb, Adjective)."
-        },
-        theme: {
-            type: Type.STRING,
-            description: "A concise theme or category for the word, in Vietnamese (e.g., 'Thức ăn', 'Gia đình')."
-        },
-    },
-    required: ["translation", "partOfSpeech", "theme"]
-};
-
-
-export const getQuickWordAnalysis = async (word: string, toLanguage: 'English' | 'Vietnamese', fromLanguage: LearningLanguage): Promise<{ translation: string; partOfSpeech: string; theme: string; } | null> => {
+export const generateWordsFromPrompt = async (prompt: string, existingWords: string[], learningLanguage: LearningLanguage, themes: string[]): Promise<GeneratedWord[]> => {
     return executeWithKeyRotation(async (ai) => {
-        const systemInstruction = `You are a helpful language assistant. Analyze the given ${fromLanguage} word and provide its translation into ${toLanguage}, its part of speech, and a suitable theme in Vietnamese.
-Strictly follow the provided JSON schema. Output a single JSON object.`;
+        const themesInstruction = themes.length > 0
+            ? `When assigning a theme, first try to use one from this existing list if it's a good fit: [${themes.join(', ')}]. Only create a new, general Vietnamese theme if none of the existing ones are suitable.`
+            : `Assign a relevant, general theme in Vietnamese for each word (e.g., "Thức ăn", "Động vật", "Công việc").`;
+
+        const systemInstruction = `You are an AI assistant for a language learning app. Your task is to generate a list of vocabulary words based on the user's prompt. The user is learning ${learningLanguage}.
+  - Provide the word in ${learningLanguage}.
+  - Provide the Vietnamese translation (translation_vi).
+  - Provide the English translation (translation_en).
+  - ${themesInstruction}
+  - Do not include words from this list of already existing words: ${existingWords.join(', ')}.
+  - If a word has multiple meanings, choose the most common one.
+  - Your response MUST be a JSON array of objects, each with "word", "translation_vi", "translation_en", and "theme" keys.
+  - Do not output anything else besides the JSON array.`;
 
         const response = await ai.models.generateContent({
-            model: textModel,
-            contents: `Analyze the word: "${word}"`,
+            model: 'gemini-2.5-flash',
+            contents: prompt,
             config: {
                 systemInstruction,
                 responseMimeType: "application/json",
-                responseSchema: quickWordAnalysisSchema
-            }
+            },
         });
-
-        const result = parseJsonResponse<{ translation: string; partOfSpeech: string; theme: string; }>(response.text);
-        return result;
+        const jsonString = response.text.trim();
+        try {
+            const cleanedJson = jsonString.replace(/^```json\n/, '').replace(/\n```$/, '');
+            return JSON.parse(cleanedJson) as GeneratedWord[];
+        } catch (e) {
+            console.error("Failed to parse JSON from AI response:", jsonString);
+            throw new Error("Invalid response format from AI.");
+        }
     });
 };
 
-export const translateWord = async (word: string, toLanguage: 'English' | 'Vietnamese', fromLanguage: LearningLanguage): Promise<string> => {
+export const getWordsFromImage = async (base64: string, mimeType: string, existingWords: string[], learningLanguage: LearningLanguage, themes: string[]): Promise<GeneratedWord[]> => {
     return executeWithKeyRotation(async (ai) => {
+        const imagePart = { inlineData: { data: base64, mimeType } };
+        
+        const themesInstruction = themes.length > 0
+            ? `When assigning a theme, first try to use one from this existing list if it's a good fit: [${themes.join(', ')}]. Only create a new, general Vietnamese theme if none of the existing ones are suitable.`
+            : `Assign a relevant, general theme in Vietnamese (e.g., "Thiên nhiên", "Đồ vật", "Con người").`;
+
+        const textPart = { text: `Analyze the attached image and identify up to 10 distinct objects, concepts, or actions. For each item you identify:
+    - Provide its name in ${learningLanguage}.
+    - Provide the Vietnamese translation (translation_vi).
+    - Provide the English translation (translation_en).
+    - ${themesInstruction}
+    - Do not include words from this list of already existing words: ${existingWords.join(', ')}.
+    - Your response MUST be a JSON array of objects, with "word", "translation_vi", "translation_en", and "theme" keys.
+    - If you cannot identify anything new, return an empty array []. Do not output anything else.` };
+
         const response = await ai.models.generateContent({
-            model: textModel,
-            contents: `Translate the following ${fromLanguage} word to ${toLanguage}: "${word}". Provide only the translation.`,
+            model: 'gemini-2.5-flash',
+            contents: { parts: [imagePart, textPart] },
             config: {
-                temperature: 0.2,
-            }
+                responseMimeType: "application/json",
+            },
+        });
+        const jsonString = response.text.trim();
+        try {
+            const cleanedJson = jsonString.replace(/^```json\n/, '').replace(/\n```$/, '');
+            return JSON.parse(cleanedJson) as GeneratedWord[];
+        } catch (e) {
+            console.error("Failed to parse JSON from AI image response:", jsonString);
+            throw new Error("Invalid response format from AI.");
+        }
+    });
+};
+
+export const getWordsFromFile = async (base64: string, mimeType: string, existingWords: string[], learningLanguage: LearningLanguage, themes: string[]): Promise<GeneratedWord[]> => {
+    return executeWithKeyRotation(async (ai) => {
+        const filePart = { inlineData: { data: base64, mimeType } };
+        
+        const themesInstruction = themes.length > 0
+            ? `When assigning a theme, first try to use one from this existing list if it's a good fit: [${themes.join(', ')}]. Only create a new, general Vietnamese theme if none of the existing ones are suitable.`
+            : `Assign a relevant, general theme in Vietnamese (e.g., "Kinh doanh", "Công nghệ", "Tự nhiên").`;
+            
+        const textPart = { text: `Analyze the attached document and extract up to 15 key vocabulary words in ${learningLanguage}. For each word:
+    - Provide the word itself.
+    - Provide its Vietnamese translation (translation_vi).
+    - Provide its English translation (translation_en).
+    - ${themesInstruction}
+    - Do not include words from this list of already existing words: ${existingWords.join(', ')}.
+    - Your response MUST be a JSON array of objects, with "word", "translation_vi", "translation_en", and "theme" keys.
+    - If you cannot extract any new words, return an empty array []. Do not output anything else.` };
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: { parts: [filePart, textPart] },
+            config: {
+                responseMimeType: "application/json",
+            },
+        });
+        const jsonString = response.text.trim();
+        try {
+            const cleanedJson = jsonString.replace(/^```json\n/, '').replace(/\n```$/, '');
+            return JSON.parse(cleanedJson) as GeneratedWord[];
+        } catch (e) {
+            console.error("Failed to parse JSON from AI file response:", jsonString);
+            throw new Error("Invalid response format from AI.");
+        }
+    });
+};
+
+// FIX: Implement and export all missing functions to resolve import errors.
+export const translateWord = async (word: string, targetLanguage: 'English' | 'Vietnamese', learningLanguage: LearningLanguage): Promise<string> => {
+    return executeWithKeyRotation(async (ai) => {
+        const systemInstruction = `You are a translation assistant. Translate the given ${learningLanguage} word into ${targetLanguage}. Provide only the single, most common translation. Do not add any extra text, explanation, or punctuation.`;
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: word,
+            config: {
+                systemInstruction,
+                temperature: 0,
+            },
         });
         return response.text.trim();
     });
 };
 
-const generatedWordSchema = {
-    type: Type.OBJECT,
-    properties: {
-        word: { 
-            type: Type.STRING,
-            description: "The vocabulary word in the target learning language. For German nouns, include the article (e.g., 'der Tisch'). This field must contain ONLY the word itself in its simplest dictionary form, without any extra metadata like plural forms or translations."
-        },
-        translation_vi: { 
-            type: Type.STRING,
-            description: "The Vietnamese translation of the word."
-        },
-        translation_en: { 
-            type: Type.STRING,
-            description: "The English translation of the word."
-        },
-        theme: { 
-            type: Type.STRING,
-            description: "A concise theme or category for the word, in Vietnamese (e.g., 'Thức ăn', 'Gia đình')."
-        },
-    },
-    required: ["word", "translation_vi", "translation_en", "theme"]
-};
-
-export const generateWordsFromPrompt = async (prompt: string, existingWords: string[], language: LearningLanguage): Promise<GeneratedWord[]> => {
+export const getWordInfo = async (word: string, uiLanguage: TargetLanguage, learningLanguage: LearningLanguage): Promise<WordInfo> => {
     return executeWithKeyRotation(async (ai) => {
-        const systemInstruction = `You are an AI assistant for a language learning app. Your task is to generate a list of vocabulary words based on the user's request.
-The target learning language is ${language}.
-For each word, provide a clean, simple dictionary form in the 'word' field. For German nouns, include the article (e.g., 'der Apfel'). The 'word' field MUST NOT contain translations, plural forms, conjugations, or any other metadata.
-Provide translations in both Vietnamese ('translation_vi') and English ('translation_en').
-Assign a relevant, concise theme in Vietnamese for each word in the 'theme' field.
-Do NOT include any of these existing words: ${existingWords.join(', ')}.
-Strictly follow the provided JSON schema. Output a JSON array of objects.`;
+        const targetLangName = uiLanguage === 'vietnamese' ? 'Vietnamese' : 'English';
+        const genderInstruction = learningLanguage === 'german' ? '- If the word is a noun, provide its gender (der, die, or das).' : '';
+
+        const systemInstruction = `You are a language dictionary assistant. For the ${learningLanguage} word "${word}", provide the following information:
+- Provide the most common part of speech in English (e.g., Noun, Verb, Adjective).
+${genderInstruction}
+- Provide a simple, clear definition in ${targetLangName}.
+- Your response MUST be a JSON object with keys "partOfSpeech", "gender" (if applicable), and "definition".
+- Do not output anything else besides the JSON object.`;
 
         const response = await ai.models.generateContent({
-            model: textModel,
-            contents: `User request: "${prompt}"`,
+            model: 'gemini-2.5-flash',
+            contents: `Get info for the word: ${word}`,
             config: {
                 systemInstruction,
                 responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.ARRAY,
-                    items: generatedWordSchema
-                }
-            }
+            },
         });
-
-        const result = parseJsonResponse<GeneratedWord[]>(response.text);
-        return result || [];
-    });
-};
-
-export const getWordsFromImage = async (base64: string, mimeType: string, existingWords: string[], language: LearningLanguage): Promise<GeneratedWord[]> => {
-    return executeWithKeyRotation(async (ai) => {
-        const systemInstruction = `You are an AI assistant for a language learning app. Identify objects in the image and generate a list of vocabulary words for them.
-The target learning language is ${language}.
-For each word, provide a clean, simple dictionary form in the 'word' field. For German nouns, include the article (e.g., 'der Apfel'). The 'word' field MUST NOT contain translations, plural forms, conjugations, or any other metadata.
-Provide translations in both Vietnamese ('translation_vi') and English ('translation_en').
-Assign a relevant, concise theme in Vietnamese for each word in the 'theme' field.
-Do NOT include any of these existing words: ${existingWords.join(', ')}.
-Strictly follow the provided JSON schema. Output a JSON array of objects.`;
-
-        const imagePart = { inlineData: { data: base64, mimeType } };
-        const textPart = { text: "Identify objects in this image and list them as vocabulary words." };
-
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-pro',
-            contents: { parts: [imagePart, textPart] },
-            config: {
-                systemInstruction,
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.ARRAY,
-                    items: generatedWordSchema
-                }
-            }
-        });
-
-        const result = parseJsonResponse<GeneratedWord[]>(response.text);
-        return result || [];
-    });
-};
-
-export const getWordsFromFile = async (base64: string, mimeType: string, existingWords: string[], language: LearningLanguage): Promise<GeneratedWord[]> => {
-    return executeWithKeyRotation(async (ai) => {
-        const systemInstruction = `You are an AI assistant for a language learning app. Analyze the provided document and extract key vocabulary words.
-The target learning language is ${language}.
-For each word, provide a clean, simple dictionary form in the 'word' field. For German nouns, include the article (e.g., 'der Apfel'). The 'word' field MUST NOT contain translations, plural forms, conjugations, or any other metadata.
-Provide translations in both Vietnamese ('translation_vi') and English ('translation_en'), and assign a relevant, concise theme in Vietnamese in the 'theme' field.
-Do NOT include any of these existing words: ${existingWords.join(', ')}.
-Focus on nouns, verbs, and adjectives that are useful for a language learner. Extract around 10-15 words.
-Strictly follow the provided JSON schema. Output a JSON array of objects.`;
-
-        const filePart = { inlineData: { data: base64, mimeType } };
         
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-pro',
-            contents: { parts: [filePart] },
-            config: {
-                systemInstruction,
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.ARRAY,
-                    items: generatedWordSchema
-                }
-            }
-        });
-
-        const result = parseJsonResponse<GeneratedWord[]>(response.text);
-        return result || [];
-    });
-};
-
-export const identifyObjectInImage = async (base64: string, mimeType: string, coords: {x: number, y: number}, language: LearningLanguage): Promise<GeneratedWord | null> => {
-    return executeWithKeyRotation(async (ai) => {
-        const systemInstruction = `You are an AI assistant for a language learning app. A user has clicked on an image at normalized coordinates (x: ${coords.x}, y: ${coords.y}). Your task is to identify the object at or very near these coordinates.
-The target learning language is ${language}.
-Provide its name in a clean, simple dictionary form in the 'word' field. For German nouns, include the article (e.g., 'der Tisch'). The 'word' field MUST NOT contain translations, plural forms, or any other metadata.
-Provide translations in both Vietnamese ('translation_vi') and English ('translation_en').
-Assign a relevant, concise theme in Vietnamese in the 'theme' field.
-If no specific object is at the coordinates, identify the general area (e.g., 'sky', 'wall').
-If you cannot identify anything, return a JSON object with null values.
-Strictly follow the provided JSON schema. Output a single JSON object.`;
-
-        const imagePart = { inlineData: { data: base64, mimeType } };
-        const textPart = { text: `Identify the object at x:${coords.x}, y:${coords.y}.`};
-
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-pro',
-            contents: { parts: [imagePart, textPart] },
-            config: {
-                systemInstruction,
-                responseMimeType: "application/json",
-                responseSchema: generatedWordSchema
-            }
-        });
-
-        const result = parseJsonResponse<GeneratedWord>(response.text);
-        return result?.word ? result : null;
-    });
-};
-
-export const generateStory = async (words: string[], targetLanguage: TargetLanguage, learningLanguage: LearningLanguage): Promise<string> => {
-    return executeWithKeyRotation(async (ai) => {
-        const targetLangName = targetLanguage === 'vietnamese' ? 'Vietnamese' : 'English';
-        const learningLangName = learningLanguage.charAt(0).toUpperCase() + learningLanguage.slice(1);
-        
-        const prompt = `Write a short, coherent story in ${learningLangName} aimed at an intermediate language learner (A2/B1 level). The story must logically incorporate the following words: ${words.join(', ')}.
-The plot should be interesting and make sense. Avoid overly simplistic or childish themes.
-The story should be a few paragraphs long.
-After the story, provide a complete translation in ${targetLangName}.
-Separate the original story and its translation with "---Translation---".`;
-
-        const response = await ai.models.generateContent({
-            model: textModel,
-            contents: prompt
-        });
-        return response.text;
+        try {
+            const jsonString = response.text.trim().replace(/^```json\n/, '').replace(/\n```$/, '');
+            return JSON.parse(jsonString) as WordInfo;
+        } catch (e) {
+            console.error("Failed to parse word info JSON:", response.text);
+            throw new Error("Invalid response format from AI for word info.");
+        }
     });
 };
 
 export const generateSentence = async (word: VocabularyWord, targetLanguage: TargetLanguage, learningLanguage: LearningLanguage): Promise<string> => {
     return executeWithKeyRotation(async (ai) => {
         const targetLangName = targetLanguage === 'vietnamese' ? 'Vietnamese' : 'English';
-        const learningLangName = learningLanguage.charAt(0).toUpperCase() + learningLanguage.slice(1);
-        
-        const prompt = `Create a clear and natural-sounding example sentence in ${learningLangName} using the word "${word.word}".
-The sentence should be appropriate for an intermediate language learner and effectively demonstrate the word's typical usage and context.
-After the sentence, provide a translation in ${targetLangName}.
-Separate the original sentence and its translation with "---Translation---".`;
-        
-        const response = await ai.models.generateContent({ model: textModel, contents: prompt });
+        const systemInstruction = `You are an AI assistant for a language learning app. Create one simple, clear example sentence in ${learningLanguage} using the word "${word.word}". The sentence should be easy for a beginner to understand. After the sentence, add '---Translation---' as a separator, and then provide the translation of the sentence in ${targetLangName}.`;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: `Generate a sentence for the word: ${word.word}`,
+            config: {
+                systemInstruction,
+                temperature: 0.5,
+            },
+        });
         return response.text;
     });
 };
 
-export const generateQuizForWord = async (word: VocabularyWord, targetLanguage: TargetLanguage, learningLanguage: LearningLanguage): Promise<Quiz | null> => {
+export const checkSentence = async (sentence: string, word: string, uiLanguage: TargetLanguage, learningLanguage: LearningLanguage): Promise<string> => {
     return executeWithKeyRotation(async (ai) => {
-        const translation = word.translation[targetLanguage];
-        const prompt = `Create a multiple-choice quiz question to test the meaning of the ${learningLanguage} word "${word.word}".
-The question should be in ${learningLanguage}.
-The correct answer is "${translation}".
-Provide three other plausible but incorrect options in ${targetLanguage}.
-The options should be of similar type (e.g., all nouns, all verbs).
-Return the response as a JSON object.`;
-        
-        const response = await ai.models.generateContent({
-            model: textModel,
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        question: { type: Type.STRING },
-                        options: { type: Type.ARRAY, items: { type: Type.STRING } },
-                        correctAnswer: { type: Type.STRING }
-                    },
-                    required: ["question", "options", "correctAnswer"]
-                }
-            }
-        });
+        const targetLangName = uiLanguage === 'vietnamese' ? 'Vietnamese' : 'English';
+        const systemInstruction = `You are a language teacher. The user has written a sentence in ${learningLanguage} to practice the word "${word}".
+- Check the sentence for grammatical errors, spelling mistakes, and correct usage of the word "${word}".
+- Provide feedback in ${targetLangName}.
+- If the sentence is perfect, say "The sentence is perfect!".
+- If there are errors, explain them clearly and provide the corrected sentence.
+- Keep the feedback concise and encouraging.`;
 
-        const quizData = parseJsonResponse<Quiz>(response.text);
-        if (quizData) {
-            const options = new Set([...quizData.options, quizData.correctAnswer]);
-            quizData.options = Array.from(options).sort(() => Math.random() - 0.5);
-        }
-        return quizData;
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: `Check this sentence: "${sentence}"`,
+            config: { systemInstruction },
+        });
+        return response.text;
     });
 };
 
-export const generateImageForWord = async (word: string): Promise<string> => {
+export const rewriteSentence = async (sentence: string, word: string, uiLanguage: TargetLanguage, learningLanguage: LearningLanguage): Promise<string> => {
     return executeWithKeyRotation(async (ai) => {
-        const response = await ai.models.generateImages({
-            model: imagenModel,
-            prompt: `A clear, simple, high-quality image of: ${word}. Centered object, clean background.`,
+        const targetLangName = uiLanguage === 'vietnamese' ? 'Vietnamese' : 'English';
+        const systemInstruction = `You are a language assistant. The user wants to rewrite a sentence in ${learningLanguage} that contains the word "${word}".
+- Rewrite the sentence to make it sound more natural or to offer an alternative phrasing.
+- Provide the rewritten sentence in ${learningLanguage}.
+- Briefly explain the change in ${targetLangName}.
+- Your output should be the rewritten sentence, followed by a newline and the explanation.`;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: `Rewrite this sentence: "${sentence}"`,
+            config: { systemInstruction },
+        });
+        return response.text;
+    });
+};
+
+export const getChatResponseForWord = async (word: VocabularyWord, userQuestion: string, history: ChatMessage[], uiLanguage: TargetLanguage, learningLanguage: LearningLanguage): Promise<string> => {
+    return executeWithKeyRotation(async (ai) => {
+        const targetLangName = uiLanguage === 'vietnamese' ? 'Vietnamese' : 'English';
+        
+        const historyForPrompt = history.map(msg => `${msg.role === 'user' ? 'User' : 'Tutor'}: ${msg.text}`).join('\n');
+
+        const systemInstruction = `You are a helpful language tutor. You are discussing the ${learningLanguage} word "${word.word}", which means "${word.translation[uiLanguage]}" in ${targetLangName}.
+- Answer the user's questions about this word.
+- Keep your answers concise and easy for a language learner to understand.
+- Respond in ${targetLangName}.
+- This is the conversation so far:
+${historyForPrompt}`;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: userQuestion,
+            config: { systemInstruction },
+        });
+        return response.text;
+    });
+};
+
+export const generateSpeech = async (word: string, learningLanguage: LearningLanguage): Promise<string> => {
+    return executeWithKeyRotation(async (ai) => {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash-preview-tts",
+            contents: [{ parts: [{ text: word }] }],
             config: {
-              numberOfImages: 1,
-              outputMimeType: 'image/jpeg',
-              aspectRatio: '1:1',
+                responseModalities: [Modality.AUDIO],
+                speechConfig: {
+                    voiceConfig: {
+                        prebuiltVoiceConfig: { voiceName: 'Kore' }, 
+                    },
+                },
             },
         });
-
-        if (response.generatedImages?.[0]?.image?.imageBytes) {
-            const base64ImageBytes: string = response.generatedImages[0].image.imageBytes;
-            return `data:image/jpeg;base64,${base64ImageBytes}`;
+        
+        const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+        if (!base64Audio) {
+            throw new Error("AI did not return audio data.");
         }
-        throw new Error("No image generated");
+        return base64Audio;
+    });
+};
+
+export const generateStory = async (words: string[], targetLanguage: TargetLanguage, learningLanguage: LearningLanguage): Promise<string> => {
+    return executeWithKeyRotation(async (ai) => {
+        const targetLangName = targetLanguage === 'vietnamese' ? 'Vietnamese' : 'English';
+        const systemInstruction = `You are an AI assistant for a language learning app. Create a very short, simple story (around 50-70 words) in ${learningLanguage} that includes the following words: [${words.join(', ')}]. After the story, add '---Translation---' as a separator, and then provide the translation of the story in ${targetLangName}.`;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: `Generate a story with these words: ${words.join(', ')}`,
+            config: {
+                systemInstruction,
+                temperature: 0.7,
+            },
+        });
+        return response.text;
+    });
+};
+
+export const generateQuizForWord = async (word: VocabularyWord, targetLanguage: TargetLanguage, learningLanguage: LearningLanguage): Promise<Quiz> => {
+    return executeWithKeyRotation(async (ai) => {
+        const targetLangName = targetLanguage === 'vietnamese' ? 'Vietnamese' : 'English';
+        const systemInstruction = `You are an AI assistant for a language learning app. Your task is to create a multiple-choice quiz question.
+- The question should be: "What is the ${targetLangName} translation of the ${learningLanguage} word '${word.word}'?"
+- The correct answer is "${word.translation[targetLanguage]}".
+- Generate three plausible but incorrect answer options in ${targetLangName}. The incorrect options should be related to the same theme or category as the correct answer if possible, but clearly wrong.
+- Your response MUST be a JSON object with keys "question", "options" (an array of 4 strings, including the correct answer, shuffled), and "correctAnswer".
+- Do not output anything else besides the JSON object.`;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: `Create a quiz for the word "${word.word}".`,
+            config: {
+                systemInstruction,
+                responseMimeType: "application/json",
+            },
+        });
+        
+        try {
+            const jsonString = response.text.trim().replace(/^```json\n/, '').replace(/\n```$/, '');
+            const quizData = JSON.parse(jsonString);
+            if (Array.isArray(quizData.options) && quizData.options.every(o => typeof o === 'string')) {
+                return quizData as Quiz;
+            }
+            throw new Error("Invalid format for quiz options.");
+        } catch (e) {
+            console.error("Failed to parse quiz JSON from AI:", response.text);
+            throw new Error("Invalid response format from AI for quiz.");
+        }
     });
 };
 
 export const generateImageFromPrompt = async (prompt: string): Promise<string> => {
     return executeWithKeyRotation(async (ai) => {
         const response = await ai.models.generateImages({
-            model: imagenModel,
-            prompt: prompt,
+            model: 'imagen-4.0-generate-001',
+            prompt: `A simple, clear, minimalist icon or clipart of: ${prompt}. White background, vibrant colors.`,
             config: {
-              numberOfImages: 1,
-              outputMimeType: 'image/jpeg',
-              aspectRatio: '1:1',
+                numberOfImages: 1,
+                outputMimeType: 'image/png',
+                aspectRatio: '1:1',
             },
         });
-
-        if (response.generatedImages?.[0]?.image?.imageBytes) {
-          const base64ImageBytes: string = response.generatedImages[0].image.imageBytes;
-          return `data:image/jpeg;base64,${base64ImageBytes}`;
-        }
-        throw new Error("No image generated from prompt");
+        
+        const base64ImageBytes: string = response.generatedImages[0].image.imageBytes;
+        return `data:image/png;base64,${base64ImageBytes}`;
     });
 };
 
+export const generateImageForWord = async (word: string): Promise<string> => {
+    return generateImageFromPrompt(word);
+};
 
 export const editImage = async (base64Data: string, mimeType: string, prompt: string): Promise<string> => {
     return executeWithKeyRotation(async (ai) => {
         const response = await ai.models.generateContent({
-            model: imageModel,
+            model: 'gemini-2.5-flash-image',
             contents: {
                 parts: [
-                    { inlineData: { data: base64Data, mimeType: mimeType } },
-                    { text: prompt }
+                    { inlineData: { data: base64Data, mimeType } },
+                    { text: prompt },
                 ],
             },
             config: {
@@ -398,490 +402,413 @@ export const editImage = async (base64Data: string, mimeType: string, prompt: st
 
         for (const part of response.candidates[0].content.parts) {
             if (part.inlineData) {
-                return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+                const base64ImageBytes: string = part.inlineData.data;
+                const newMimeType = part.inlineData.mimeType;
+                return `data:${newMimeType};base64,${base64ImageBytes}`;
             }
         }
-        throw new Error("No image generated from edit");
-    });
-};
-
-export const getWordInfo = async (word: string, targetLanguage: TargetLanguage, learningLanguage: LearningLanguage): Promise<WordInfo> => {
-    return executeWithKeyRotation(async (ai) => {
-        const prompt = `Provide linguistic information for the ${learningLanguage} word "${word}".
-Return a JSON object. The definition should be in ${targetLanguage === 'vietnamese' ? 'Vietnamese' : 'English'}.
-For German nouns, include the gender ('der', 'die', or 'das').`;
         
-        const response = await ai.models.generateContent({
-            model: textModel,
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        partOfSpeech: { type: Type.STRING },
-                        gender: { type: Type.STRING, description: "e.g., der, die, das for German nouns" },
-                        definition: { type: Type.STRING }
-                    },
-                    required: ["partOfSpeech", "definition"]
-                }
-            }
-        });
-
-        return parseJsonResponse<WordInfo>(response.text) || { partOfSpeech: 'N/A', definition: 'Could not fetch info.'};
+        throw new Error("AI did not return an edited image.");
     });
 };
 
-export const getSynonymsAndAntonyms = async (word: string, targetLanguage: TargetLanguage, learningLanguage: LearningLanguage): Promise<{ synonyms: string[], antonyms: string[] } | null> => {
+export const getQuickWordAnalysis = async (word: string, targetLang: 'Vietnamese' | 'English', learningLang: LearningLanguage): Promise<{ translation: string; partOfSpeech: string; theme: string; }> => {
     return executeWithKeyRotation(async (ai) => {
-        const prompt = `For the ${learningLanguage} word "${word}", provide up to 4 relevant synonyms and up to 4 relevant antonyms. The synonyms and antonyms themselves should be in ${learningLanguage}. Return a JSON object. If no synonyms or antonyms are found, return an empty array for that key.`;
-        
-        const response = await ai.models.generateContent({
-            model: textModel,
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        synonyms: { type: Type.ARRAY, items: { type: Type.STRING } },
-                        antonyms: { type: Type.ARRAY, items: { type: Type.STRING } }
-                    },
-                    required: ["synonyms", "antonyms"]
-                }
-            }
-        });
-
-        return parseJsonResponse<{ synonyms: string[], antonyms: string[] }>(response.text);
-    });
-};
-
-export const getEtymology = async (word: string, targetLanguage: TargetLanguage, learningLanguage: LearningLanguage): Promise<string | null> => {
-    return executeWithKeyRotation(async (ai) => {
-        const prompt = `Provide a concise etymology for the ${learningLanguage} word "${word}". Explain its origin and evolution simply, suitable for a language learner. The explanation should be in ${targetLanguage === 'vietnamese' ? 'Vietnamese' : 'English'}. Provide only the explanation text.`;
-        
-        const response = await ai.models.generateContent({
-            model: textModel,
-            contents: prompt
-        });
-
-        return response.text.trim();
-    });
-};
-
-
-export const generateSpeech = async (word: string, learningLanguage: LearningLanguage): Promise<string> => {
-    return executeWithKeyRotation(async (ai) => {
-        const voiceMap: Record<LearningLanguage, string> = {
-            'german': 'Puck',
-            'english': 'Zephyr',
-            'chinese': 'Kore'
-        };
+        const systemInstruction = `You are a language analysis tool. For the given ${learningLang} word, provide a quick analysis.
+- Provide the translation in ${targetLang}.
+- Identify the most common part of speech (e.g., Noun, Verb, Adjective).
+- Suggest a general theme for the word in ${targetLang} (e.g., Food, Animals, Work).
+- Your response MUST be a JSON object with keys "translation", "partOfSpeech", and "theme".
+- Do not output anything else besides the JSON object.`;
 
         const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash-preview-tts",
-            contents: [{ parts: [{ text: word }] }],
-            config: {
-                responseModalities: [Modality.AUDIO],
-                speechConfig: {
-                    voiceConfig: {
-                        prebuiltVoiceConfig: { voiceName: voiceMap[learningLanguage] || 'Zephyr' },
-                    },
-                },
-            },
-        });
-        
-        const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-        if (base64Audio) {
-            return base64Audio;
-        }
-
-        throw new Error("No audio generated");
-    });
-};
-
-export const checkSentence = async (sentence: string, word: string, targetLanguage: TargetLanguage, learningLanguage: LearningLanguage): Promise<string> => {
-    return executeWithKeyRotation(async (ai) => {
-        const prompt = `The user is learning ${learningLanguage} and wrote a sentence${word ? ` using the word "${word}"` : ''}.
-User's sentence: "${sentence}"
-1. Check if the sentence is grammatically correct and makes sense.
-2. Provide short, clear feedback in ${targetLanguage === 'vietnamese' ? 'Vietnamese' : 'English'}.
-3. If there are errors, explain them simply and suggest a correction.
-4. Keep the feedback encouraging and suitable for a beginner.`;
-        const response = await ai.models.generateContent({ model: textModel, contents: prompt });
-        return response.text;
-    });
-};
-
-export const rewriteSentence = async (sentence: string, word: string, targetLanguage: TargetLanguage, learningLanguage: LearningLanguage): Promise<string> => {
-    return executeWithKeyRotation(async (ai) => {
-        const prompt = `The user is learning ${learningLanguage} and wrote a sentence.
-User's sentence: "${sentence}"
-Rewrite this sentence to make it sound more natural and correct${word ? `, while still using the word "${word}"` : ''}.
-Provide only the rewritten sentence.`;
-        const response = await ai.models.generateContent({ model: textModel, contents: prompt });
-        return response.text;
-    });
-};
-
-export const getChatResponseForWord = async (word: VocabularyWord, question: string, history: ChatMessage[], targetLanguage: TargetLanguage, learningLanguage: LearningLanguage): Promise<string> => {
-    return executeWithKeyRotation(async (ai) => {
-        const systemInstruction = `You are a friendly language tutor AI. The user is learning ${learningLanguage} and has a question about the word "${word.word}", which means "${word.translation[targetLanguage]}".
-Answer the user's questions clearly and simply. Keep responses concise. The conversation should be in ${targetLanguage === 'vietnamese' ? 'Vietnamese' : 'English'}.`;
-
-        const contents = history.map(msg => ({ role: msg.role, parts: [{ text: msg.text }] }));
-
-        const chat = ai.chats.create({
-            model: textModel,
-            config: { systemInstruction },
-            history: contents.slice(0, -1)
-        });
-
-        const lastMessage = contents[contents.length-1];
-        const result = await chat.sendMessage({ message: lastMessage.parts[0].text });
-        return result.text;
-    });
-};
-
-export const getChatResponseForTutor = async (history: {user: string, model: string}[], newMessage: string, learningLanguage: LearningLanguage, targetLanguage: TargetLanguage): Promise<string> => {
-    return executeWithKeyRotation(async (ai) => {
-        const historySummary = history.map(t => `User: ${t.user}\nAI: ${t.model}`).join('\n\n');
-        
-        const systemInstruction = `You are a friendly language tutor. The user is learning ${learningLanguage}. Converse with them in ${learningLanguage} to help them practice. Keep your responses concise. The user's native language is ${targetLanguage}.
-This is the conversation so far for context:
-${historySummary}`;
-
-        const chatHistoryForApi = history.flatMap(turn => [
-            { role: 'user', parts: [{ text: turn.user }] },
-            { role: 'model', parts: [{ text: turn.model }] }
-        ]);
-
-        const chat = ai.chats.create({
-            model: textModel,
-            config: { systemInstruction },
-            history: chatHistoryForApi
-        });
-
-        const result = await chat.sendMessage({ message: newMessage });
-        return result.text;
-    });
-};
-
-
-export const generateHintsForWord = async (word: VocabularyWord, targetLanguage: TargetLanguage, learningLanguage: LearningLanguage) => {
-    return executeWithKeyRotation(async (ai) => {
-        const prompt = `For the ${learningLanguage} word "${word.word}", generate four progressive hints for a word-guessing game. The user knows the number of letters.
-    1.  **Hint 1 (Riddle):** A short, clever riddle or a descriptive clue about the word. This is the first thing the user sees.
-    2.  **Hint 2 (Category):** The general category or theme of the word (e.g., Food, Animal).
-    3.  **Hint 3 (Sentence):** An example sentence using the word, but replace the word with underscores (\\_). The sentence should clearly suggest the word.
-    4.  **Hint 4 (First Letter):** The first letter of the word.
-    All hints must be in ${targetLanguage === 'vietnamese' ? 'Vietnamese' : 'English'}.
-    Return a single JSON object.`;
-        const response = await ai.models.generateContent({
-            model: textModel,
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        hint1: { type: Type.STRING, description: "Riddle or descriptive clue" },
-                        hint2: { type: Type.STRING, description: "Category/Theme" },
-                        hint3: { type: Type.STRING, description: "Example sentence with blank" },
-                        hint4: { type: Type.STRING, description: "First letter" },
-                    },
-                    required: ["hint1", "hint2", "hint3", "hint4"]
-                }
-            }
-        });
-        return parseJsonResponse<{ hint1: string; hint2: string; hint3: string; hint4: string; }>(response.text);
-    });
-};
-
-export const generateScrambledSentence = async (word: VocabularyWord, learningLanguage: LearningLanguage): Promise<string> => {
-    return executeWithKeyRotation(async (ai) => {
-        const prompt = `Create one simple, clear example sentence in ${learningLanguage} using the word "${word.word}".
-    The sentence should be suitable for a language learner.
-    Provide only the sentence itself, with no extra text or translation.`;
-        const response = await ai.models.generateContent({ model: textModel, contents: prompt });
-        return response.text.trim();
-    });
-};
-
-export const generateWritingPrompt = async (language: TargetLanguage): Promise<string> => {
-    return executeWithKeyRotation(async (ai) => {
-        const prompt = `Generate a short, simple, and interesting writing prompt for a language learner.
-    It can be a question, a "what if" scenario, or a request to describe something.
-    The prompt should be in ${language === 'vietnamese' ? 'Vietnamese' : 'English'}.
-    Provide only the prompt text.`;
-        const response = await ai.models.generateContent({ model: textModel, contents: prompt });
-        return response.text.trim();
-    });
-};
-
-export const checkGrammar = async (text: string, learningLanguage: LearningLanguage, targetLanguage: TargetLanguage) => {
-    return executeWithKeyRotation(async (ai) => {
-        const prompt = `You are a language teacher. The user, who is learning ${learningLanguage}, has written the following text.
-    Your task is to provide feedback in ${targetLanguage === 'vietnamese' ? 'Vietnamese' : 'English'}.
-    The output must be a JSON object.
-    1.  In the "correctedText" field, provide the corrected version of the user's text.
-    2.  In the "feedback" array, list each correction as an object with three fields: "error", "correction", and "explanation".
-        - "error": The specific incorrect word or phrase.
-        - "correction": The suggested correction.
-        - "explanation": A simple, clear explanation of why it was wrong.
-    
-    User's text: "${text}"`;
-        
-        const response = await ai.models.generateContent({
-            model: textModel,
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        correctedText: { type: Type.STRING },
-                        feedback: {
-                            type: Type.ARRAY,
-                            items: {
-                                type: Type.OBJECT,
-                                properties: {
-                                    error: { type: Type.STRING },
-                                    correction: { type: Type.STRING },
-                                    explanation: { type: Type.STRING },
-                                },
-                                 required: ["error", "correction", "explanation"]
-                            }
-                        }
-                    },
-                    required: ["correctedText", "feedback"]
-                }
-            }
-        });
-        return parseJsonResponse<{ correctedText: string; feedback: { error: string; correction: string; explanation: string }[] }>(response.text);
-    });
-};
-
-export const generateAiLesson = async (theme: string, learningLanguage: LearningLanguage, targetLanguage: TargetLanguage): Promise<AiLesson | null> => {
-    return executeWithKeyRotation(async (ai) => {
-        const systemInstruction = `You are a language teacher AI. Create a mini-lesson for a user learning ${learningLanguage}. The user's native language is ${targetLanguage}.
-The lesson must be about the theme: "${theme}".
-Structure the output as a single JSON object.
-The lesson should contain four parts:
-1.  "vocabulary": An array of 10-12 useful vocabulary words related to the theme. Each object should have "word" (in ${learningLanguage}) and "translation" (in ${targetLanguage}).
-2.  "dialogue": A short, practical dialogue between two speakers (e.g., A and B) using some of the vocabulary. It should be an array of objects, each with "speaker" and "line" (in ${learningLanguage}).
-3.  "story": A very short, simple story (3-5 sentences) that incorporates some of the vocabulary. The story should be in ${learningLanguage}.
-4.  "grammarTip": A simple, relevant grammar tip related to the vocabulary or dialogue. The object should have "title" and "explanation" (in ${targetLanguage}).
-All content should be suitable for an A2/B1 level learner.`;
-
-        const response = await ai.models.generateContent({
-            model: textModel,
-            contents: `Generate a lesson about "${theme}".`,
+            model: 'gemini-2.5-flash',
+            contents: word,
             config: {
                 systemInstruction,
                 responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        vocabulary: {
-                            type: Type.ARRAY,
-                            items: {
-                                type: Type.OBJECT,
-                                properties: { word: { type: Type.STRING }, translation: { type: Type.STRING } },
-                                required: ["word", "translation"]
-                            }
-                        },
-                        dialogue: {
-                            type: Type.ARRAY,
-                            items: {
-                                type: Type.OBJECT,
-                                properties: { speaker: { type: Type.STRING }, line: { type: Type.STRING } },
-                                required: ["speaker", "line"]
-                            }
-                        },
-                        story: { type: Type.STRING },
-                        grammarTip: {
-                            type: Type.OBJECT,
-                            properties: { title: { type: Type.STRING }, explanation: { type: Type.STRING } },
-                            required: ["title", "explanation"]
-                        }
-                    },
-                    required: ["vocabulary", "dialogue", "story", "grammarTip"]
-                }
-            }
+            },
         });
-        return parseJsonResponse<AiLesson>(response.text);
+        
+        try {
+            const jsonString = response.text.trim().replace(/^```json\n/, '').replace(/\n```$/, '');
+            return JSON.parse(jsonString);
+        } catch (e) {
+            console.error("Failed to parse quick analysis JSON:", response.text);
+            throw new Error("Invalid response format from AI for quick analysis.");
+        }
     });
 };
 
 export const generateDailyMission = async (words: VocabularyWord[], stats: UserStats, learningLanguage: LearningLanguage): Promise<string> => {
     return executeWithKeyRotation(async (ai) => {
-        const wordsForReview = words.filter(w => w.nextReview <= Date.now()).slice(0, 10).map(w => w.word);
-        
-        const prompt = `You are a friendly language learning coach. Based on the user's data, create a short, encouraging, and specific daily mission in Vietnamese.
-        - User's learning language: ${learningLanguage}
-        - Total words learned: ${stats.totalWords}
-        - Current learning streak: ${stats.currentStreak} days
-        - Words due for review today: ${wordsForReview.length > 0 ? wordsForReview.join(', ') : 'none'}
-        
-        Generate a single, actionable mission for today. Be creative. Suggest a specific activity available in the app (e.g., "Ôn tập nhanh", "Thẻ ghi nhớ", "Luyện viết", a game like "Đoán chữ").
-        Keep the mission text concise (1-2 sentences). Address the user directly.
-        
-        Example outputs:
-        "Chuỗi ${stats.currentStreak} ngày thật tuyệt vời! Nhiệm vụ hôm nay: dùng 'Thẻ ghi nhớ' để ôn lại 5 từ và thử sức với game 'Đoán chữ' nhé!"
-        "Hôm nay hãy thử thách bản thân! Dùng công cụ "Tạo truyện AI" với ít nhất 3 từ mới xem sao."
-        "Bạn có ${wordsForReview.length} từ cần ôn tập. Hãy vào mục 'Ôn tập Thông minh' để củng cố lại chúng ngay nào!"
-        
-        Provide only the mission text.`;
+        const wordsToReviewCount = words.filter(w => w.nextReview <= Date.now()).length;
+        const prompt = `Create a short, inspiring daily mission for a ${learningLanguage} learner.
+- The user has ${words.length} total words.
+- They have ${wordsToReviewCount} words due for review.
+- Their current streak is ${stats.currentStreak} days.
+- Their longest streak is ${stats.longestStreak} days.
+- Base the mission on these stats. For example, if they have many words to review, encourage them to do a review session. If their streak is high, congratulate them. If they have few words, suggest adding more.
+- The mission must be a short, single sentence in Vietnamese.
+- Do not add any prefixes like "Nhiệm vụ:". Just return the sentence.`;
 
         const response = await ai.models.generateContent({
-            model: textModel,
+            model: 'gemini-2.5-flash',
             contents: prompt,
-            config: { temperature: 0.8 }
+            config: {
+                temperature: 0.8,
+            },
+        });
+        return response.text.trim().replace(/^"|"$/g, '');
+    });
+};
+
+export const generateHintsForWord = async (word: VocabularyWord, uiLanguage: TargetLanguage, learningLanguage: LearningLanguage): Promise<{ hint1: string; hint2: string; hint3: string; hint4: string; }> => {
+    return executeWithKeyRotation(async (ai) => {
+        const targetLangName = uiLanguage === 'vietnamese' ? 'Vietnamese' : 'English';
+        const systemInstruction = `You are an AI assistant for a word guessing game. The user is trying to guess the ${learningLanguage} word "${word.word}".
+Generate 4 hints in ${targetLangName} with increasing levels of helpfulness.
+- hint1: A riddle or a very vague clue about the word.
+- hint2: The general category or theme of the word (e.g., "${word.theme || 'General'}").
+- hint3: A simple example sentence in ${learningLanguage} with the word blanked out (e.g., "Ich esse einen ___.").
+- hint4: The first letter of the word ("${word.word[0]}").
+Your response MUST be a JSON object with keys "hint1", "hint2", "hint3", and "hint4".
+Do not output anything else.`;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: `Generate hints for ${word.word}`,
+            config: {
+                systemInstruction,
+                responseMimeType: "application/json",
+            },
+        });
+        
+        try {
+            const jsonString = response.text.trim().replace(/^```json\n/, '').replace(/\n```$/, '');
+            return JSON.parse(jsonString);
+        } catch (e) {
+            console.error("Failed to parse hints JSON:", response.text);
+            throw new Error("Invalid response format from AI for hints.");
+        }
+    });
+};
+
+export const generateScrambledSentence = async (word: VocabularyWord, learningLanguage: LearningLanguage): Promise<string> => {
+    return executeWithKeyRotation(async (ai) => {
+        const systemInstruction = `You are an AI assistant. Create one simple, grammatically correct sentence in ${learningLanguage} that uses the word "${word.word}". The sentence should be between 5 and 10 words long.
+- Return only the sentence. Do not add punctuation like periods at the end.
+- Do not add any extra text or explanations.`;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: `Generate a simple sentence with the word: ${word.word}`,
+            config: {
+                systemInstruction,
+                temperature: 0.6,
+            },
+        });
+        return response.text.trim().replace(/\.$/, '');
+    });
+};
+
+export const checkGrammar = async (text: string, learningLanguage: LearningLanguage, uiLanguage: TargetLanguage): Promise<Feedback> => {
+    return executeWithKeyRotation(async (ai) => {
+        const targetLangName = uiLanguage === 'vietnamese' ? 'Vietnamese' : 'English';
+        const systemInstruction = `You are a language teacher. The user has written a text in ${learningLanguage}.
+- Correct any grammatical errors, spelling mistakes, and awkward phrasing.
+- For each correction, explain the error and why the correction is better. The explanation should be in ${targetLangName}.
+- Your response MUST be a JSON object with two keys:
+  1. "correctedText": A string containing the full, corrected version of the text.
+  2. "feedback": An array of objects, where each object has "error" (the original incorrect phrase), "correction" (the corrected phrase), and "explanation" (the reason for the change).
+- If the text is perfect, return the original text in "correctedText" and an empty array for "feedback".`;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-pro',
+            contents: text,
+            config: {
+                systemInstruction,
+                responseMimeType: "application/json",
+            },
+        });
+        
+        try {
+            const jsonString = response.text.trim().replace(/^```json\n/, '').replace(/\n```$/, '');
+            return JSON.parse(jsonString) as Feedback;
+        } catch (e) {
+            console.error("Failed to parse grammar feedback JSON:", response.text);
+            throw new Error("Invalid response format from AI for grammar check.");
+        }
+    });
+};
+
+export const generateWritingPrompt = async (uiLanguage: TargetLanguage): Promise<string> => {
+    return executeWithKeyRotation(async (ai) => {
+        const targetLangName = uiLanguage === 'vietnamese' ? 'Vietnamese' : 'English';
+        const systemInstruction = `You are an AI assistant. Generate a simple, open-ended writing prompt for a language learner.
+- The prompt should be something personal and easy to write about, like "What is your favorite food?" or "Describe your weekend."
+- The prompt must be in ${targetLangName}.
+- Return only the prompt as a single sentence. Do not add prefixes like "Prompt:".`;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: 'Generate a writing prompt',
+            config: {
+                systemInstruction,
+                temperature: 0.9,
+            },
         });
         return response.text.trim();
     });
 };
 
-export const validateDuelWord = async (
-    word: string,
-    usedWords: string[],
-    language: LearningLanguage,
-    context: { mode: 'theme' | 'longest' | 'chain', theme?: string, startingLetter?: string, lastWord?: string }
-): Promise<{ isValid: boolean; reason: string }> => {
+export const getChatResponseForTutor = async (history: Turn[], userMessage: string, learningLanguage: LearningLanguage, uiLanguage: TargetLanguage): Promise<string> => {
     return executeWithKeyRotation(async (ai) => {
-        let rules = `1. It must be a real, correctly spelled word in ${language}.
-2. It must NOT have been used before. Used words: ${usedWords.join(', ')}.`;
-
-        switch (context.mode) {
-            case 'theme':
-                rules += `\n3. It must be relevant to the theme "${context.theme}". If the theme is "any", any valid word is acceptable.`;
-                break;
-            case 'longest':
-                rules += `\n3. It MUST start with the letter "${context.startingLetter}".`;
-                break;
-            case 'chain':
-                let startRule = '';
-                const lastLetter = context.lastWord ? context.lastWord.slice(-1).toLowerCase() : '';
-
-                switch(language) {
-                    case 'german':
-                        if (lastLetter === 'ß') {
-                            startRule = `The previous word ended in 'ß', so the new word MUST start with the letter 's'.`;
-                        } else {
-                            startRule = `It MUST start with the letter "${lastLetter}", which is the last letter of the previous word "${context.lastWord}".`;
-                        }
-                        break;
-                    case 'chinese':
-                        const lastChar = context.lastWord ? context.lastWord.slice(-1) : '';
-                        startRule = `The first character of the new word MUST be "${lastChar}", which is the last character of the previous word "${context.lastWord}". It must be a multi-character word.`;
-                        break;
-                    default: // english
-                        startRule = `It MUST start with the letter "${lastLetter}", which is the last letter of the previous word "${context.lastWord}".`;
-                }
-                rules += `\n3. ${startRule}`;
-                break;
-        }
-
-        const systemInstruction = `You are a strict referee for a word game in ${language}.
-The user has provided a word. You must determine if it's valid based on these rules:
-${rules}
-Analyze the user's word and respond ONLY with a JSON object.`;
+        const targetLangName = uiLanguage === 'vietnamese' ? 'Vietnamese' : 'English';
+        const historyForPrompt = history.map(turn => `User: ${turn.user}\nTutor: ${turn.model}`).join('\n');
         
+        const systemInstruction = `You are a friendly language tutor. The user is learning ${learningLanguage}. Converse with them in ${learningLanguage} to help them practice.
+- Keep your responses concise and natural for a spoken conversation.
+- The user's native language is ${targetLangName}.
+- Below is the conversation history for context.
+${historyForPrompt}`;
+
         const response = await ai.models.generateContent({
-            model: textModel,
-            contents: `The user's word is: "${word}"`,
+            model: 'gemini-2.5-flash',
+            contents: userMessage,
             config: {
                 systemInstruction,
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        isValid: { type: Type.BOOLEAN },
-                        reason: { type: Type.STRING, description: "A brief explanation in Vietnamese if the word is invalid. E.g., 'Từ đã được sử dụng', 'Không đúng chữ cái bắt đầu', 'Không phải là một từ hợp lệ'." }
-                    },
-                    required: ["isValid", "reason"]
-                }
-            }
+                temperature: 0.7,
+            },
         });
-
-        const result = parseJsonResponse<{ isValid: boolean; reason: string }>(response.text);
-        return result || { isValid: false, reason: "Lỗi phân tích phản hồi từ AI." };
+        return response.text;
     });
 };
 
-export const getAiDuelWord = async (
-    usedWords: string[],
-    language: LearningLanguage,
-    difficulty: 'easy' | 'medium' | 'hard' | 'hell',
-    context: { mode: 'theme' | 'longest' | 'chain' | 'first', theme?: string, startingLetter?: string, lastWord?: string }
-): Promise<{ word: string }> => {
+export const identifyObjectInImage = async (base64: string, mimeType: string, coords: { x: number, y: number }, learningLanguage: LearningLanguage): Promise<GeneratedWord | null> => {
     return executeWithKeyRotation(async (ai) => {
-        let task = '';
-        switch (context.mode) {
-            case 'theme':
-            case 'first': // The first word can be theme-based
-                task = `Provide one new, valid word related to the theme "${context.theme}". If the theme is "any", you can choose a word from any theme.`;
-                break;
-            case 'longest':
-                task = `Provide one new, valid word that starts with the letter "${context.startingLetter}". Your goal is to find a LONG word to score a point.`;
-                break;
-            case 'chain':
-                let chainRule = '';
-                 const lastLetter = context.lastWord ? context.lastWord.slice(-1).toLowerCase() : '';
-                 switch(language) {
-                    case 'german':
-                        if (lastLetter === 'ß') {
-                            chainRule = `Provide one new, valid word that starts with the letter 's' (because the previous word "${context.lastWord}" ended in 'ß').`;
-                        } else {
-                            chainRule = `Provide one new, valid word that starts with the letter "${lastLetter}" (from the end of "${context.lastWord}").`;
-                        }
-                        break;
-                    case 'chinese':
-                        const lastChar = context.lastWord ? context.lastWord.slice(-1) : '';
-                        chainRule = `Provide one new, valid multi-character word where the first character is "${lastChar}" (from the end of "${context.lastWord}").`;
-                        break;
-                    default: // english
-                         chainRule = `Provide one new, valid word that starts with the letter "${lastLetter}" (from the end of "${context.lastWord}").`;
-                }
-                task = chainRule;
-                break;
-        }
+        const imagePart = { inlineData: { data: base64, mimeType } };
+        const textPart = { text: `Identify the single object located at the normalized coordinates (x: ${coords.x.toFixed(3)}, y: ${coords.y.toFixed(3)}) in the image.
+- Provide its name in ${learningLanguage}.
+- Provide the Vietnamese translation (translation_vi).
+- Provide the English translation (translation_en).
+- Suggest a general theme in Vietnamese (e.g., "Đồ vật", "Động vật").
+- Your response MUST be a JSON object with "word", "translation_vi", "translation_en", and "theme" keys.
+- If you cannot identify a distinct object at that location, return a JSON object with "word" as an empty string.` };
 
-        let difficultyInstruction = '';
-        switch (difficulty) {
-            case 'easy': difficultyInstruction = 'Choose a very common and obvious word.'; break;
-            case 'medium': difficultyInstruction = 'Choose a moderately common word.'; break;
-            case 'hard': difficultyInstruction = `Choose a less common, more specific, or creative word. For 'longest word' mode, try to find a genuinely long word.`; break;
-            case 'hell': difficultyInstruction = `Choose a very specific, rare, or clever word that is still valid. Try to win. For 'longest word' mode, find the longest possible valid word you can think of.`; break;
-        }
-
-        const systemInstruction = `You are an AI player in a word game in ${language}.
-${task}
-The word MUST NOT be in this list of already used words: ${usedWords.join(', ')}.
-Your difficulty level is ${difficulty}. ${difficultyInstruction}
-Respond ONLY with a JSON object containing the word.`;
-        
         const response = await ai.models.generateContent({
-            model: textModel,
-            contents: "Your turn. Provide your word.",
+            model: 'gemini-2.5-flash',
+            contents: { parts: [imagePart, textPart] },
+            config: {
+                responseMimeType: "application/json",
+            },
+        });
+        
+        try {
+            const jsonString = response.text.trim().replace(/^```json\n/, '').replace(/\n```$/, '');
+            const result = JSON.parse(jsonString) as GeneratedWord;
+            if (result.word) {
+                return result;
+            }
+            return null;
+        } catch (e) {
+            console.error("Failed to parse object identification JSON:", response.text);
+            return null;
+        }
+    });
+};
+
+export const generateAiLesson = async (theme: string, learningLanguage: LearningLanguage, uiLanguage: TargetLanguage): Promise<AiLesson | null> => {
+    return executeWithKeyRotation(async (ai) => {
+        const targetLangName = uiLanguage === 'vietnamese' ? 'Vietnamese' : 'English';
+        const systemInstruction = `You are an AI language lesson creator. Generate a complete mini-lesson about the theme "${theme}" for a beginner learning ${learningLanguage}. The user's native language is ${targetLangName}.
+Your response MUST be a single JSON object with the following structure:
+{
+  "vocabulary": [ { "word": "...", "translation": "..." } ],
+  "dialogue": [ { "speaker": "A", "line": "..." }, { "speaker": "B", "line": "..." } ],
+  "story": "A very short story using some of the vocabulary.",
+  "grammarTip": { "title": "...", "explanation": "..." }
+}
+- 'vocabulary': 5-7 key words in ${learningLanguage} with their translation in ${targetLangName}.
+- 'dialogue': A short, simple 4-6 line conversation between two speakers (A and B) in ${learningLanguage}.
+- 'story': A 3-4 sentence story in ${learningLanguage}.
+- 'grammarTip': One relevant, simple grammar tip related to the theme or vocabulary, with the explanation in ${targetLangName}.`;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-pro',
+            contents: `Generate a lesson about: ${theme}`,
+            config: {
+                systemInstruction,
+                responseMimeType: 'application/json',
+            },
+        });
+        
+        try {
+            const jsonString = response.text.trim().replace(/^```json\n/, '').replace(/\n```$/, '');
+            return JSON.parse(jsonString) as AiLesson;
+        } catch (e) {
+            console.error("Failed to parse lesson JSON:", response.text);
+            return null;
+        }
+    });
+};
+
+export const validateDuelWord = async (word: string, usedWords: string[], learningLanguage: LearningLanguage, context: DuelContext): Promise<{ isValid: boolean, reason: string | null }> => {
+     return executeWithKeyRotation(async (ai) => {
+        let rule = '';
+        switch(context.mode) {
+            case 'theme': rule = `The word must be related to the theme: ${context.theme}.`; break;
+            case 'longest': rule = `The word must start with the letter '${context.startingLetter}'.`; break;
+            case 'chain': rule = `The word must start with the last letter of '${context.lastWord}', which is '${context.lastWord.slice(-1)}'.`; break;
+        }
+
+        const systemInstruction = `You are a referee for a ${learningLanguage} word game. The user has provided a word.
+- The word is: "${word}"
+- The list of already used words is: [${usedWords.join(', ')}]
+- The rule for this turn is: ${rule}
+- Check if the word is a real, common word in ${learningLanguage}.
+- Check if the word has already been used (case-insensitive).
+- Check if the word follows the rule.
+- Your response MUST be a JSON object with "isValid" (boolean) and "reason" (string, explaining why it's invalid in Vietnamese, or null if valid).`;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: `Validate the word: ${word}`,
             config: {
                 systemInstruction,
                 responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        word: { type: Type.STRING, description: `A single word in ${language} that follows the rules.` }
-                    },
-                    required: ["word"]
-                }
-            }
+            },
         });
-
-        const result = parseJsonResponse<{ word: string }>(response.text);
-        if (!result || !result.word) {
-            return { word: '' }; // Fallback
+        
+        try {
+            const jsonString = response.text.trim().replace(/^```json\n/, '').replace(/\n```$/, '');
+            return JSON.parse(jsonString);
+        } catch (e) {
+            console.error("Failed to parse duel validation JSON:", response.text);
+            return { isValid: false, reason: "Lỗi khi kiểm tra từ." };
         }
-        return result;
+    });
+};
+
+export const getAiDuelWord = async (usedWords: string[], learningLanguage: LearningLanguage, difficulty: 'easy' | 'medium' | 'hard' | 'hell', context: DuelContext): Promise<{ word: string }> => {
+    return executeWithKeyRotation(async (ai) => {
+        let rule = '';
+        switch(context.mode) {
+            case 'theme': rule = `The word must be related to the theme: ${context.theme}.`; break;
+            case 'longest': rule = `The word must start with the letter '${context.startingLetter}'.`; break;
+            case 'chain': rule = `The word must start with the last letter of '${context.lastWord}', which is '${context.lastWord.slice(-1)}'.`; break;
+            case 'first': rule = 'Just provide any common starting word.'; break;
+        }
+        
+        const systemInstruction = `You are an AI player in a ${learningLanguage} word game. Your difficulty level is ${difficulty}.
+- Your task is to provide one valid word.
+- The list of already used words is: [${usedWords.join(', ')}]
+- The rule for this turn is: ${rule}
+- Based on your difficulty, choose an appropriate word. 'Easy' should be a common, short word. 'Hard' should be a more complex or longer word. 'Hell' can be very obscure or long.
+- Your response MUST be a JSON object with a single key "word".
+- If you cannot think of a word, return an empty string for "word".`;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-pro',
+            contents: 'Give me a word.',
+            config: {
+                systemInstruction,
+                responseMimeType: "application/json",
+            },
+        });
+        
+        try {
+            const jsonString = response.text.trim().replace(/^```json\n/, '').replace(/\n```$/, '');
+            return JSON.parse(jsonString);
+        } catch (e) {
+            console.error("Failed to parse AI duel word JSON:", response.text);
+            return { word: '' };
+        }
+    });
+};
+
+export const getAiSuggestedWords = async (prompt: string, availableWords: VocabularyWord[], learningLanguage: LearningLanguage): Promise<VocabularyWord[]> => {
+    return executeWithKeyRotation(async (ai) => {
+        const wordList = availableWords.map(w => ({ id: w.id, word: w.word, srsLevel: w.srsLevel, nextReview: w.nextReview, createdAt: w.createdAt }));
+        const systemInstruction = `You are an AI assistant helping a user select words from their vocabulary list for a practice session.
+- The user's request is: "${prompt}".
+- The available words are provided as a JSON array. Each object contains the word, its id, and spaced repetition data (srsLevel, nextReview). Lower srsLevel means harder. nextReview is a timestamp; if it's in the past, the word needs review.
+- Interpret the user's request and select the most relevant words from the list. For example, 'hardest words' should pick words with low srsLevel. 'Words to review' should pick words where nextReview is past the current timestamp (${Date.now()}).
+- Your response MUST be a JSON array of word strings (just the "word" field) that you have selected.
+- Do not output anything else.`;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-pro',
+            contents: `User request: "${prompt}". Available words: ${JSON.stringify(wordList)}`,
+            config: {
+                systemInstruction,
+                responseMimeType: "application/json",
+            },
+        });
+        
+        try {
+            const jsonString = response.text.trim().replace(/^```json\n/, '').replace(/\n```$/, '');
+            const selectedWordStrings = JSON.parse(jsonString) as string[];
+            const selectedWordSet = new Set(selectedWordStrings.map(s => s.toLowerCase()));
+            return availableWords.filter(w => selectedWordSet.has(w.word.toLowerCase()));
+        } catch (e) {
+            console.error("Failed to parse AI suggested words JSON:", response.text);
+            return [];
+        }
+    });
+};
+
+const navigateToGameFunction: FunctionDeclaration = {
+    name: 'navigateToGame',
+    parameters: {
+        type: Type.OBJECT,
+        description: 'Navigates the user to a specific game or learning mode screen.',
+        properties: {
+            gameName: {
+                type: Type.STRING,
+                description: `The name of the game screen to navigate to. Must be one of: [${Object.values(View).join(', ')}]`,
+            },
+        },
+        required: ['gameName'],
+    },
+};
+
+export const getAiAssistantResponse = async (
+    userMessage: string,
+    history: AiAssistantMessage[],
+    context: {
+        detailedActivityLog: HistoryEntry[],
+        vocabularyList: Partial<VocabularyWord>[],
+        userStats: UserStats,
+    }
+): Promise<{ responseText: string, functionCalls: any[] | null }> => {
+    return executeWithKeyRotation(async (ai) => {
+        const systemInstruction = `You are Lingo, a friendly, encouraging, and insightful AI language learning assistant. Your personality is helpful and a bit playful.
+- Your main goal is to help the user learn more effectively.
+- You have access to the user's stats, vocabulary list, and a detailed log of their recent actions. Use this data to provide personalized feedback and suggestions.
+- Keep your responses concise and in Vietnamese.
+- When asked to create an "exercise chain" or "chuỗi bài tập", use the 'navigateToGame' function to suggest a sequence of 2-3 different games. Announce the chain you've created in your text response before the function calls.
+- Analyze the user's request and provided context to give helpful answers. For example, if asked "How did I do this week?", summarize their activity from the log. If asked "what words am I bad at?", look for words with low srsLevel in their vocabulary or incorrect answers in the activity log.
+
+CONTEXT:
+- User Stats: ${JSON.stringify(context.userStats)}
+- Detailed Recent Activity Log: ${JSON.stringify(context.detailedActivityLog)}
+- Vocabulary Summary (sample): ${JSON.stringify(context.vocabularyList.slice(0, 30))}
+`;
+        const chatHistory = history.map(h => ({ role: h.role, parts: [{ text: h.text }] }));
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-pro',
+            contents: [...chatHistory, { role: 'user', parts: [{ text: userMessage }] }],
+            config: {
+                systemInstruction,
+                tools: [{ functionDeclarations: [navigateToGameFunction] }],
+            },
+        });
+        
+        return {
+            responseText: response.text,
+            functionCalls: response.functionCalls || null
+        };
     });
 };

@@ -218,7 +218,7 @@ const History: React.FC = () => {
                  {history.length > 0 && !searchTerm && (
                     <div className="mt-4 text-center">
                         {hasMore ? (
-                            <button onClick={loadMoreHistory} disabled={isLoadingMore} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-sm rounded-lg disabled:opacity-50">
+                            <button onClick={loadMoreHistory} disabled={isLoadingMore} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-sm rounded-lg disabled:opacity-50 text-white">
                                 {isLoadingMore ? <><RefreshCw className="w-4 h-4 inline mr-2 animate-spin"/> Đang tải...</> : 'Tải thêm'}
                             </button>
                         ) : (

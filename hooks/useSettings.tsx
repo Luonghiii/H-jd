@@ -49,6 +49,9 @@ interface SettingsContextType {
   updateWordCountStat: (count: number) => Promise<void>;
   profile: UserProfile;
   updateUserProfile: (updates: Partial<UserProfile>) => Promise<void>;
+  aiAssistantBackground: string | null;
+  setAiAssistantBackground: (imageDataUrl: string) => Promise<void>;
+  clearAiAssistantBackground: () => Promise<void>;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -81,6 +84,7 @@ const defaultState = {
         dob: '',
         photoURL: null,
     } as UserProfile,
+    aiAssistantBackground: null,
 };
 
 export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -116,7 +120,8 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
                 username: data.username || '',
                 dob: data.dob || '',
                 photoURL: data.photoURL || currentUser.photoURL || null,
-            }
+            },
+            aiAssistantBackground: data.settings?.aiAssistantBackground || null,
           };
           setAppState(combinedState);
           setApiKeys(combinedState.userApiKeys);
@@ -220,6 +225,16 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     if (!currentUser) return;
     await updateUserData(currentUser.uid, { settings: { backgroundSetting: null } });
   }, [currentUser]);
+
+  const setAiAssistantBackground = useCallback(async (imageDataUrl: string) => {
+    if (!currentUser) return;
+    await updateUserData(currentUser.uid, { settings: { aiAssistantBackground: imageDataUrl } });
+  }, [currentUser]);
+  
+  const clearAiAssistantBackground = useCallback(async () => {
+    if (!currentUser) return;
+    await updateUserData(currentUser.uid, { settings: { aiAssistantBackground: null } });
+  }, [currentUser]);
   
   const addCustomGradient = useCallback(async (gradient: string) => {
     if (!currentUser) return;
@@ -313,6 +328,9 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     updateWordCountStat,
     profile: appState.profile,
     updateUserProfile,
+    aiAssistantBackground: appState.aiAssistantBackground,
+    setAiAssistantBackground,
+    clearAiAssistantBackground,
   };
 
   return (
