@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSettings } from '../hooks/useSettings';
-import { X, User as UserIcon, Camera, Loader2, Sparkles, BookOpen, Flame, Trophy } from 'lucide-react';
+import { X, User as UserIcon, Camera, Loader2, Sparkles, BookOpen, Flame, Trophy, CheckCircle, Ban } from 'lucide-react';
 import eventBus from '../utils/eventBus';
 import ImageGenerationModal from './ImageGenerationModal';
 import { resizeAndCropImageAsDataUrl } from '../services/storageService';
+import { useAchievements } from '../hooks/useAchievements';
+import { achievementsList } from '../data/achievements';
+import { useI18n } from '../hooks/useI18n';
 
 interface ProfileModalProps {
     isOpen: boolean;
@@ -20,7 +23,9 @@ const StatCard: React.FC<{ icon: React.ElementType; value: number | string; labe
 
 
 const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
-    const { profile, updateUserProfile, stats } = useSettings();
+    const { profile, updateUserProfile, stats, updateSelectedAchievement } = useSettings();
+    const { userAchievements } = useAchievements();
+    const { t } = useI18n();
     
     // User profile fields state
     const [displayName, setDisplayName] = useState('');
@@ -37,6 +42,8 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [isAvatarLoading, setIsAvatarLoading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const unlockedAchievements = achievementsList.filter(ach => userAchievements[ach.id]?.level > 0);
 
     useEffect(() => {
         if (isOpen) {
@@ -168,6 +175,41 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                                 <input type="date" value={dob} onChange={e => setDob(e.target.value)} className="w-full mt-1 px-3 py-2 bg-white/50 border border-slate-300/70 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:outline-none transition" />
                             </div>
                         </div>
+
+                        {/* Display Achievement Section */}
+                        <div className="space-y-3 pt-4 border-t border-slate-200">
+                            <label className="text-sm font-medium text-slate-700">{t('profile.display_achievement')}</label>
+                             <p className="text-xs text-slate-600 -mt-2">{t('profile.display_achievement_desc')}</p>
+                            <div className="max-h-48 overflow-y-auto space-y-2 pr-2 bg-slate-200/50 neu-inset-light rounded-xl p-2">
+                                <button
+                                    onClick={() => updateSelectedAchievement(null)}
+                                    className={`w-full flex items-center gap-3 p-2 text-left rounded-lg transition-all ${!profile.selectedAchievement ? 'ring-2 ring-indigo-500 bg-white/50' : 'hover:bg-black/5'}`}
+                                >
+                                    <div className="w-8 h-8 flex items-center justify-center bg-slate-300 rounded-md"><Ban className="w-5 h-5 text-slate-600" /></div>
+                                    <span className="font-semibold text-slate-700">{t('profile.no_achievement')}</span>
+                                    {!profile.selectedAchievement && <CheckCircle className="w-5 h-5 text-indigo-600 ml-auto" />}
+                                </button>
+                                {unlockedAchievements.length > 0 ? unlockedAchievements.map(ach => {
+                                    const progress = userAchievements[ach.id];
+                                    const isSelected = profile.selectedAchievement?.id === ach.id;
+                                    return (
+                                        <button
+                                            key={ach.id}
+                                            onClick={() => updateSelectedAchievement({ id: ach.id, level: progress.level })}
+                                            className={`w-full flex items-center gap-3 p-2 text-left rounded-lg transition-all ${isSelected ? 'ring-2 ring-indigo-500 bg-white/50' : 'hover:bg-black/5'}`}
+                                        >
+                                            <div className="w-8 h-8 flex items-center justify-center bg-amber-500/20 rounded-md"><ach.icon className="w-5 h-5 text-amber-500" /></div>
+                                            <div className="flex-grow">
+                                                <p className="font-semibold text-sm text-slate-800">{ach.name}</p>
+                                                <p className="text-xs text-slate-600">{t('achievements.level')} {progress.level}</p>
+                                            </div>
+                                            {isSelected && <CheckCircle className="w-5 h-5 text-indigo-600 ml-auto" />}
+                                        </button>
+                                    );
+                                }) : <p className="text-center text-sm text-slate-500 p-4">{t('profile.no_unlocked_achievements')}</p>}
+                            </div>
+                        </div>
+
                     </div>
                     <div className="p-4 bg-slate-200/50 border-t border-slate-200 flex justify-end">
                         <button onClick={handleSave} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg disabled:bg-indigo-400 neu-button-light" disabled={isLoading || isAvatarLoading}>

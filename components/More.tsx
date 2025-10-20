@@ -1,6 +1,6 @@
 import React from 'react';
 import { View } from '../types';
-import { Sparkles, Clock, Trophy, Palette, ArrowRight } from 'lucide-react';
+import { Sparkles, Clock, Trophy, Palette, ArrowRight, Award, Compass } from 'lucide-react';
 import { useI18n } from '../hooks/useI18n';
 
 interface MoreProps {
@@ -18,6 +18,20 @@ const More: React.FC<MoreProps> = ({ setCurrentView, onOpenBgCustomizer }) => {
             description: t('more.tools_desc'),
             icon: Sparkles,
             action: () => setCurrentView(View.AiTools)
+        },
+        {
+            id: 'discover',
+            title: t('more.discover_title'),
+            description: t('more.discover_desc'),
+            icon: Compass,
+            action: () => setCurrentView(View.Discover)
+        },
+        {
+            id: 'achievements',
+            title: t('more.achievements_title'),
+            description: t('more.achievements_desc'),
+            icon: Award,
+            action: () => setCurrentView(View.Achievements)
         },
         {
             id: 'history',

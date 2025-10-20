@@ -410,7 +410,7 @@ const WordList: React.FC<WordListProps> = ({ onBack }) => {
 
       {lastDeletedWord && (
         <div className="bg-slate-700 text-white rounded-xl shadow-lg flex items-center justify-between p-3 animate-fade-in-up">
-            <span>{t('word_list.deleted_word', { word: lastDeletedWord.word.word })}</span>
+            <span>{t('word_list.deleted_word', { word: lastDeletedWord.word })}</span>
             <button
                 onClick={undoDelete}
                 className="font-semibold text-indigo-300 hover:underline px-3 py-1 rounded-md hover:bg-slate-600/50"

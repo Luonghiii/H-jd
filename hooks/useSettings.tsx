@@ -1,9 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
-import { TargetLanguage, LearningLanguage, ConversationSession, UserStats } from '../types';
+import { TargetLanguage, LearningLanguage, ConversationSession, UserStats, HistoryEntry, AchievementProgress } from '../types';
 import { useAuth } from './useAuth';
 import { onUserDataSnapshot, updateUserData, updateUserLeaderboardEntry } from '../services/firestoreService';
 import { setApiKeys } from '../services/geminiService';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, increment } from 'firebase/firestore';
 import { db } from '../services/firebase';
 
 export type BackgroundSetting = {
@@ -20,6 +20,7 @@ interface UserProfile {
     username: string;
     dob: string;
     photoURL: string | null;
+    selectedAchievement?: { id: string; level: number; } | null;
 }
 
 interface SettingsContextType {
@@ -52,6 +53,9 @@ interface SettingsContextType {
   aiAssistantBackground: string | null;
   setAiAssistantBackground: (imageDataUrl: string) => Promise<void>;
   clearAiAssistantBackground: () => Promise<void>;
+  incrementAchievementCounter: (type: HistoryEntry['type']) => Promise<void>;
+  updateSelectedAchievement: (achievement: { id: string; level: number; } | null) => Promise<void>;
+  achievements: { [key: string]: AchievementProgress };
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -76,6 +80,7 @@ const defaultState = {
       longestStreak: 0,
       lastActivityDate: '',
       totalWords: 0,
+      achievementCounters: {},
     } as UserStats,
     aiTutorHistory: [] as ConversationSession[],
     profile: {
@@ -83,8 +88,10 @@ const defaultState = {
         username: '',
         dob: '',
         photoURL: null,
+        selectedAchievement: null,
     } as UserProfile,
     aiAssistantBackground: null,
+    achievements: {},
 };
 
 export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -120,8 +127,10 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
                 username: data.username || '',
                 dob: data.dob || '',
                 photoURL: data.photoURL || currentUser.photoURL || null,
+                selectedAchievement: data.selectedAchievement || null,
             },
             aiAssistantBackground: data.settings?.aiAssistantBackground || null,
+            achievements: data.achievements || defaultState.achievements,
           };
           setAppState(combinedState);
           setApiKeys(combinedState.userApiKeys);
@@ -200,52 +209,52 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     localStorage.setItem('uiLanguage', language);
     setAppState(prev => ({...prev, uiLanguage: language}));
     if (currentUser) {
-        await updateUserData(currentUser.uid, { settings: { uiLanguage: language } });
+        await updateUserData(currentUser.uid, { 'settings.uiLanguage': language });
     }
   }, [currentUser]);
   
   const setLearningLanguage = useCallback(async (language: LearningLanguage) => {
     if (!currentUser) return;
-    await updateUserData(currentUser.uid, { settings: { learningLanguage: language } });
+    await updateUserData(currentUser.uid, { 'settings.learningLanguage': language });
   }, [currentUser]);
 
   const setBackgroundImage = useCallback(async (imageDataUrl: string) => {
     if (!currentUser) return;
     const newBg = { type: 'image' as const, value: imageDataUrl };
-    await updateUserData(currentUser.uid, { settings: { backgroundSetting: newBg } });
+    await updateUserData(currentUser.uid, { 'settings.backgroundSetting': newBg });
   }, [currentUser]);
   
   const setBackgroundGradient = useCallback(async (cssGradient: string) => {
     if (!currentUser) return;
     const newBg = { type: 'gradient' as const, value: cssGradient };
-    await updateUserData(currentUser.uid, { settings: { backgroundSetting: newBg } });
+    await updateUserData(currentUser.uid, { 'settings.backgroundSetting': newBg });
   }, [currentUser]);
 
   const clearBackgroundSetting = useCallback(async () => {
     if (!currentUser) return;
-    await updateUserData(currentUser.uid, { settings: { backgroundSetting: null } });
+    await updateUserData(currentUser.uid, { 'settings.backgroundSetting': null });
   }, [currentUser]);
 
   const setAiAssistantBackground = useCallback(async (imageDataUrl: string) => {
     if (!currentUser) return;
-    await updateUserData(currentUser.uid, { settings: { aiAssistantBackground: imageDataUrl } });
+    await updateUserData(currentUser.uid, { 'settings.aiAssistantBackground': imageDataUrl });
   }, [currentUser]);
   
   const clearAiAssistantBackground = useCallback(async () => {
     if (!currentUser) return;
-    await updateUserData(currentUser.uid, { settings: { aiAssistantBackground: null } });
+    await updateUserData(currentUser.uid, { 'settings.aiAssistantBackground': null });
   }, [currentUser]);
   
   const addCustomGradient = useCallback(async (gradient: string) => {
     if (!currentUser) return;
     const newGradients = [gradient, ...appState.customGradients];
-    await updateUserData(currentUser.uid, { settings: { customGradients: newGradients } });
+    await updateUserData(currentUser.uid, { 'settings.customGradients': newGradients });
   }, [currentUser, appState.customGradients]);
   
   const removeCustomGradient = useCallback(async (gradient: string) => {
     if (!currentUser) return;
     const newGradients = appState.customGradients.filter(g => g !== gradient);
-    await updateUserData(currentUser.uid, { settings: { customGradients: newGradients } });
+    await updateUserData(currentUser.uid, { 'settings.customGradients': newGradients });
   }, [currentUser, appState.customGradients]);
 
   const addUserApiKey = useCallback(async (key: string): Promise<boolean> => {
@@ -255,25 +264,25 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
         return false;
     }
     const newKeys = [...appState.userApiKeys, trimmedKey];
-    await updateUserData(currentUser.uid, { settings: { userApiKeys: newKeys } });
+    await updateUserData(currentUser.uid, { 'settings.userApiKeys': newKeys });
     return true;
   }, [currentUser, appState.userApiKeys]);
 
   const removeUserApiKey = useCallback(async (keyToRemove: string) => {
     if (!currentUser) return;
     const newKeys = appState.userApiKeys.filter(k => k !== keyToRemove);
-    await updateUserData(currentUser.uid, { settings: { userApiKeys: newKeys } });
+    await updateUserData(currentUser.uid, { 'settings.userApiKeys': newKeys });
   }, [currentUser, appState.userApiKeys]);
 
   const updateBestStreak = useCallback(async (streak: number) => {
     if (!currentUser) return;
-    await updateUserData(currentUser.uid, { stats: { luckyWheelBestStreak: streak } });
+    await updateUserData(currentUser.uid, { 'stats.luckyWheelBestStreak': streak });
   }, [currentUser]);
 
   const setWordOfTheDay = useCallback(async (wordId: string) => {
     if (!currentUser) return;
     const today = new Date().toISOString().split('T')[0];
-    await updateUserData(currentUser.uid, { stats: { wordOfTheDay: { wordId, date: today } } });
+    await updateUserData(currentUser.uid, { 'stats.wordOfTheDay': { wordId, date: today } });
   }, [currentUser]);
 
   const saveTutorSession = useCallback(async (session: ConversationSession) => {
@@ -289,7 +298,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
   
   const updateWordCountStat = useCallback(async (count: number) => {
     if (!currentUser) return;
-    await updateUserData(currentUser.uid, { stats: { totalWords: count } });
+    await updateUserData(currentUser.uid, { 'stats.totalWords': count });
     await updateUserLeaderboardEntry(currentUser.uid);
   }, [currentUser]);
 
@@ -297,6 +306,25 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     if (!currentUser) return;
     await updateUserData(currentUser.uid, updates);
     await updateUserLeaderboardEntry(currentUser.uid);
+  }, [currentUser]);
+
+  const updateSelectedAchievement = useCallback(async (achievement: { id: string; level: number; } | null) => {
+      if (!currentUser) return;
+      await updateUserData(currentUser.uid, { selectedAchievement: achievement });
+      await updateUserLeaderboardEntry(currentUser.uid);
+  }, [currentUser]);
+
+
+  const incrementAchievementCounter = useCallback(async (type: HistoryEntry['type']) => {
+    if (!currentUser) return;
+    const userRef = doc(db, 'users', currentUser.uid);
+    try {
+        await updateDoc(userRef, {
+            [`stats.achievementCounters.${type}`]: increment(1)
+        });
+    } catch (e) {
+        console.error("Failed to increment achievement counter", e);
+    }
   }, [currentUser]);
 
   const hasApiKey = !!process.env.API_KEY || appState.userApiKeys.length > 0;
@@ -331,6 +359,9 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     aiAssistantBackground: appState.aiAssistantBackground,
     setAiAssistantBackground,
     clearAiAssistantBackground,
+    incrementAchievementCounter,
+    updateSelectedAchievement,
+    achievements: appState.achievements,
   };
 
   return (

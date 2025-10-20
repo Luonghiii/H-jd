@@ -2,11 +2,12 @@ import React, { useState, useMemo } from 'react';
 import { useVocabulary } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
 import { useHistory } from '../hooks/useHistory';
-import { generateStory } from '../services/geminiService';
+import { generateStory, generateSpeech } from '../services/geminiService';
 import { VocabularyWord } from '../types';
-import { Sparkles, RefreshCw, CheckCircle, BookText, ArrowLeft, Search } from 'lucide-react';
+import { Sparkles, RefreshCw, CheckCircle, BookText, ArrowLeft, Search, Volume2, Loader2 } from 'lucide-react';
 import HighlightableText from './HighlightableText';
 import eventBus from '../utils/eventBus';
+import { useAudioPlayer } from '../hooks/useAudioPlayer';
 
 interface StoryGeneratorProps {
   onBack: () => void;
@@ -14,12 +15,15 @@ interface StoryGeneratorProps {
 
 const StoryGenerator: React.FC<StoryGeneratorProps> = ({ onBack }) => {
   const { words } = useVocabulary();
-  const { uiLanguage, learningLanguage, recordActivity } = useSettings();
+  const { uiLanguage, learningLanguage, recordActivity, incrementAchievementCounter } = useSettings();
   const { addHistoryEntry } = useHistory();
+  const { play, isPlaying } = useAudioPlayer();
+
   const [selectedWords, setSelectedWords] = useState<VocabularyWord[]>([]);
-  const [germanStory, setGermanStory] = useState('');
+  const [generatedStory, setGeneratedStory] = useState('');
   const [translation, setTranslation] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isSpeechLoading, setIsSpeechLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredWords = useMemo(() => {
@@ -30,7 +34,7 @@ const StoryGenerator: React.FC<StoryGeneratorProps> = ({ onBack }) => {
   }, [words, searchTerm, uiLanguage]);
 
   const handleToggleWord = (word: VocabularyWord) => {
-    setGermanStory('');
+    setGeneratedStory('');
     setTranslation('');
     setSelectedWords(prevSelected => {
         const isSelected = prevSelected.some(w => w.id === word.id);
@@ -45,7 +49,7 @@ const StoryGenerator: React.FC<StoryGeneratorProps> = ({ onBack }) => {
   const handleGenerate = async () => {
     if (selectedWords.length === 0 || isLoading) return;
     setIsLoading(true);
-    setGermanStory('');
+    setGeneratedStory('');
     setTranslation('');
     eventBus.dispatch('notification', { type: 'info', message: 'AI đang viết truyện...' });
     const wordsForStory = selectedWords.map(w => w.word);
@@ -53,16 +57,30 @@ const StoryGenerator: React.FC<StoryGeneratorProps> = ({ onBack }) => {
     
     const parts = aiStory.split('---Translation---');
     if (parts.length === 2) {
-        setGermanStory(parts[0].trim());
+        setGeneratedStory(parts[0].trim());
         setTranslation(parts[1].trim());
     } else {
-        setGermanStory(aiStory.trim());
+        setGeneratedStory(aiStory.trim());
         setTranslation('');
     }
 
     addHistoryEntry('STORY_GENERATED', `Đã tạo truyện với ${selectedWords.length} từ.`, { wordCount: selectedWords.length });
+    incrementAchievementCounter('STORY_GENERATED');
     recordActivity();
     setIsLoading(false);
+  };
+
+  const handlePlayStory = async () => {
+    if (!generatedStory || isSpeechLoading || isPlaying) return;
+    setIsSpeechLoading(true);
+    try {
+        const audioB64 = await generateSpeech(generatedStory, learningLanguage);
+        await play(audioB64);
+    } catch (error) {
+        console.error("Failed to generate/play story audio", error);
+        eventBus.dispatch('notification', { type: 'error', message: 'Không thể tạo âm thanh cho truyện.' });
+    }
+    setIsSpeechLoading(false);
   };
   
   const languageNameMap = {
@@ -147,18 +165,26 @@ const StoryGenerator: React.FC<StoryGeneratorProps> = ({ onBack }) => {
         )}
       </button>
       
-      {germanStory && (
+      {generatedStory && (
         <div className="p-4 rounded-2xl bg-slate-800/50 border border-slate-700 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <BookText className="w-6 h-6 mr-3 text-indigo-400" />
               <h3 className="text-lg font-semibold text-white">Truyện được tạo bởi AI của bạn</h3>
             </div>
+            <button 
+              onClick={handlePlayStory} 
+              disabled={isSpeechLoading || isPlaying}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm bg-slate-700 hover:bg-slate-600 rounded-lg text-white disabled:opacity-50"
+            >
+              {isSpeechLoading || isPlaying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Volume2 className="w-4 h-4" />}
+              <span>Nghe truyện</span>
+            </button>
           </div>
           <div>
             <h4 className="font-semibold text-cyan-300 mb-2">{languageNameMap[learningLanguage]}</h4>
             <div className="text-gray-200 whitespace-pre-wrap leading-relaxed">
-              <HighlightableText text={germanStory} words={selectedWords} />
+              <HighlightableText text={generatedStory} words={selectedWords} />
             </div>
           </div>
           {translation && (

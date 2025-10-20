@@ -105,6 +105,10 @@ export const translations = {
       desc: 'Các công cụ và tính năng khác.',
       tools_title: 'Công cụ AI',
       tools_desc: 'Khai phá sức mạnh của AI để học ngôn ngữ hiệu quả hơn.',
+      discover_title: 'Khám phá',
+      discover_desc: 'Tìm, tạo và chia sẻ các bộ từ vựng cộng đồng theo chủ đề bạn quan tâm.',
+      achievements_title: 'Thành tựu',
+      achievements_desc: 'Xem các huy hiệu và phần thưởng bạn đã đạt được.',
       history_title: 'Lịch sử',
       history_desc: 'Xem lại các hoạt động học tập gần đây của bạn.',
       leaderboard_title: 'Bảng xếp hạng',
@@ -112,7 +116,25 @@ export const translations = {
       background_title: 'Tùy chỉnh nền',
       background_desc: 'Cá nhân hóa giao diện với ảnh hoặc gradient của riêng bạn.',
     },
-    // ... other components
+    discover: {
+      title: 'Khám phá Bộ từ vựng',
+      description: 'Chọn một bộ từ vựng được soạn sẵn để thêm vào danh sách học của bạn.',
+      add_deck: 'Thêm bộ từ',
+      adding_deck: 'Đang thêm...',
+      words: 'từ',
+    },
+    achievements: {
+        title: 'Thành tựu',
+        description: 'Mở khóa các huy hiệu bằng cách hoàn thành các cột mốc học tập.',
+        level: 'Cấp',
+        unlocked: 'Đã mở khóa lúc:'
+    },
+    profile: {
+      display_achievement: 'Thành tựu Hiển thị',
+      display_achievement_desc: 'Chọn một thành tựu đã mở khóa để hiển thị bên cạnh tên của bạn.',
+      no_achievement: 'Không hiển thị',
+      no_unlocked_achievements: 'Bạn chưa mở khóa thành tựu nào.'
+    },
     themes: {
       'Thức ăn': 'Thức ăn',
       'Đồ uống': 'Đồ uống',
@@ -253,6 +275,10 @@ export const translations = {
       desc: 'Other tools and features.',
       tools_title: 'AI Tools',
       tools_desc: 'Unleash the power of AI for more effective language learning.',
+      discover_title: 'Discover',
+      discover_desc: 'Find, create, and share community vocabulary decks by topic.',
+      achievements_title: 'Achievements',
+      achievements_desc: 'View the badges and rewards you have earned.',
       history_title: 'History',
       history_desc: 'Review your recent learning activities.',
       leaderboard_title: 'Leaderboard',
@@ -260,7 +286,25 @@ export const translations = {
       background_title: 'Customize Background',
       background_desc: 'Personalize the interface with your own images or gradients.',
     },
-    // ... other components
+    discover: {
+      title: 'Discover Vocabulary Decks',
+      description: 'Choose a pre-made vocabulary set to add to your learning list.',
+      add_deck: 'Add Deck',
+      adding_deck: 'Adding...',
+      words: 'words',
+    },
+    achievements: {
+        title: 'Achievements',
+        description: 'Unlock badges by completing learning milestones.',
+        level: 'Level',
+        unlocked: 'Unlocked on:'
+    },
+    profile: {
+      display_achievement: 'Display Achievement',
+      display_achievement_desc: 'Choose an unlocked achievement to display next to your name.',
+      no_achievement: 'None',
+      no_unlocked_achievements: 'You have not unlocked any achievements yet.'
+    },
     themes: {
       'Thức ăn': 'Food',
       'Đồ uống': 'Drinks',

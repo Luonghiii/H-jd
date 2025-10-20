@@ -1,5 +1,7 @@
+
 import { GoogleGenAI, Type, Modality, FunctionDeclaration } from "@google/genai";
-import { VocabularyWord, WordInfo, TargetLanguage, LearningLanguage, ChatMessage, GeneratedWord, Quiz, AiLesson, UserStats, Turn, HistoryEntry, AiAssistantMessage, View } from '../types';
+// FIX: Added AiSuggestion to the import list.
+import { VocabularyWord, WordInfo, TargetLanguage, LearningLanguage, ChatMessage, GeneratedWord, Quiz, AiLesson, UserStats, Turn, HistoryEntry, AiAssistantMessage, View, AiSuggestion } from '../types';
 import eventBus from '../utils/eventBus';
 
 let currentApiIndex = 0;
@@ -757,6 +759,49 @@ export const getAiSuggestedWords = async (prompt: string, availableWords: Vocabu
         }
     });
 };
+
+// FIX: Implement and export the missing 'generateDailySuggestions' function.
+export const generateDailySuggestions = async (
+    words: Partial<VocabularyWord>[], 
+    stats: UserStats, 
+    activityLog: HistoryEntry[], 
+    learningLanguage: LearningLanguage
+): Promise<AiSuggestion[]> => {
+    return executeWithKeyRotation(async (ai) => {
+        const systemInstruction = `You are an AI assistant for a language learning app. Your task is to analyze the user's data and provide 2-3 personalized, actionable suggestions for what they should do today.
+- The user is learning ${learningLanguage}.
+- Use their stats, recent activity, and vocabulary list to generate relevant suggestions. For example, if they have many words to review, suggest a review session (view: review). If they haven't played a game recently, suggest one (view: games). If they have a high streak, congratulate them and encourage them to continue.
+- Each suggestion should have a title, a short description, and an action.
+- The action 'type' can be 'NAVIGATE' to a specific app screen ('view'), or 'NONE'.
+- Available 'view' values for navigation are: [${Object.values(View).join(', ')}].
+- Your response MUST be a JSON array of objects, each matching the AiSuggestion interface: { title: string; description: string; action: { type: 'NAVIGATE' | 'NONE'; view?: string; } }.
+- The response MUST be in Vietnamese. The title and description fields must be in Vietnamese.
+- Do not output anything else besides the JSON array.
+
+CONTEXT:
+- User Stats: ${JSON.stringify(stats)}
+- Recent Activity Log (last 10): ${JSON.stringify(activityLog.slice(0, 10))}
+- Vocabulary Summary (sample): ${JSON.stringify(words.slice(0, 20).map(w => ({ word: w.word, srsLevel: w.srsLevel, theme: w.theme })))}
+`;
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-pro',
+            contents: 'Generate daily suggestions for me based on my data.',
+            config: {
+                systemInstruction,
+                responseMimeType: "application/json",
+            },
+        });
+        
+        try {
+            const jsonString = response.text.trim().replace(/^```json\n/, '').replace(/\n```$/, '');
+            return JSON.parse(jsonString) as AiSuggestion[];
+        } catch (e) {
+            console.error("Failed to parse daily suggestions JSON:", response.text);
+            return []; // Return empty array on failure
+        }
+    });
+};
+
 
 const navigateToGameFunction: FunctionDeclaration = {
     name: 'navigateToGame',

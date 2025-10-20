@@ -6,6 +6,7 @@ import { useHistory } from '../hooks/useHistory';
 import { auth } from '../services/firebase';
 import { signOut } from 'firebase/auth';
 import { useI18n } from '../hooks/useI18n';
+import { achievementsList } from '../data/achievements';
 
 const UiLanguageSelector: React.FC = () => {
   const { uiLanguage, setUiLanguage } = useSettings();
@@ -112,6 +113,10 @@ const Header: React.FC<{ onOpenSettings: () => void; onOpenProfile: () => void; 
     await signOut(auth);
   };
   
+  const selectedAchData = profile.selectedAchievement
+    ? achievementsList.find(a => a.id === profile.selectedAchievement?.id)
+    : null;
+
   return (
     <header className="py-4 px-4 sm:px-8">
       <div className="container mx-auto flex items-center justify-between">
@@ -149,6 +154,14 @@ const Header: React.FC<{ onOpenSettings: () => void; onOpenProfile: () => void; 
                     </div>
                 )}
             </button>
+            {selectedAchData && profile.selectedAchievement && (
+                <div 
+                    className="absolute -bottom-1 -right-1 p-1 bg-slate-100 rounded-full shadow-md pointer-events-none"
+                    title={`${selectedAchData.name} (Cấp ${profile.selectedAchievement.level})`}
+                >
+                    <selectedAchData.icon className="w-4 h-4 text-amber-500" />
+                </div>
+            )}
             <ProfileDropdown 
                 isOpen={isProfileOpen}
                 onClose={() => setIsProfileOpen(false)}

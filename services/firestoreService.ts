@@ -21,11 +21,12 @@ import {
   QueryDocumentSnapshot
 } from 'firebase/firestore';
 import { User } from 'firebase/auth';
-import { AiAssistantMessage, ConversationSession, GeneratedWord, HistoryEntry, UserStats, VocabularyWord, UserDoc } from '../types';
+import { AiAssistantMessage, CommunityDeck, ConversationSession, GeneratedWord, HistoryEntry, LearningLanguage, UserStats, VocabularyWord, UserDoc } from '../types';
 import eventBus from '../utils/eventBus';
 import { defaultGermanWords } from '../data/german_words';
 import { defaultEnglishWords } from '../data/english_words';
 import { defaultChineseWords } from '../data/chinese_words';
+import { defaultCommunityDecks } from '../data/community_decks';
 
 // =====================
 // Types
@@ -44,6 +45,7 @@ export interface PublicLeaderboardEntry {
     longestStreak: number;
     totalWords: number;
     photoURL: string | null;
+    selectedAchievement?: { id: string; level: number; } | null;
 }
 
 export interface LeaderboardEntry {
@@ -51,6 +53,7 @@ export interface LeaderboardEntry {
     name: string;
     value: number;
     photoURL: string | null;
+    selectedAchievement?: { id: string; level: number; } | null;
 }
 
 const generatedWordsToVocabulary = (words: GeneratedWord[]): VocabularyWord[] => {
@@ -108,14 +111,17 @@ export const createUserDocument = async (user: User): Promise<void> => {
             userApiKeys: [],
             },
             stats: {
-            luckyWheelBestStreak: 0,
-            currentStreak: 0,
-            longestStreak: 0,
-            lastActivityDate: '',
-            totalWords: initialGermanWords.length,
+                luckyWheelBestStreak: 0,
+                currentStreak: 0,
+                longestStreak: 0,
+                lastActivityDate: '',
+                totalWords: initialGermanWords.length,
+                achievementCounters: {},
             },
             aiTutorHistory: [],
             aiAssistantSessions: [],
+            achievements: {},
+            selectedAchievement: null,
         };
         tx.set(userRef, initialData);
 
@@ -126,6 +132,7 @@ export const createUserDocument = async (user: User): Promise<void> => {
             longestStreak: 0,
             totalWords: initialGermanWords.length,
             photoURL: photoURL ?? null,
+            selectedAchievement: null,
         };
         tx.set(leaderboardRef, initialPublicData);
         }
@@ -141,19 +148,22 @@ export const createUserDocument = async (user: User): Promise<void> => {
 // Update (supports deep merge)
 // =====================
 /**
- * Cập nhật document user. Sử dụng setDoc with merge để hỗ trợ deep merge,
- * đảm bảo các nested object như `words` và `settings` được cập nhật chính xác
- * mà không ghi đè lên nhau.
+ * Cập nhật document user. Sử dụng updateDoc để hỗ trợ cú pháp dấu chấm,
+ * cho phép cập nhật các trường lồng nhau mà không ghi đè lên toàn bộ đối tượng cha.
+ * Ví dụ: updateUserData(uid, { 'settings.learningLanguage': 'english' })
  */
 export const updateUserData = async (uid: string, data: DocumentData): Promise<void> => {
   if (!uid) return;
   const userRef = doc(db, 'users', uid);
 
   try {
-    await setDoc(userRef, data, { merge: true });
+    // Note: setDoc with merge is problematic for nested objects.
+    // updateDoc is the correct way to update specific fields, including nested ones.
+    await updateDoc(userRef, data);
   } catch (err: any) {
     console.error('Error updating user data:', err);
     let errorMessage = 'Không thể lưu dữ liệu.';
+    // Handle specific errors if needed, e.g., permission denied
     if (err.code === 'permission-denied') {
         errorMessage = 'Lỗi quyền truy cập. Vui lòng kiểm tra Security Rules của Firestore.';
     }
@@ -175,6 +185,99 @@ export const appendHistoryEntry = async (uid: string, newEntry: HistoryEntry): P
     throw e;
   }
 };
+
+// =====================
+// Community Decks
+// =====================
+
+/**
+ * Seeds the community decks collection if it's empty.
+ */
+export const seedCommunityDecks = async (): Promise<void> => {
+    const decksRef = collection(db, 'communityDecks');
+    // Check if any system-generated decks already exist to prevent re-seeding.
+    const q = query(decksRef, where('creatorUid', '==', 'system'), limit(1));
+
+    try {
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+            // console.log("Community decks already seeded.");
+            return;
+        }
+
+        console.log("Seeding default community decks...");
+        for (const deck of defaultCommunityDecks) {
+            await addDoc(decksRef, deck);
+        }
+        console.log("Seeding complete.");
+    } catch (error) {
+        console.error("Error seeding community decks:", error);
+    }
+};
+
+
+export const getApprovedCommunityDecks = async (language: LearningLanguage): Promise<CommunityDeck[]> => {
+    const decksRef = collection(db, 'communityDecks');
+    // CORRECT: Query with server-side filtering. This requires a composite index in Firestore.
+    // Firestore will provide an error with a link to create it if it doesn't exist.
+    const q = query(
+        decksRef,
+        where('language', '==', language),
+        where('status', '==', 'approved'),
+        orderBy('createdAt', 'desc'),
+        limit(50)
+    );
+
+    try {
+        const querySnapshot = await getDocs(q);
+        const decks: CommunityDeck[] = [];
+        querySnapshot.forEach((doc) => {
+            decks.push({ id: doc.id, ...doc.data() } as CommunityDeck);
+        });
+        return decks;
+    } catch (error) {
+        console.error("Error fetching community decks:", error);
+        throw new Error("Could not fetch community decks.");
+    }
+};
+
+export const getUserSubmissions = async (uid: string): Promise<CommunityDeck[]> => {
+    if (!uid) return [];
+    const decksRef = collection(db, 'communityDecks');
+    // CORRECT: Query with a 'where' clause to only get the current user's decks.
+    const q = query(
+        decksRef,
+        where('creatorUid', '==', uid),
+        orderBy('createdAt', 'desc'),
+        limit(50)
+    );
+
+    try {
+        const querySnapshot = await getDocs(q);
+        const decks: CommunityDeck[] = [];
+        querySnapshot.forEach((doc) => {
+            decks.push({ id: doc.id, ...doc.data() } as CommunityDeck);
+        });
+        return decks;
+    } catch (error) {
+        console.error("Error fetching user submissions:", error);
+        throw new Error("Could not fetch your submitted decks.");
+    }
+};
+
+export const submitCommunityDeckForReview = async (deckData: Omit<CommunityDeck, 'id' | 'status'>): Promise<void> => {
+    const decksRef = collection(db, 'communityDecks');
+    try {
+        await addDoc(decksRef, {
+            ...deckData,
+            status: 'pending' // Always submit as pending for review
+        });
+    } catch (error) {
+        console.error("Error submitting deck:", error);
+        throw new Error("Could not submit your deck for review.");
+    }
+};
+
 
 // =====================
 // Leaderboard Sync & Query
@@ -204,6 +307,7 @@ export const updateUserLeaderboardEntry = async (uid: string): Promise<void> => 
         longestStreak: userData.stats?.longestStreak || 0,
         totalWords: userData.stats?.totalWords || 0,
         photoURL: userData.photoURL || null,
+        selectedAchievement: userData.selectedAchievement || null,
       };
 
       transaction.set(leaderboardRef, publicData, { merge: true });
@@ -241,6 +345,7 @@ export const getLeaderboardData = async (statField: 'longestStreak' | 'totalWord
             name: data.name,
             value: data[statField] || 0,
             photoURL: data.photoURL,
+            selectedAchievement: data.selectedAchievement,
         }));
         
         return leaderboard;

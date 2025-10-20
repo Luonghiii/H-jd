@@ -31,6 +31,10 @@ import { I18nProvider } from './hooks/useI18n';
 import { AiAssistantProvider } from './hooks/useAiAssistant';
 import AiAssistant from './components/AiAssistant';
 import { ActivityTrackerProvider } from './hooks/useActivityTracker';
+import { AchievementsProvider } from './hooks/useAchievements';
+import Achievements from './components/Achievements';
+import Discover from './components/Discover';
+import { seedCommunityDecks } from './services/firestoreService';
 
 const AppLayout: React.FC<{ onOpenSettings: () => void; }> = ({ onOpenSettings }) => {
   const [currentView, _setCurrentView] = useState<View>(View.Home);
@@ -78,6 +82,10 @@ const AppLayout: React.FC<{ onOpenSettings: () => void; }> = ({ onOpenSettings }
         return <History />;
       case View.Leaderboard:
         return <Leaderboard />;
+      case View.Achievements:
+        return <Achievements />;
+      case View.Discover:
+        return <Discover />;
       case View.More:
         return <More setCurrentView={setCurrentView} onOpenBgCustomizer={() => setIsBgCustomizerOpen(true)} />;
       default:
@@ -162,14 +170,16 @@ const AppContent: React.FC = () => {
           <InspectorProvider>
             <QuickTranslateProvider>
               <ActivityTrackerProvider>
-                <AiAssistantProvider>
-                  <LoginHistoryLogger />
-                  <AppLayout onOpenSettings={() => setIsSettingsOpen(true)} />
-                  <SettingsModal
-                    isOpen={isSettingsOpen}
-                    onClose={() => setIsSettingsOpen(false)}
-                  />
-                </AiAssistantProvider>
+                <AchievementsProvider>
+                  <AiAssistantProvider>
+                    <LoginHistoryLogger />
+                    <AppLayout onOpenSettings={() => setIsSettingsOpen(true)} />
+                    <SettingsModal
+                      isOpen={isSettingsOpen}
+                      onClose={() => setIsSettingsOpen(false)}
+                    />
+                  </AiAssistantProvider>
+                </AchievementsProvider>
               </ActivityTrackerProvider>
             </QuickTranslateProvider>
           </InspectorProvider>
@@ -180,6 +190,12 @@ const AppContent: React.FC = () => {
 }
 
 const App: React.FC = () => {
+  useEffect(() => {
+    // Run the seeding function once on app startup.
+    // It has an internal check to prevent re-seeding if data exists.
+    seedCommunityDecks();
+  }, []);
+  
   return (
     <AuthProvider>
         <SettingsProvider>

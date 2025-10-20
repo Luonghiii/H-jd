@@ -3,6 +3,7 @@ import { useSettings } from '../hooks/useSettings';
 import { useAuth } from '../hooks/useAuth';
 import { getLeaderboardData, LeaderboardEntry } from '../services/firestoreService';
 import { Trophy, Flame, BookOpen, UserCheck, Loader2, User as UserIcon, AlertTriangle } from 'lucide-react';
+import { achievementsList } from '../data/achievements';
 
 type LeaderboardTab = 'streak' | 'words';
 
@@ -106,6 +107,10 @@ const Leaderboard: React.FC = () => {
                         const rank = index + 1;
                         const isCurrentUser = entry.uid === currentUser?.uid;
                         const displayName = isCurrentUser ? `${entry.name} (Bạn)` : entry.name;
+                        const achData = entry.selectedAchievement 
+                            ? achievementsList.find(a => a.id === entry.selectedAchievement!.id) 
+                            : null;
+                        
                         return (
                             <div key={entry.uid} className={`flex items-center p-3 sm:p-4 rounded-2xl border transition-all duration-300 ${isCurrentUser ? 'bg-indigo-600/30 border-indigo-500 scale-105 shadow-lg shadow-indigo-500/20' : 'bg-slate-800/50 border-slate-700'}`}>
                                 <div className="flex items-center gap-3 sm:gap-4 flex-shrink-0">
@@ -120,7 +125,14 @@ const Leaderboard: React.FC = () => {
                                             <UserIcon className="w-6 h-6 text-gray-400" />
                                         </div>
                                     )}
-                                    <p className={`font-semibold truncate ${isCurrentUser ? 'text-white' : 'text-gray-200'}`}>{displayName}</p>
+                                    <div className="flex items-center gap-2 min-w-0">
+                                        <p className={`font-semibold truncate ${isCurrentUser ? 'text-white' : 'text-gray-200'}`}>{displayName}</p>
+                                        {achData && entry.selectedAchievement && (
+                                            <div title={`${achData.name} (Cấp ${entry.selectedAchievement.level})`}>
+                                                <achData.icon className="w-5 h-5 text-amber-400 flex-shrink-0" />
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="flex items-center gap-2 font-bold text-lg text-cyan-300 flex-shrink-0">
                                     <span>{entry.value}</span>

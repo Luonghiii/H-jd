@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { VocabularyWord, TargetLanguage, LearningLanguage, GeneratedWord } from '../types';
 import { translateWord } from '../services/geminiService';
@@ -238,9 +239,12 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
 
     const updateWordImage = (wordId: string, imageUrl: string | null) => updateWord(wordId, { imageUrl: imageUrl ?? undefined });
     const updateWordSpeechAudio = (wordId: string, audioB64: string) => updateWord(wordId, { speechAudio: audioB64 });
-    const toggleWordStar = (id: string) => {
+    // FIX: Made toggleWordStar async to match its type definition, which expects a Promise.
+    const toggleWordStar = async (id: string) => {
         const word = words.find(w => w.id === id);
-        if (word) updateWord(id, { isStarred: !word.isStarred });
+        if (word) {
+            await updateWord(id, { isStarred: !word.isStarred });
+        }
     };
 
     const getAvailableThemes = useCallback((): string[] => {

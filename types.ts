@@ -1,4 +1,5 @@
 import { GoogleGenAI, LiveSession, LiveServerMessage, Modality, Blob } from '@google/genai';
+import React from 'react';
 
 export type TargetLanguage = 'vietnamese' | 'english';
 export type LearningLanguage = 'german' | 'english' | 'chinese';
@@ -17,6 +18,7 @@ export interface VocabularyWord {
   isStarred: boolean;
   imageUrl?: string;
   speechAudio?: string; // Base64 encoded audio string
+  mnemonic?: string; // AI-generated mnemonic
   // Spaced Repetition System fields
   srsLevel: number; // 0 for new, increases with correct reviews
   nextReview: number; // Timestamp for the next review
@@ -41,6 +43,12 @@ export interface AiAssistantSession {
     messages: AiAssistantMessage[];
 }
 
+export interface AchievementProgress {
+    level: number;
+    progress: number;
+    unlockedAt?: number;
+}
+
 export interface UserDoc {
     uid: string;
     email: string | null;
@@ -55,6 +63,8 @@ export interface UserDoc {
     aiTutorHistory: ConversationSession[];
     aiAssistantSessions?: AiAssistantSession[];
     aiAssistantBackground?: string;
+    achievements: { [key: string]: AchievementProgress };
+    selectedAchievement?: { id: string; level: number; } | null;
 }
 
 export interface WordInfo {
@@ -98,6 +108,8 @@ export enum View {
   SentenceScramble = 'sentencescramble',
   ListeningPractice = 'listening',
   VocabularyDuel = 'duel',
+  Achievements = 'achievements',
+  Discover = 'discover',
 }
 
 export interface Quiz {
@@ -124,6 +136,7 @@ export interface UserStats {
         date: string; // YYYY-MM-DD
     },
     totalWords: number;
+    achievementCounters?: { [key in HistoryEntry['type']]?: number };
 }
 
 export interface AiLesson {
@@ -131,4 +144,46 @@ export interface AiLesson {
     dialogue: { speaker: string; line: string; }[];
     story: string;
     grammarTip: { title: string; explanation: string; };
+}
+
+export interface AiSuggestion {
+    title: string;
+    description: string;
+    action: {
+        type: 'NAVIGATE' | 'FOCUS' | 'NONE';
+        view?: View;
+        details?: string;
+    };
+}
+
+export interface CommunityDeckWord {
+  word: string;
+  translation_vi: string;
+  translation_en: string;
+}
+
+export interface CommunityDeck {
+  id: string; // Firestore document ID
+  title: string;
+  description: string;
+  language: LearningLanguage;
+  theme: string;
+  icon: string; // Lucide icon name as a string
+  words: CommunityDeckWord[];
+  wordCount: number;
+  creatorUid: string;
+  creatorName: string;
+  createdAt: number;
+  status: 'pending' | 'approved' | 'rejected';
+  rejectionReason?: string;
+}
+
+export interface ConversationAnalysis {
+  fluencyScore: number; // 1-10
+  overallFeedback: string;
+  improvements: {
+    original: string;
+    suggestion: string;
+    explanation: string;
+  }[];
 }

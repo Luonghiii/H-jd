@@ -1,11 +1,12 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useVocabulary } from '../hooks/useVocabulary';
-import { View, VocabularyWord } from '../types';
+import { View, VocabularyWord, AiSuggestion } from '../types';
 import { PenSquare, Layers, Dices, ArrowRight, Book, Star, Gamepad2, Sparkles, Flame, RotateCcw, Calendar, BrainCircuit, Loader2 } from 'lucide-react';
 import { useSettings } from '../hooks/useSettings';
 import { useInspector } from '../hooks/useInspector';
 import { useI18n } from '../hooks/useI18n';
-import { generateDailyMission } from '../services/geminiService';
+import { generateDailySuggestions } from '../services/geminiService';
+import { useActivityTracker } from '../hooks/useActivityTracker';
 
 const TimeIsWidgetClock: React.FC = () => {
   useEffect(() => {
@@ -210,38 +211,67 @@ const WordOfTheDay: React.FC = () => {
     );
 };
 
-const DailyMission: React.FC = () => {
+const DailySuggestions: React.FC<{ setCurrentView: (view: View) => void; }> = ({ setCurrentView }) => {
     const { words } = useVocabulary();
     const { stats, learningLanguage } = useSettings();
-    const [mission, setMission] = useState<string>('');
+    const { activityLog } = useActivityTracker();
+    const [suggestions, setSuggestions] = useState<AiSuggestion[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        const fetchMission = async () => {
-            if (words.length === 0) {
-                setMission('Thêm từ vựng đầu tiên để nhận nhiệm vụ mỗi ngày!');
+        const fetchSuggestions = async () => {
+            if (words.length < 5) {
+                setSuggestions([]);
                 setIsLoading(false);
                 return;
             };
             setIsLoading(true);
             try {
-                const generatedMission = await generateDailyMission(words, stats, learningLanguage);
-                setMission(generatedMission);
+                const result = await generateDailySuggestions(words, stats, activityLog, learningLanguage);
+                setSuggestions(result);
             } catch (error) {
-                console.error("Failed to generate daily mission:", error);
-                setMission("Không thể tạo nhiệm vụ. Hãy thử lại sau.");
+                console.error("Failed to generate daily suggestions:", error);
+                setSuggestions([]); // Set to empty on error
             }
             setIsLoading(false);
         };
-        fetchMission();
-    }, []); // Run only once per day/session
+        fetchSuggestions();
+    }, []); // Run only once per session
+
+    const handleAction = (suggestion: AiSuggestion) => {
+        if (suggestion.action.type === 'NAVIGATE' && suggestion.action.view) {
+            setCurrentView(suggestion.action.view);
+        }
+    };
 
     return (
         <div className="bg-white/50 border border-white/30 rounded-2xl p-4 neu-light">
-            <h3 className="font-bold text-slate-800 mb-2 text-center">Nhiệm vụ hôm nay</h3>
-            <div className="text-center text-indigo-700 min-h-[48px] flex items-center justify-center">
-                {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <p className="font-semibold italic">"{mission}"</p>}
-            </div>
+            <h3 className="font-bold text-slate-800 mb-2 text-center">Gợi ý từ Lingo</h3>
+            {isLoading ? (
+                <div className="flex items-center justify-center min-h-[120px]">
+                    <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
+                </div>
+            ) : suggestions.length > 0 ? (
+                <div className="space-y-2">
+                    {suggestions.map((s, i) => (
+                        <div 
+                            key={i} 
+                            onClick={() => handleAction(s)}
+                            className={`p-3 rounded-lg ${s.action.type === 'NAVIGATE' ? 'cursor-pointer hover:bg-indigo-500/10' : ''} group`}
+                        >
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <p className="font-semibold text-slate-800">{s.title}</p>
+                                    <p className="text-sm text-gray-600">{s.description}</p>
+                                </div>
+                                {s.action.type === 'NAVIGATE' && <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-indigo-500 transition-transform group-hover:translate-x-1" />}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            ) : (
+                <p className="text-sm text-center text-gray-600 py-4">Thêm ít nhất 5 từ để nhận gợi ý học tập cá nhân hóa từ AI!</p>
+            )}
         </div>
     );
 };
@@ -334,7 +364,7 @@ const Home: React.FC<HomeProps> = ({ setCurrentView }) => {
         </div>
       </div>
       
-      <DailyMission />
+      <DailySuggestions setCurrentView={setCurrentView} />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <WordOfTheDay />
