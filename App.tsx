@@ -131,11 +131,11 @@ const LoginHistoryLogger: React.FC = () => {
 
 
 const AppContent: React.FC = () => {
-  const { currentUser, isLoading } = useAuth();
-  const { hasApiKey } = useSettings();
+  const { currentUser, isLoading: isAuthLoading } = useAuth();
+  const { userApiKeys, isSettingsLoading } = useSettings();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
-  if (isLoading) {
+  if (isAuthLoading || isSettingsLoading) {
     return (
         <div className="min-h-screen flex items-center justify-center">
             <Loader2 className="w-12 h-12 text-indigo-500 animate-spin" />
@@ -147,7 +147,7 @@ const AppContent: React.FC = () => {
     return <Login />;
   }
   
-  if (!hasApiKey) {
+  if (userApiKeys.length === 0) {
     return <ApiKeySetup />;
   }
 
