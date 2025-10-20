@@ -361,14 +361,14 @@ const WordInspectorModal: React.FC<WordInspectorModalProps> = ({ isOpen, word, o
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-4 text-gray-300">
                       {isInfoLoading ? <p>Đang tải thông tin...</p> : hasValidInfo ? (
                           <>
                             {word.imageUrl && <img src={word.imageUrl} alt={word.word} className="w-full h-48 object-contain rounded-xl bg-slate-700/50 p-2"/>}
-                            {word.theme && <p><strong>Chủ đề:</strong> {word.theme}</p>}
-                            <p><strong>Loại từ:</strong> {wordInfo.partOfSpeech}</p>
-                            {wordInfo.gender && <p><strong>Giống:</strong> {wordInfo.gender}</p>}
-                            <p><strong>Định nghĩa:</strong> {wordInfo.definition}</p>
+                            {word.theme && <p><strong className="text-white font-semibold">Chủ đề:</strong> {word.theme}</p>}
+                            <p><strong className="text-white font-semibold">Loại từ:</strong> {wordInfo.partOfSpeech}</p>
+                            {wordInfo.gender && <p><strong className="text-white font-semibold">Giống:</strong> {wordInfo.gender}</p>}
+                            <p><strong className="text-white font-semibold">Định nghĩa:</strong> {wordInfo.definition}</p>
                           </>
                       ) : <p>Không thể tải thông tin.</p>}
                   </div>
@@ -381,7 +381,7 @@ const WordInspectorModal: React.FC<WordInspectorModalProps> = ({ isOpen, word, o
                             {isExampleLoading && <RefreshCw className="w-4 h-4 mr-2 animate-spin"/>} Tạo câu ví dụ
                         </button>
                         {exampleSentence && <div className="mt-2 p-3 bg-slate-700/50 rounded-lg">
-                            <p className="font-semibold">{exampleSentence}</p>
+                            <p className="font-semibold text-white">{exampleSentence}</p>
                             <p className="text-sm text-gray-400">{exampleTranslation}</p>
                         </div>}
                     </div>
@@ -391,10 +391,10 @@ const WordInspectorModal: React.FC<WordInspectorModalProps> = ({ isOpen, word, o
                             <button onClick={handleCheckSentence} disabled={!userSentence.trim() || isCheckingSentence} className="text-sm flex-1 font-semibold text-indigo-400 p-2 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 disabled:opacity-50">Kiểm tra câu</button>
                             <button onClick={handleRewriteSentence} disabled={!userSentence.trim() || isRewriting} className="text-sm flex-1 font-semibold text-purple-400 p-2 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 disabled:opacity-50">Viết lại câu</button>
                         </div>
-                        {isCheckingSentence && <p>Đang kiểm tra...</p>}
-                        {sentenceFeedback && <div className="mt-2 p-3 bg-slate-700/50 rounded-lg whitespace-pre-wrap">{sentenceFeedback}</div>}
-                        {isRewriting && <p>Đang viết lại...</p>}
-                        {rewrittenSentence && <div className="mt-2 p-3 bg-slate-700/50 rounded-lg whitespace-pre-wrap">{rewrittenSentence}</div>}
+                        {isCheckingSentence && <p className="text-gray-400">Đang kiểm tra...</p>}
+                        {sentenceFeedback && <div className="mt-2 p-3 bg-slate-700/50 rounded-lg whitespace-pre-wrap text-gray-300">{sentenceFeedback}</div>}
+                        {isRewriting && <p className="text-gray-400">Đang viết lại...</p>}
+                        {rewrittenSentence && <div className="mt-2 p-3 bg-slate-700/50 rounded-lg whitespace-pre-wrap text-gray-300">{rewrittenSentence}</div>}
                     </div>
                 </div>
             )}
