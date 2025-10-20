@@ -186,24 +186,27 @@ const WordInspectorModal: React.FC<WordInspectorModalProps> = ({ isOpen, word, o
   }, [isOpen, word]);
 
   useEffect(() => {
-    if (isOpen && activeTab === 'info' && !wordInfo) {
+    if (chatContainerRef.current) {
+        chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [chatHistory]);
+  
+  useEffect(() => {
+    if (isOpen && activeTab === 'info') {
       const fetchInfo = async () => {
         setIsInfoLoading(true);
         try {
           const info = await getWordInfo(word.word, uiLanguage, learningLanguage);
           setWordInfo(info);
-        } catch (error) { console.error(error); }
+        } catch (error) {
+          console.error("Failed to fetch word info:", error);
+          setWordInfo({ partOfSpeech: 'Lỗi', definition: 'Không thể tải thông tin từ AI.' });
+        }
         setIsInfoLoading(false);
       };
       fetchInfo();
     }
-  }, [isOpen, activeTab, wordInfo, word, uiLanguage, learningLanguage]);
-
-  useEffect(() => {
-    if (chatContainerRef.current) {
-        chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
-    }
-  }, [chatHistory]);
+  }, [isOpen, activeTab, word, uiLanguage, learningLanguage]);
 
   const handlePlaySpeech = async () => {
       if (isSpeechLoading || isAudioPlaying) return;
@@ -303,6 +306,8 @@ const WordInspectorModal: React.FC<WordInspectorModalProps> = ({ isOpen, word, o
 
   if (!isOpen) return null;
 
+  const hasValidInfo = wordInfo && wordInfo.partOfSpeech && wordInfo.partOfSpeech !== 'N/A' && wordInfo.partOfSpeech !== 'Lỗi';
+
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="bg-slate-800 border border-slate-700 rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
@@ -357,7 +362,7 @@ const WordInspectorModal: React.FC<WordInspectorModalProps> = ({ isOpen, word, o
                   </div>
                 ) : (
                   <div className="space-y-4">
-                      {isInfoLoading ? <p>Đang tải thông tin...</p> : wordInfo ? (
+                      {isInfoLoading ? <p>Đang tải thông tin...</p> : hasValidInfo ? (
                           <>
                             {word.imageUrl && <img src={word.imageUrl} alt={word.word} className="w-full h-48 object-contain rounded-xl bg-slate-700/50 p-2"/>}
                             {word.theme && <p><strong>Chủ đề:</strong> {word.theme}</p>}
