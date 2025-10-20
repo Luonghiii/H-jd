@@ -49,6 +49,16 @@ const ApiKeySetup: React.FC = () => {
                 Khóa của bạn sẽ được lưu trữ an toàn và liên kết với tài khoản của bạn.
                 Bạn có thể nhận khóa của mình từ <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-indigo-600 dark:text-indigo-400 hover:underline">Google AI Studio</a>.
               </p>
+              <div className="mt-4 aspect-[9/16] w-full max-w-xs mx-auto">
+                <iframe
+                    className="w-full h-full rounded-lg"
+                    src="https://www.youtube.com/embed/z7b74B2oapQ?controls=0&modestbranding=1&rel=0&autoplay=1&mute=1&loop=1&playlist=z7b74B2oapQ"
+                    title="YouTube video player"
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                ></iframe>
+              </div>
             </div>
 
             <button

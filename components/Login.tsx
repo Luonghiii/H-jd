@@ -68,17 +68,12 @@ const Login: React.FC = () => {
                 setIsLoading(false);
                 return;
             }
-
-            let userCredential;
             try {
-                userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                // Create the database document first
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
                 await handleAuthSuccess(userCredential.user);
-                // Then send verification email
-                await sendEmailVerification(userCredential.user);
-                
-                switchView('login');
-                setMessage('Đăng ký thành công! Vui lòng kiểm tra email (cả mục spam) để xác thực tài khoản trước khi đăng nhập.');
+                // User is now created and logged in.
+                // The onAuthStateChanged listener will trigger a re-render in App.tsx,
+                // which will then show the ApiKeySetup component since it's a new user.
             } catch (error: any) {
                 if (error.code?.startsWith('auth/')) {
                     handleAuthError(error);
@@ -86,12 +81,7 @@ const Login: React.FC = () => {
                     console.error("Registration process failed:", error);
                     setError("Lỗi khi tạo tài khoản trong cơ sở dữ liệu. Vui lòng thử lại.");
                 }
-            } finally {
-                // This runs after try or catch, ensuring user is always signed out if created
-                if (userCredential) {
-                    await signOut(auth);
-                }
-                setIsLoading(false);
+                setIsLoading(false); // Only set loading to false on error. On success, the component unmounts.
             }
         } else if (view === 'forgotPassword') {
              if (!email) {
@@ -158,7 +148,7 @@ const Login: React.FC = () => {
                                 value={email} 
                                 onChange={(e) => setEmail(e.target.value)} 
                                 placeholder="Email"
-                                className="w-full pl-12 pr-4 py-3 bg-white/10 rounded-full" 
+                                className="w-full pl-12 pr-4 py-3 bg-white/10 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500/50" 
                                 required 
                             />
                         </div>
@@ -167,7 +157,7 @@ const Login: React.FC = () => {
                     {view !== 'forgotPassword' && (
                         <div className="relative">
                             <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
-                            <input type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Mật khẩu" className="w-full pl-12 pr-12 py-3 bg-white/10 rounded-full" required />
+                            <input type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Mật khẩu" className="w-full pl-12 pr-12 py-3 bg-white/10 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500/50" required />
                             <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500">
                                 {showPassword ? <EyeOff className="w-5 h-5"/> : <Eye className="w-5 h-5"/>}
                             </button>
@@ -176,7 +166,7 @@ const Login: React.FC = () => {
                      {view === 'register' && (
                         <div className="relative">
                             <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
-                            <input type={showConfirmPassword ? 'text' : 'password'} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Nhập lại mật khẩu" className="w-full pl-12 pr-12 py-3 bg-white/10 rounded-full" required />
+                            <input type={showConfirmPassword ? 'text' : 'password'} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Nhập lại mật khẩu" className="w-full pl-12 pr-12 py-3 bg-white/10 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500/50" required />
                             <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500">
                                 {showConfirmPassword ? <EyeOff className="w-5 h-5"/> : <Eye className="w-5 h-5"/>}
                             </button>
@@ -185,7 +175,7 @@ const Login: React.FC = () => {
                     {view === 'forgotPassword' && (
                          <div className="relative">
                             <AtSign className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
-                            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Nhập email của bạn" className="w-full pl-12 pr-4 py-3 bg-white/10 rounded-full" required />
+                            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Nhập email của bạn" className="w-full pl-12 pr-4 py-3 bg-white/10 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500/50" required />
                         </div>
                     )}
                     

@@ -38,17 +38,11 @@ const executeWithKeyRotation = async <T>(apiCall: (ai: GoogleGenAI) => Promise<T
         } catch (error: any) {
             console.error(`API call failed with key ending in ...${currentKey.slice(-4)}`, error);
             
-            const keyIdentifier = userApiKeys.includes(currentKey) ? `...${currentKey.slice(-4)}` : '(system)';
             const isKeyError = /4..|quota|invalid|permission/i.test(error.message);
 
             if (isKeyError) {
-                // Only show "Trying next..." if there are more keys to try.
-                // This prevents the redundant "No more keys to try" message.
-                if (i < totalKeys - 1) {
-                    const message = `Khóa API ${keyIdentifier} thất bại. Đang thử khóa tiếp theo...`;
-                    eventBus.dispatch('notification', { type: 'warning', message });
-                }
-                keyIndex = (keyIndex + 1) % totalKeys; // Move to the next key
+                // Silently try the next key without spamming notifications.
+                keyIndex = (keyIndex + 1) % totalKeys;
             } else {
                 eventBus.dispatch('notification', { type: 'error', message: 'Một lỗi API không mong muốn đã xảy ra.' });
                 throw error; // Rethrow non-key related errors
