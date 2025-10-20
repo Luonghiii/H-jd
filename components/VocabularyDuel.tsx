@@ -211,6 +211,47 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
             }, thinkingTime);
         }
     }, [turn, gameState, difficulty, theme, usedWords, learningLanguage, lastWord, roundLetter]);
+    
+    const renderRules = () => {
+        let title = '';
+        let rules = [];
+
+        switch(gameMode) {
+            case 'theme':
+                title = 'Chế độ Chủ đề';
+                rules = [
+                    'Mỗi người chơi lần lượt nói một từ hợp lệ thuộc chủ đề đã chọn.',
+                    'Bạn thua nếu: nói từ sai chủ đề, lặp từ, hoặc hết 15 giây suy nghĩ.'
+                ];
+                break;
+            case 'longest':
+                title = 'Chế độ Từ dài nhất';
+                rules = [
+                    'Trò chơi có nhiều vòng, mỗi vòng có một chữ cái bắt đầu.',
+                    'Người chơi có từ dài hơn sẽ được 1 điểm.',
+                    'Nếu hết giờ hoặc nhập từ sai, đối thủ được 1 điểm.',
+                    'Ai nhiều điểm hơn sau tất cả các vòng sẽ thắng.'
+                ];
+                break;
+            case 'chain':
+                title = 'Chế độ Nối từ';
+                rules = [
+                    'Người tiếp theo phải nói một từ mới bắt đầu bằng chữ cái cuối cùng của từ trước đó.',
+                    'Bạn thua nếu: nói từ sai luật, lặp từ, hoặc hết 15 giây suy nghĩ.'
+                ];
+                break;
+        }
+
+        return (
+            <div className="p-3 bg-slate-900/50 rounded-xl space-y-2 text-left mt-4 animate-fade-in">
+                <h4 className="font-semibold text-white">{title}</h4>
+                <ul className="list-disc list-inside text-sm text-gray-400 space-y-1">
+                    {rules.map((rule, index) => <li key={index}>{rule}</li>)}
+                </ul>
+            </div>
+        );
+    }
+
 
     if (gameState === 'setup') {
         return (
@@ -224,9 +265,11 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
                         <button onClick={() => setGameMode('longest')} className={`flex-1 px-3 py-1.5 text-sm rounded-full flex items-center justify-center gap-2 ${gameMode === 'longest' ? 'bg-indigo-600' : ''}`}><Scaling className="w-4 h-4"/> Từ dài nhất</button>
                         <button onClick={() => setGameMode('chain')} className={`flex-1 px-3 py-1.5 text-sm rounded-full flex items-center justify-center gap-2 ${gameMode === 'chain' ? 'bg-indigo-600' : ''}`}><LinkIcon className="w-4 h-4"/> Nối từ</button>
                      </div>
+                     
+                     {renderRules()}
 
                     {gameMode === 'theme' && (
-                        <div>
+                        <div className="pt-2">
                             <label className="text-sm text-gray-400 block mb-2">Chủ đề</label>
                             <select value={theme} onChange={e => setTheme(e.target.value)} className="w-full p-2 bg-slate-700 rounded-md">
                                 {availableThemes.map(t => <option key={t} value={t}>{t === 'any' ? 'Chủ đề bất kỳ' : t}</option>)}
@@ -234,7 +277,7 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
                         </div>
                     )}
                      {gameMode === 'longest' && (
-                        <div>
+                        <div className="pt-2">
                             <label className="text-sm text-gray-400 block mb-2">Số vòng</label>
                             <div className="flex justify-center gap-2">
                                 {[5, 7, 10].map(r => <button key={r} onClick={() => setRounds(r)} className={`px-4 py-1 text-sm rounded-full ${rounds === r ? 'bg-indigo-600' : 'bg-slate-700'}`}>{r}</button>)}
@@ -242,7 +285,7 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
                         </div>
                     )}
 
-                    <div>
+                    <div className="pt-2">
                         <label className="text-sm text-gray-400 block mb-2">Độ khó của AI</label>
                         <div className="flex justify-center gap-2">
                             {Object.keys(difficultySettings).map(d => (
