@@ -107,16 +107,16 @@ const ApiKeyManager: React.FC = () => {
                 </a>.
             </p>
             <details className="mt-2 text-center">
-                <summary className="text-xs text-indigo-600 hover:underline cursor-pointer">
+                <summary className="text-sm font-medium text-indigo-600 hover:underline cursor-pointer">
                     Xem video hướng dẫn
                 </summary>
-                <div className="mt-2 aspect-video w-full max-w-sm mx-auto">
+                <div className="mt-2 aspect-[9/16] w-full max-w-xs mx-auto">
                     <iframe
                         className="w-full h-full rounded-lg"
                         src="https://www.youtube.com/embed/z7b74B2oapQ?controls=1&modestbranding=1&rel=0&autoplay=1&mute=1&loop=1&playlist=z7b74B2oapQ"
                         title="YouTube video player"
                         frameBorder="0"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
                         allowFullScreen
                     ></iframe>
                 </div>

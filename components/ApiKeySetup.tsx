@@ -45,12 +45,12 @@ const ApiKeySetup: React.FC = () => {
                     autoFocus
                 />
               </div>
-               <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+               <p className="text-xs text-slate-700 dark:text-slate-300 mt-2">
                 Khóa của bạn sẽ được lưu trữ an toàn và liên kết với tài khoản của bạn.
-                Bạn có thể nhận khóa của mình từ <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-indigo-600 dark:text-indigo-400 hover:underline">Google AI Studio</a>.
+                Bạn có thể nhận khóa của mình từ <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline">Google AI Studio</a>.
               </p>
               <details className="mt-4">
-                  <summary className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer">
+                  <summary className="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer">
                       Xem video hướng dẫn lấy API key
                   </summary>
                   <div className="mt-2 aspect-[9/16] w-full max-w-xs mx-auto">
@@ -59,7 +59,7 @@ const ApiKeySetup: React.FC = () => {
                         src="https://www.youtube.com/embed/z7b74B2oapQ?controls=1&modestbranding=1&rel=0&autoplay=1&mute=1&loop=1&playlist=z7b74B2oapQ"
                         title="YouTube video player"
                         frameBorder="0"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
                         allowFullScreen
                     ></iframe>
                   </div>
