@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { HistoryEntry } from '../types';
 import { useAuth } from './useAuth';
+import { useSettings } from './useSettings'; // Import useSettings
 import { appendHistoryEntry, onHistorySnapshot, getMoreHistory } from '../services/firestoreService';
 import { QueryDocumentSnapshot } from 'firebase/firestore';
 
@@ -16,6 +17,7 @@ const HistoryContext = createContext<HistoryContextType | undefined>(undefined);
 
 export const HistoryProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { currentUser, isLoading: isAuthLoading } = useAuth();
+  const { recordActivity } = useSettings(); // Get recordActivity from settings
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [lastVisible, setLastVisible] = useState<QueryDocumentSnapshot | null>(null);
   const [hasMore, setHasMore] = useState(true);
@@ -40,6 +42,10 @@ export const HistoryProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const addHistoryEntry = useCallback(async (type: HistoryEntry['type'], details: string, payload?: HistoryEntry['payload']) => {
     if (!currentUser) return;
+
+    // Record activity will check if it's a new day and update the streak if necessary.
+    // This ensures the first action of the day triggers the streak logic.
+    await recordActivity();
     
     // Prevent logging duplicate login/logout events if they happen close together
     if ((type === 'LOGIN' || type === 'LOGOUT') && history[0]?.type === type) {
@@ -63,7 +69,7 @@ export const HistoryProvider: React.FC<{ children: ReactNode }> = ({ children })
     } catch (e) {
         console.error("Failed to add history entry:", e);
     }
-  }, [currentUser, history]);
+  }, [currentUser, history, recordActivity]);
 
   const loadMoreHistory = useCallback(async () => {
     if (!currentUser || !lastVisible || isLoadingMore || !hasMore) return;
