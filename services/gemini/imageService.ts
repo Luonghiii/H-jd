@@ -10,7 +10,7 @@ export const getWordsFromImage = async (base64: string, mimeType: string, existi
             ? `When assigning a theme, first try to use one from this existing list if it's a good fit: [${themes.join(', ')}]. Only create a new, general Vietnamese theme if none of the existing ones are suitable.`
             : `Assign a relevant, general theme in Vietnamese (e.g., "Thiên nhiên", "Đồ vật", "Con người").`;
 
-        const textPart = { text: `Analyze the attached image and identify up to 10 distinct objects, concepts, or actions. For each item you identify:
+        const textPart = { text: `Analyze the attached image and identify up to 50 distinct objects, concepts, or actions. For each item you identify:
     - Provide its name in ${learningLanguage}.
     - Provide the Vietnamese translation (translation_vi).
     - Provide the English translation (translation_en).

@@ -15,7 +15,7 @@ const ConversationReportModal: React.FC<ConversationReportModalProps> = ({ isOpe
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
             <div 
-                className="bg-slate-800 border border-slate-700 rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col animate-fade-in-up" 
+                className="bg-slate-800 border border-slate-700 rounded-3xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col animate-fade-in-up" 
                 onClick={e => e.stopPropagation()}
             >
                 <div className="p-4 sm:p-6 flex-shrink-0 border-b border-slate-600">

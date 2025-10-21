@@ -12,7 +12,7 @@ const PrivacyPolicyModal: React.FC<ModalProps> = ({ isOpen, onClose }) => {
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in" onClick={onClose}>
       <div 
-        className="bg-slate-100/60 backdrop-blur-lg border border-white/30 neu-light rounded-3xl w-full max-w-2xl max-h-[90vh] flex flex-col animate-fade-in-up" 
+        className="bg-slate-100/60 backdrop-blur-lg border border-white/30 neu-light rounded-3xl w-full max-w-2xl max-h-[85vh] flex flex-col animate-fade-in-up" 
         onClick={e => e.stopPropagation()}
       >
         <div className="p-4 sm:p-6 flex-shrink-0 border-b border-black/10">

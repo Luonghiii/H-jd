@@ -59,7 +59,7 @@ const AiWordSelectorModal: React.FC<AiWordSelectorModalProps> = ({ isOpen, onClo
 
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={handleClose}>
-            <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+            <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[85vh]" onClick={e => e.stopPropagation()}>
                 <div className="p-4 border-b border-slate-700 flex items-center justify-between flex-shrink-0">
                     <h2 className="text-xl font-bold text-white flex items-center gap-2"><Sparkles className="w-5 h-5 text-amber-400"/> Trợ lý AI chọn từ</h2>
                     <button onClick={handleClose}><X className="w-5 h-5 text-gray-400" /></button>

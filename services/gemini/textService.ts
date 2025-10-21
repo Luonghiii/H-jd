@@ -45,7 +45,7 @@ export const getWordsFromFile = async (base64: string, mimeType: string, existin
             model: 'gemini-2.5-flash',
             contents: { parts: [
                 { inlineData: { data: base64, mimeType } },
-                { text: `Extract up to 20 key ${learningLanguage} vocabulary words. For each: provide "translation_vi", "translation_en", and "theme". ${themesInstruction} Don't include: ${existingWords.join(', ')}. Respond as a JSON array. If none, return [].` }
+                { text: `Extract up to 100 key ${learningLanguage} vocabulary words. For each: provide "translation_vi", "translation_en", and "theme". ${themesInstruction} Don't include: ${existingWords.join(', ')}. Respond as a JSON array. If none, return [].` }
             ]},
             config: { responseMimeType: "application/json" }
         });
@@ -266,9 +266,30 @@ export const generateScrambledSentence = async (word: VocabularyWord, learningLa
 export const checkGrammar = async (text: string, learningLanguage: LearningLanguage, uiLanguage: TargetLanguage): Promise<{ correctedText: string; feedback: { error: string; correction: string; explanation: string }[] } | null> => {
      return executeWithKeyRotation(async (ai) => {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-pro',
+            model: 'gemini-2.5-flash',
             contents: `Analyze this ${learningLanguage} text: "${text}". Respond as JSON with "correctedText" and an array "feedback" (with "error", "correction", "explanation" in ${uiLanguage}). If no errors, "feedback" is empty.`,
-            config: { responseMimeType: "application/json" }
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        correctedText: { type: Type.STRING },
+                        feedback: {
+                            type: Type.ARRAY,
+                            items: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    error: { type: Type.STRING },
+                                    correction: { type: Type.STRING },
+                                    explanation: { type: Type.STRING },
+                                },
+                                required: ['error', 'correction', 'explanation']
+                            },
+                        },
+                    },
+                    required: ['correctedText', 'feedback']
+                }
+            }
         });
         return JSON.parse(response.text.trim().replace(/^```json\n/, '').replace(/\n```$/, ''));
     });
