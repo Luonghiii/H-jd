@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useVocabulary } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
@@ -606,7 +607,9 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
     }, [currentUser, profile, selectedGameMode, selectedTheme, targetScore]);
 
     const handleStartGame = useCallback(async () => {
-        if (!gameRoom || gameRoom.hostUid !== currentUser?.uid || gameRoom.players.length < 2) return;
+        if (!gameRoom || gameRoom.hostUid !== currentUser?.uid || gameRoom.players.length < 2 || isSubmitting) return;
+
+        setIsSubmitting(true);
         
         const updates: any = {
             status: 'playing',
@@ -620,8 +623,9 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
             updates['gameState.currentPlayerUid'] = gameRoom.players[0].uid;
         }
 
-        updateGameRoom(gameRoom.id, updates);
-    }, [gameRoom, currentUser]);
+        await updateGameRoom(gameRoom.id, updates);
+        // No need to set isSubmitting to false, as the view will change upon state update.
+    }, [gameRoom, currentUser, isSubmitting]);
 
     useEffect(() => {
         if (gameRoom?.status === 'waiting' && gameRoom.isPublic && gameRoom.players.length === 2 && gameRoom.hostUid === currentUser?.uid) {
@@ -640,7 +644,9 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
             await updateGameRoom(gameRoom.id, {
                 [`gameState.turnSubmissions.${currentUser.uid}`]: word
             });
+            setPlayerInput(''); // Clear input after submitting for this mode
             setIsSubmitting(false);
+            eventBus.dispatch('notification', { type: 'info', message: `Đã ghi nhận từ: "${word}"` });
             // Host will handle validation at end of turn
         } else { // Turn-based modes
             if (gameRoom.gameState.currentPlayerUid !== currentUser.uid) return;
@@ -884,9 +890,17 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
                     )}
                 </div>
                 {isHost ? (
-                    <button onClick={handleStartGame} disabled={!canStart} className="w-full py-3 bg-indigo-600 rounded-lg font-semibold disabled:bg-indigo-400">
-                        {!canStart ? 'Chờ người chơi thứ hai' : 'Bắt đầu!'}
-                    </button>
+                    <div className="relative group">
+                        <button
+                            onClick={handleStartGame}
+                            disabled={!canStart || isSubmitting}
+                            className="w-full py-3 bg-indigo-600 rounded-lg font-semibold disabled:bg-indigo-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            title={!canStart ? 'Cần 2 người chơi để bắt đầu' : ''}
+                        >
+                            {isSubmitting && <Loader2 className="w-5 h-5 animate-spin" />}
+                            {isSubmitting ? 'Đang bắt đầu...' : !canStart ? 'Chờ người chơi thứ hai' : 'Bắt đầu!'}
+                        </button>
+                    </div>
                 ) : (
                     <p className="text-gray-400">Chờ chủ phòng bắt đầu trận đấu...</p>
                 )}
