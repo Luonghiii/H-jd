@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { BookOpen, Settings, Flame, User as UserIcon, Edit, LogOut, Snowflake } from 'lucide-react';
+import { BookOpen, Settings, Flame, User as UserIcon, Edit, Snowflake } from 'lucide-react';
 import { useSettings } from '../hooks/useSettings';
 import { useAuth } from '../hooks/useAuth';
 import { useHistory } from '../hooks/useHistory';
@@ -40,7 +40,7 @@ const Tooltip: React.FC<TooltipProps> = ({ content, children }) => {
       {children}
       {isVisible && (
         <div 
-          className="absolute z-50 top-full left-1/2 -translate-x-1/2 mt-2 w-max max-w-[200px] p-2 bg-slate-800 text-white text-sm rounded-lg shadow-lg text-center animate-fade-in"
+          className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-[200px] p-2 bg-slate-800 text-white text-sm rounded-lg shadow-lg text-center animate-fade-in"
           role="tooltip"
         >
           {content}
@@ -110,7 +110,7 @@ const StreakFreezeDisplay: React.FC = () => {
   return (
     <Tooltip content={t('header.streak_freeze_tooltip_content', { count: freezeCount })}>
         <div className="flex items-center gap-1 bg-white/30 px-3 py-1.5 rounded-full">
-            <span className="font-bold text-slate-800 text-sm">{freezeCount}</span>
+            <span className={`font-bold text-sm ${freezeCount > 0 ? 'text-slate-800' : 'text-slate-500'}`}>{freezeCount}</span>
             <Snowflake className={`w-4 h-4 ${freezeCount > 0 ? 'text-cyan-500' : 'text-slate-400'}`} />
         </div>
     </Tooltip>
@@ -121,9 +121,9 @@ const StreakFreezeDisplay: React.FC = () => {
 const ProfileDropdown: React.FC<{
   isOpen: boolean;
   onClose: () => void;
-  onLogout: () => void;
   onEditProfile: () => void;
-}> = ({ isOpen, onClose, onLogout, onEditProfile }) => {
+  onOpenSettings: () => void;
+}> = ({ isOpen, onClose, onEditProfile, onOpenSettings }) => {
   const { profile } = useSettings();
   const { t } = useI18n();
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -151,9 +151,9 @@ const ProfileDropdown: React.FC<{
                 <Edit className="w-4 h-4 text-gray-500" />
                 <span>{t('header.edit_profile')}</span>
             </button>
-             <button onClick={onLogout} className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md text-red-500 hover:bg-red-500/10">
-                <LogOut className="w-4 h-4" />
-                <span>{t('header.logout')}</span>
+            <button onClick={onOpenSettings} className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md hover:bg-slate-200">
+                <Settings className="w-4 h-4 text-gray-500" />
+                <span>{t('header.settings')}</span>
             </button>
         </div>
     </div>
@@ -162,15 +162,9 @@ const ProfileDropdown: React.FC<{
 
 
 const Header: React.FC<{ onOpenSettings: () => void; onOpenProfile: () => void; }> = ({ onOpenSettings, onOpenProfile }) => {
-  const { addHistoryEntry } = useHistory();
   const { profile } = useSettings();
   const { t } = useI18n();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  
-  const handleLogout = async () => {
-    await addHistoryEntry('LOGOUT', 'Đã đăng xuất.');
-    await signOut(auth);
-  };
   
   const selectedAchData = profile.selectedAchievement
     ? achievementsList.find(a => a.id === profile.selectedAchievement?.id)
@@ -191,17 +185,10 @@ const Header: React.FC<{ onOpenSettings: () => void; onOpenProfile: () => void; 
             LBWL
           </h1>
         </div>
-        <div className="flex items-center flex-shrink-0 space-x-1 sm:space-x-2">
+        <div className="flex items-center space-x-1 sm:space-x-2">
           <StreakFreezeDisplay />
           <StreakDisplay />
           <UiLanguageSelector />
-          <button
-            onClick={onOpenSettings}
-            className="p-2.5 rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-100 focus:ring-indigo-500 bg-slate-100/60 backdrop-blur-sm border border-white/30 text-slate-700 neu-button-light"
-            aria-label={t('header.settings')}
-          >
-            <Settings className="w-5 h-5" />
-          </button>
           
           <div className="relative">
             <button
@@ -227,10 +214,13 @@ const Header: React.FC<{ onOpenSettings: () => void; onOpenProfile: () => void; 
             <ProfileDropdown 
                 isOpen={isProfileOpen}
                 onClose={() => setIsProfileOpen(false)}
-                onLogout={handleLogout}
                 onEditProfile={() => {
                     setIsProfileOpen(false);
                     onOpenProfile();
+                }}
+                onOpenSettings={() => {
+                    setIsProfileOpen(false);
+                    onOpenSettings();
                 }}
             />
           </div>

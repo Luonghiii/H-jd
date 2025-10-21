@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSettings, getXpForLevel } from '../hooks/useSettings';
-import { X, User as UserIcon, Camera, Loader2, Sparkles, BookOpen, Flame, Trophy, CheckCircle, Ban } from 'lucide-react';
+import { X, User as UserIcon, Camera, Loader2, Sparkles, BookOpen, Flame, Trophy, CheckCircle, Ban, LogOut } from 'lucide-react';
 import eventBus from '../utils/eventBus';
 import ImageGenerationModal from './ImageGenerationModal';
 import { resizeAndCropImageAsDataUrl } from '../services/storageService';
 import { useAchievements } from '../hooks/useAchievements';
 import { achievementsList, levelStyles } from '../data/achievements';
 import { useI18n } from '../hooks/useI18n';
+import { useHistory } from '../hooks/useHistory';
+import { auth } from '../services/firebase';
+import { signOut } from 'firebase/auth';
 
 interface ProfileModalProps {
     isOpen: boolean;
@@ -46,6 +49,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     const { profile, updateUserProfile, stats, updateSelectedAchievement } = useSettings();
     const { userAchievements } = useAchievements();
     const { t } = useI18n();
+    const { addHistoryEntry } = useHistory();
     
     // User profile fields state
     const [displayName, setDisplayName] = useState('');
@@ -124,6 +128,12 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
         setIsLoading(false);
         eventBus.dispatch('notification', { type: 'success', message: 'Đã lưu hồ sơ!' });
         onClose();
+    };
+
+    const handleLogout = async () => {
+        onClose();
+        await addHistoryEntry('LOGOUT', 'Đã đăng xuất.');
+        await signOut(auth);
     };
 
     return (
@@ -235,8 +245,19 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                         </div>
 
                     </div>
-                    <div className="p-4 bg-slate-200/50 border-t border-slate-200 flex justify-end">
-                        <button onClick={handleSave} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg disabled:bg-indigo-400 neu-button-light" disabled={isLoading || isAvatarLoading}>
+                    <div className="p-4 bg-slate-200/50 border-t border-slate-200 flex justify-between items-center">
+                        <button 
+                            onClick={handleLogout} 
+                            className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 font-semibold rounded-lg hover:bg-red-500/10 transition-colors"
+                        >
+                            <LogOut className="w-4 h-4" />
+                            <span>{t('header.logout')}</span>
+                        </button>
+                        <button 
+                            onClick={handleSave} 
+                            className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg disabled:bg-indigo-400 neu-button-light" 
+                            disabled={isLoading || isAvatarLoading}
+                        >
                            {isLoading ? <Loader2 className="w-5 h-5 animate-spin"/> : 'Lưu'}
                         </button>
                     </div>
