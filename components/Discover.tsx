@@ -3,7 +3,7 @@ import { useVocabulary } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
 import { useAuth } from '../hooks/useAuth';
 import { GeneratedWord, CommunityDeck, CommunityDeckWord, VocabularyWord } from '../types';
-import { BookOpen, Loader2, Plus, Pen, Check, Shield, AlertTriangle, Clock, Share2, Eye, ShieldAlert, Search, Upload } from 'lucide-react';
+import { BookOpen, Loader2, Plus, Pen, Check, Shield, AlertTriangle, Clock, Share2, Eye, ShieldAlert, Search, Upload, Library } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import eventBus from '../utils/eventBus';
 import { useI18n } from '../hooks/useI18n';
@@ -289,50 +289,40 @@ const DeckCreatorTab: React.FC<{ onSwitchTab: (tab: Tab) => void; }> = ({ onSwit
                         )
                     })}
                      <button type="button" onClick={() => fileInputRef.current?.click()} className={`aspect-square flex items-center justify-center rounded-lg border-2 ${icon.startsWith('data:image') ? 'border-indigo-500 ring-2 ring-indigo-300' : 'border-slate-300'} bg-white/50`}>
-                        {icon.startsWith('data:image') ? (
-                            <img src={icon} alt="Custom Icon" className="w-full h-full object-cover rounded-md" />
-                        ) : (
-                            <Upload className="w-6 h-6 text-slate-700" />
-                        )}
+                        {icon.startsWith('data:image') ? <img src={icon} alt="custom icon" className="w-full h-full object-cover rounded-md" /> : <Upload className="w-6 h-6 text-slate-700" />}
                     </button>
-                    <input type="file" ref={fileInputRef} onChange={handleIconUpload} className="hidden" accept="image/*" />
+                    <input type="file" ref={fileInputRef} onChange={handleIconUpload} className="hidden" accept="image/png, image/jpeg, image/webp" />
                 </div>
             </div>
 
             <div>
-                <h4 className="font-semibold text-slate-700 mb-2">Chọn từ từ danh sách của bạn ({selectedWordIds.size} đã chọn)</h4>
-                <div className="space-y-2">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <select onChange={(e) => handleThemeSelect(e.target.value)} className="w-full px-4 py-2 bg-white/50 rounded-lg border border-slate-300" defaultValue="">
-                            <option value="" disabled>Hoặc chọn nhanh theo chủ đề...</option>
-                            {availableThemes.map(t => <option key={t} value={t}>{t}</option>)}
-                        </select>
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                            <input type="text" value={wordSearchTerm} onChange={e => setWordSearchTerm(e.target.value)} placeholder="Tìm từ..." className="w-full pl-9 pr-3 py-2 bg-white/50 rounded-lg border border-slate-300" />
-                        </div>
-                    </div>
-                    <div className="flex gap-2">
-                        <button type="button" onClick={handleSelectAll} className="px-3 py-1 text-xs bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-md font-semibold">Chọn toàn bộ từ</button>
-                        <button type="button" onClick={handleDeselectAll} className="px-3 py-1 text-xs bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-md font-semibold">Bỏ chọn toàn bộ từ</button>
-                    </div>
+                <h4 className="font-semibold text-slate-700 mb-2">Chọn từ vựng từ danh sách của bạn</h4>
+                <div className="flex flex-col sm:flex-row gap-2 mb-2">
+                    <select onChange={e => handleThemeSelect(e.target.value)} className="sm:w-1/3 px-4 py-2 bg-white/50 rounded-lg border border-slate-300">
+                        <option value="">-- Lọc theo chủ đề --</option>
+                        {availableThemes.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                    <input type="text" value={wordSearchTerm} onChange={e => setWordSearchTerm(e.target.value)} placeholder="Tìm từ..." className="flex-grow px-4 py-2 bg-white/50 rounded-lg border border-slate-300" />
                 </div>
-                <div className="max-h-60 overflow-y-auto p-3 bg-white/30 rounded-lg border border-slate-300 space-y-2 mt-2">
+                <div className="flex gap-2 mb-2">
+                    <button type="button" onClick={handleSelectAll} className="px-3 py-1 text-xs bg-slate-200 hover:bg-slate-300 rounded-lg">Chọn tất cả</button>
+                    <button type="button" onClick={handleDeselectAll} className="px-3 py-1 text-xs bg-slate-200 hover:bg-slate-300 rounded-lg">Bỏ chọn tất cả</button>
+                </div>
+                <div className="max-h-60 overflow-y-auto p-2 border rounded-lg bg-white/30 space-y-1">
                     {filteredWords.map(word => (
-                        <div key={word.id} onClick={() => handleToggleWord(word.id)} className="flex items-center gap-3 p-2 rounded-md hover:bg-indigo-100 cursor-pointer">
-                            <input type="checkbox" checked={selectedWordIds.has(word.id)} readOnly className="w-5 h-5" />
-                            <div>
-                                <p className="font-medium">{word.word}</p>
-                                <p className="text-sm text-slate-600">{word.translation.vietnamese}</p>
-                            </div>
+                        <div key={word.id} onClick={() => handleToggleWord(word.id)} className={`flex items-center gap-2 p-2 rounded-md cursor-pointer ${selectedWordIds.has(word.id) ? 'bg-indigo-100' : 'hover:bg-slate-200/50'}`}>
+                            <input type="checkbox" readOnly checked={selectedWordIds.has(word.id)} className="w-4 h-4 text-indigo-600 rounded" />
+                            <span>{word.word}</span>
+                            <span className="text-sm text-slate-500">- {word.translation.vietnamese}</span>
                         </div>
                     ))}
                 </div>
+                 <p className="text-sm text-slate-600 mt-1">{selectedWordIds.size} từ đã chọn.</p>
             </div>
             
-            <button type="submit" disabled={isSubmitting} className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg disabled:bg-indigo-400">
-                {isSubmitting ? <Loader2 className="animate-spin" /> : <Share2 />}
-                Gửi đi xét duyệt
+             <button type="submit" disabled={isSubmitting} className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg disabled:bg-indigo-400">
+                {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Share2 className="w-5 h-5" />}
+                {isSubmitting ? 'Đang gửi...' : 'Gửi đi xét duyệt'}
             </button>
         </form>
     );
@@ -342,102 +332,87 @@ const MyDecksTab: React.FC = () => {
     const { currentUser } = useAuth();
     const [myDecks, setMyDecks] = useState<CommunityDeck[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
-        if (currentUser) {
-            getUserSubmissions(currentUser.uid)
-                .then(setMyDecks)
-                .finally(() => setIsLoading(false));
-        }
+        if (!currentUser) return;
+        const fetchMyDecks = async () => {
+            setIsLoading(true);
+            try {
+                const decks = await getUserSubmissions(currentUser.uid);
+                setMyDecks(decks);
+            } catch (e) {
+                console.error(e);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchMyDecks();
     }, [currentUser]);
-
-    const filteredDecks = useMemo(() => {
-        if (!searchTerm) return myDecks;
-        return myDecks.filter(deck => deck.title.toLowerCase().includes(searchTerm.toLowerCase()));
-    }, [myDecks, searchTerm]);
     
-    const statusInfo = {
-        pending: { text: 'Đang chờ', icon: Clock, color: 'text-amber-500' },
-        approved: { text: 'Đã duyệt', icon: Check, color: 'text-green-500' },
-        rejected: { text: 'Bị từ chối', icon: ShieldAlert, color: 'text-red-500' },
-    };
+    const StatusIndicator: React.FC<{status: CommunityDeck['status']}> = ({status}) => {
+        const statusMap = {
+            pending: { text: 'Đang chờ', icon: Clock, color: 'text-amber-500' },
+            approved: { text: 'Đã duyệt', icon: Check, color: 'text-green-500' },
+            rejected: { text: 'Bị từ chối', icon: ShieldAlert, color: 'text-red-500' },
+        };
+        const { text, icon: Icon, color } = statusMap[status];
+        return <div className={`flex items-center gap-1 text-xs font-medium ${color}`}><Icon className="w-3 h-3"/> {text}</div>;
+    }
 
     if (isLoading) {
         return <div className="text-center p-10"><Loader2 className="w-8 h-8 animate-spin mx-auto text-slate-500" /></div>;
     }
-
+    
     return (
-        <div className="space-y-4 max-w-2xl mx-auto">
-             <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                    type="text"
-                    placeholder="Tìm bộ từ của bạn..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 bg-white/50 rounded-lg border border-slate-300 placeholder-slate-500"
-                />
-            </div>
-            {filteredDecks.length > 0 ? filteredDecks.map(deck => {
-                const status = statusInfo[deck.status as keyof typeof statusInfo] || { text: 'Trạng thái lạ', icon: Shield, color: 'text-gray-500' };
-                const StatusIcon = status.icon;
-                const statusColor = status.color;
-                return (
-                    <div key={deck.id} className="bg-white/50 p-4 rounded-lg border border-slate-300">
-                        <div className="flex justify-between items-start">
-                            <div>
-                                <h4 className="font-bold text-slate-800">{deck.title}</h4>
-                                <p className="text-sm text-slate-500">{deck.wordCount} từ</p>
-                            </div>
-                            <div className={`flex items-center gap-1 text-sm font-semibold ${statusColor}`}>
-                                <StatusIcon className="w-4 h-4" />
-                                <span>{status.text}</span>
-                            </div>
-                        </div>
-                         {deck.status === 'rejected' && deck.rejectionReason && (
-                            <p className="text-xs text-red-600 mt-2 p-2 bg-red-100 rounded">Lý do: {deck.rejectionReason}</p>
-                         )}
-                    </div>
-                )
-            }) : <p className="text-center text-slate-500 py-10">Bạn chưa gửi bộ từ vựng nào.</p>}
+        <div className="space-y-4">
+             {myDecks.length > 0 ? myDecks.map(deck => (
+                 <div key={deck.id} className="bg-white/50 border border-slate-200 rounded-xl p-4">
+                     <div className="flex justify-between items-start">
+                        <h4 className="font-bold text-slate-800">{deck.title}</h4>
+                        <StatusIndicator status={deck.status} />
+                     </div>
+                     <p className="text-sm text-slate-600">{deck.description}</p>
+                     {deck.rejectionReason && <p className="text-xs text-red-600 mt-1">Lý do: {deck.rejectionReason}</p>}
+                 </div>
+             )) : <p className="text-center text-slate-500 py-10">Bạn chưa gửi bộ từ vựng nào.</p>}
         </div>
     );
 };
 
+
 const Discover: React.FC = () => {
+    const [activeTab, setActiveTab] = useState<Tab>('community');
     const { t } = useI18n();
-    const [currentTab, setCurrentTab] = useState<Tab>('community');
 
-    const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
+    const tabs = [
         { id: 'community', label: 'Cộng đồng', icon: BookOpen },
-        { id: 'create', label: 'Tạo bộ từ', icon: Pen },
-        { id: 'my-decks', label: 'Bộ từ của tôi', icon: Plus },
+        { id: 'my-decks', label: 'Bộ từ của tôi', icon: Library },
+        { id: 'create', label: 'Tạo mới', icon: Plus },
     ];
-
+    
     return (
         <div className="space-y-6 animate-fade-in">
             <div className="text-center">
                 <h2 className="text-2xl font-bold text-slate-800">{t('discover.title')}</h2>
-                <p className="text-gray-600 mt-1">Tìm, tạo và chia sẻ các bộ từ vựng với cộng đồng.</p>
+                <p className="text-gray-600 mt-1">{t('discover.description')}</p>
             </div>
-            
-            <div className="flex justify-center p-1 bg-slate-200/50 rounded-full neu-inset-light">
+             <div className="flex justify-center p-1 bg-slate-200/50 rounded-full">
                 {tabs.map(tab => (
-                    <button
+                    <button 
                         key={tab.id}
-                        onClick={() => setCurrentTab(tab.id)}
-                        className={`flex-1 px-3 py-2 text-sm font-semibold rounded-full flex items-center justify-center gap-2 transition-all ${currentTab === tab.id ? 'bg-white/40 shadow-sm' : 'text-slate-600 hover:bg-black/5'}`}
+                        onClick={() => setActiveTab(tab.id as Tab)} 
+                        className={`flex-1 px-3 py-1.5 text-sm rounded-full flex items-center justify-center gap-2 font-medium ${activeTab === tab.id ? 'bg-white shadow-sm text-slate-800' : 'text-slate-600'}`}
                     >
-                        <tab.icon className="w-4 h-4" />
-                        {tab.label}
+                        <tab.icon className="w-4 h-4"/> {tab.label}
                     </button>
                 ))}
             </div>
 
-            {currentTab === 'community' && <CommunityDecksTab />}
-            {currentTab === 'create' && <DeckCreatorTab onSwitchTab={setCurrentTab} />}
-            {currentTab === 'my-decks' && <MyDecksTab />}
+            <div>
+                {activeTab === 'community' && <CommunityDecksTab />}
+                {activeTab === 'create' && <DeckCreatorTab onSwitchTab={setActiveTab} />}
+                {activeTab === 'my-decks' && <MyDecksTab />}
+            </div>
         </div>
     );
 };
