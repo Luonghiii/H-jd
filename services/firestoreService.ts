@@ -127,6 +127,7 @@ export const createUserDocument = async (user: User): Promise<void> => {
                 xp: 0,
                 level: 1,
                 duelWins: 0,
+                streakFreeses: 0,
             },
             aiTutorHistory: [],
             aiAssistantSessions: [],

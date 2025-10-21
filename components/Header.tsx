@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { BookOpen, Settings, Flame, User as UserIcon, Edit, LogOut } from 'lucide-react';
+import { BookOpen, Settings, Flame, User as UserIcon, Edit, LogOut, Snowflake } from 'lucide-react';
 import { useSettings } from '../hooks/useSettings';
 import { useAuth } from '../hooks/useAuth';
 import { useHistory } from '../hooks/useHistory';
@@ -7,6 +7,49 @@ import { auth } from '../services/firebase';
 import { signOut } from 'firebase/auth';
 import { useI18n } from '../hooks/useI18n';
 import { achievementsList, levelStyles } from '../data/achievements';
+
+// Tooltip component defined locally
+interface TooltipProps {
+  content: React.ReactNode;
+  children: React.ReactNode;
+}
+
+const Tooltip: React.FC<TooltipProps> = ({ content, children }) => {
+  const [isVisible, setIsVisible] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  // Click outside to close for touch devices
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+        setIsVisible(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  return (
+    <div 
+      ref={wrapperRef}
+      className="relative inline-block"
+      onMouseEnter={() => setIsVisible(true)}
+      onMouseLeave={() => setIsVisible(false)}
+      onClick={() => setIsVisible(v => !v)} // Toggle on click
+    >
+      {children}
+      {isVisible && (
+        <div 
+          className="absolute z-50 top-full left-1/2 -translate-x-1/2 mt-2 w-max max-w-[200px] p-2 bg-slate-800 text-white text-sm rounded-lg shadow-lg text-center animate-fade-in"
+          role="tooltip"
+        >
+          {content}
+        </div>
+      )}
+    </div>
+  );
+};
+
 
 const UiLanguageSelector: React.FC = () => {
   const { uiLanguage, setUiLanguage } = useSettings();
@@ -49,15 +92,31 @@ const StreakDisplay: React.FC = () => {
     return 'text-cyan-400 animate-pulse';
   };
   
-  if (streak === 0) return null;
-
   return (
-    <div className="flex items-center gap-1 bg-white/30 px-3 py-1.5 rounded-full" title={t('header.streak_title', { streak })}>
-        <span className="font-bold text-slate-800 text-sm">{streak}</span>
-        <Flame className={`w-4 h-4 ${getFlameColor()}`} />
-    </div>
+    <Tooltip content={t('header.streak_tooltip_content')}>
+        <div className="flex items-center gap-1 bg-white/30 px-3 py-1.5 rounded-full">
+            <span className={`font-bold text-sm ${streak > 0 ? 'text-slate-800' : 'text-slate-500'}`}>{streak}</span>
+            <Flame className={`w-4 h-4 ${getFlameColor()}`} />
+        </div>
+    </Tooltip>
   )
 }
+
+const StreakFreezeDisplay: React.FC = () => {
+  const { stats } = useSettings();
+  const { t } = useI18n();
+  const freezeCount = stats.streakFreeses || 0;
+
+  return (
+    <Tooltip content={t('header.streak_freeze_tooltip_content', { count: freezeCount })}>
+        <div className="flex items-center gap-1 bg-white/30 px-3 py-1.5 rounded-full">
+            <span className="font-bold text-slate-800 text-sm">{freezeCount}</span>
+            <Snowflake className={`w-4 h-4 ${freezeCount > 0 ? 'text-cyan-500' : 'text-slate-400'}`} />
+        </div>
+    </Tooltip>
+  );
+};
+
 
 const ProfileDropdown: React.FC<{
   isOpen: boolean;
@@ -133,6 +192,7 @@ const Header: React.FC<{ onOpenSettings: () => void; onOpenProfile: () => void; 
           </h1>
         </div>
         <div className="flex items-center flex-shrink-0 space-x-1 sm:space-x-2">
+          <StreakFreezeDisplay />
           <StreakDisplay />
           <UiLanguageSelector />
           <button

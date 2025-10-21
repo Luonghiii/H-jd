@@ -6,7 +6,8 @@ export const translations = {
       settings: 'Cài đặt',
       edit_profile: 'Chỉnh sửa hồ sơ',
       logout: 'Đăng xuất',
-      streak_title: 'Chuỗi {streak} ngày học!',
+      streak_tooltip_content: 'Chuỗi ngày học liên tiếp của bạn. Hãy luyện tập mỗi ngày để giữ lửa!',
+      streak_freeze_tooltip_content: 'Bạn có {count} Đóng Băng Chuỗi. Vật phẩm này sẽ tự động được sử dụng để bảo vệ chuỗi của bạn nếu bạn bỏ lỡ một ngày học.',
     },
     footer: {
       credit: 'Learn better with Luong',
@@ -176,7 +177,8 @@ export const translations = {
       settings: 'Settings',
       edit_profile: 'Edit Profile',
       logout: 'Logout',
-      streak_title: '{streak} day learning streak!',
+      streak_tooltip_content: 'Your consecutive daily learning streak. Practice every day to keep the flame alive!',
+      streak_freeze_tooltip_content: 'You have {count} Streak Freezes. This item will be automatically used to protect your streak if you miss a day.',
     },
     footer: {
       credit: 'Learn better with Luong',

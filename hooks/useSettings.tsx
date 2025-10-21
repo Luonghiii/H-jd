@@ -3,7 +3,8 @@ import { TargetLanguage, LearningLanguage, ConversationSession, UserStats, Histo
 import { useAuth } from './useAuth';
 import { onUserDataSnapshot, updateUserData, updateUserLeaderboardEntry } from '../services/firestoreService';
 import { setApiKeys } from '../services/geminiService';
-import { doc, updateDoc, increment } from 'firebase/firestore';
+// FIX: Import 'DocumentData' from 'firebase/firestore' to fix type error.
+import { doc, updateDoc, increment, DocumentData } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import eventBus from '../utils/eventBus';
 
@@ -15,6 +16,7 @@ export type BackgroundSetting = {
 export type Theme = 'light' | 'dark';
 
 const MAX_API_KEYS = 10;
+const MAX_STREAK_FREEZES = 2;
 
 interface UserProfile {
     displayName: string | null;
@@ -90,6 +92,7 @@ const defaultState = {
       xp: 0,
       level: 1,
       duelWins: 0,
+      streakFreeses: 0,
     } as UserStats,
     aiTutorHistory: [] as ConversationSession[],
     profile: {
@@ -129,7 +132,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
             backgroundSetting: data.settings?.backgroundSetting !== undefined ? data.settings.backgroundSetting : defaultState.backgroundSetting,
             customGradients: data.settings?.customGradients || defaultState.customGradients,
             userApiKeys: data.settings?.userApiKeys || defaultState.userApiKeys,
-            stats: { ...defaultState.stats, ...data.stats, duelWins: data.stats?.duelWins || 0 },
+            stats: { ...defaultState.stats, ...data.stats, duelWins: data.stats?.duelWins || 0, streakFreeses: data.stats?.streakFreeses || 0 },
             aiTutorHistory: data.aiTutorHistory || defaultState.aiTutorHistory,
             profile: {
                 displayName: data.displayName || currentUser.displayName || '',
@@ -188,26 +191,43 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
         yesterday = `${yesterdayDate.getFullYear()}-${String(yesterdayDate.getMonth() + 1).padStart(2, '0')}-${String(yesterdayDate.getDate()).padStart(2, '0')}`;
     }
     
-    const { lastActivityDate, currentStreak = 0, longestStreak = 0 } = appState.stats;
+    const { lastActivityDate, currentStreak = 0, longestStreak = 0, streakFreeses = 0 } = appState.stats;
 
     if (lastActivityDate === today) {
         return; // Already recorded an activity today
     }
     
-    let newCurrentStreak = 1;
-    // If last activity was yesterday, increment streak
+    const payload: DocumentData = {};
+    let newCurrentStreak = currentStreak;
+
     if (lastActivityDate === yesterday) {
         newCurrentStreak = currentStreak + 1;
+        payload['stats.currentStreak'] = newCurrentStreak;
+        payload['stats.longestStreak'] = Math.max(longestStreak, newCurrentStreak);
+
+        if (newCurrentStreak === 7 && streakFreeses < MAX_STREAK_FREEZES) {
+            payload['stats.streakFreeses'] = increment(1);
+            eventBus.dispatch('notification', { type: 'success', message: 'Chúc mừng! Bạn đạt chuỗi 7 ngày và nhận được 1 Đóng Băng Chuỗi.' });
+        }
+    } else { // Streak is broken
+        if (streakFreeses > 0) {
+            payload['stats.streakFreeses'] = increment(-1);
+            // The streak is preserved, not reset. We "fill in" the missed day.
+            payload['stats.lastActivityDate'] = yesterday; 
+            eventBus.dispatch('notification', { type: 'info', message: 'Chuỗi của bạn đã được bảo vệ bởi Đóng Băng Chuỗi!' });
+        } else {
+            newCurrentStreak = 0; // Reset streak to 0
+            payload['stats.currentStreak'] = 0;
+            if(currentStreak > 0) {
+                 eventBus.dispatch('notification', { type: 'warning', message: 'Bạn đã mất chuỗi ngày học! Hãy cố gắng luyện tập mỗi ngày nhé.' });
+            }
+        }
     }
     
-    const newLongestStreak = Math.max(longestStreak, newCurrentStreak);
+    payload['stats.lastActivityDate'] = today;
 
     const userRef = doc(db, 'users', currentUser.uid);
-    await updateDoc(userRef, {
-        'stats.currentStreak': newCurrentStreak,
-        'stats.longestStreak': newLongestStreak,
-        'stats.lastActivityDate': today,
-    });
+    await updateDoc(userRef, payload);
     
     await updateUserLeaderboardEntry(currentUser.uid);
     

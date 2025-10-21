@@ -139,6 +139,7 @@ export interface UserStats {
     xp: number;
     level: number;
     duelWins?: number;
+    streakFreeses?: number;
 }
 
 export interface AiLesson {
