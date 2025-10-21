@@ -15,7 +15,7 @@ type Feedback = {
 } | null;
 
 const GrammarChecker: React.FC<GrammarCheckerProps> = ({ onBack }) => {
-    const { learningLanguage, uiLanguage, recordActivity, addXp } = useSettings();
+    const { learningLanguage, uiLanguage, addXp } = useSettings();
     const { addHistoryEntry } = useHistory();
     const [text, setText] = useState('');
     const [feedback, setFeedback] = useState<Feedback>(null);
@@ -48,7 +48,6 @@ const GrammarChecker: React.FC<GrammarCheckerProps> = ({ onBack }) => {
             const result = await checkGrammar(text, learningLanguage, uiLanguage);
             setFeedback(result);
             addHistoryEntry('GRAMMAR_CHECK_COMPLETED', 'Đã sử dụng công cụ kiểm tra ngữ pháp.');
-            recordActivity();
             addXp(10); // Grant 10 XP for using the grammar checker
         } catch (error) {
             console.error(error);

@@ -13,7 +13,7 @@ interface SmartReadingProps {
 }
 
 const SmartReading: React.FC<SmartReadingProps> = ({ onBack }) => {
-    const { learningLanguage, recordActivity, addXp } = useSettings();
+    const { learningLanguage, addXp } = useSettings();
     const { addHistoryEntry } = useHistory();
     const { words } = useVocabulary(); // for HighlightableText
 
@@ -35,7 +35,6 @@ const SmartReading: React.FC<SmartReadingProps> = ({ onBack }) => {
             if (result && result.text) {
                 setArticle(result);
                 addHistoryEntry('SMART_READING_COMPLETED', `Đọc bài báo về chủ đề: "${topic}"`, { topic, mode });
-                recordActivity();
                 addXp(15);
             } else {
                 eventBus.dispatch('notification', { type: 'warning', message: 'Không tìm thấy bài báo phù hợp. Vui lòng thử một chủ đề khác.' });

@@ -132,17 +132,19 @@ const AppLayout: React.FC<{ onOpenSettings: () => void; }> = ({ onOpenSettings }
   );
 };
 
-// This component logs the login event once when the user session is established.
-const LoginHistoryLogger: React.FC = () => {
+// This component logs the login event and updates the streak once when the user session is established.
+const LoginAndStreakHandler: React.FC = () => {
     const { addHistoryEntry } = useHistory();
+    const { recordActivity } = useSettings();
     const hasLoggedRef = useRef(false);
 
     useEffect(() => {
         if (!hasLoggedRef.current) {
             addHistoryEntry('LOGIN', 'Đăng nhập thành công.');
+            recordActivity();
             hasLoggedRef.current = true;
         }
-    }, [addHistoryEntry]);
+    }, [addHistoryEntry, recordActivity]);
     
     return null;
 };
@@ -178,7 +180,7 @@ const AppContent: React.FC = () => {
               <ActivityTrackerProvider>
                 <AchievementsProvider>
                   <AiAssistantProvider>
-                    <LoginHistoryLogger />
+                    <LoginAndStreakHandler />
                     <AppLayout onOpenSettings={() => setIsSettingsOpen(true)} />
                     <SettingsModal
                       isOpen={isSettingsOpen}

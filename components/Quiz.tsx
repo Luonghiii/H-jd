@@ -28,9 +28,10 @@ interface QuizProps {
   onBack: () => void;
 }
 
-const Quiz: React.FC<QuizProps> = ({ onBack }) => {
+// FIX: Changed to a named export to resolve module resolution error.
+export const Quiz: React.FC<QuizProps> = ({ onBack }) => {
   const { words, getAvailableThemes } = useVocabulary();
-  const { uiLanguage, learningLanguage, recordActivity, addXp } = useSettings();
+  const { uiLanguage, learningLanguage, addXp } = useSettings();
   const { openInspector } = useInspector();
   const { addHistoryEntry } = useHistory();
   const { logActivity } = useActivityTracker();
@@ -64,7 +65,7 @@ const Quiz: React.FC<QuizProps> = ({ onBack }) => {
   const handleThemeToggle = (theme: string) => {
     setSelectedThemes(prev => {
         const newSet = new Set(prev);
-        if (theme === 'all') return new Set(['all']);
+        if (theme === 'all')) return new Set(['all']);
         newSet.delete('all');
         if (newSet.has(theme)) newSet.delete(theme);
         else newSet.add(theme);
@@ -178,7 +179,6 @@ const Quiz: React.FC<QuizProps> = ({ onBack }) => {
       const correctCount = finalAnswers.filter(a => a.isCorrect).length;
       const score = { correct: correctCount, total: quizQuestions.length };
       addHistoryEntry('QUIZ_COMPLETED', `Hoàn thành bài trắc nghiệm. (${score.correct}/${score.total})`, { score });
-      recordActivity();
       addXp(25); // Grant 25 bonus XP for completing a quiz
       setView('results');
     }
@@ -305,97 +305,4 @@ const Quiz: React.FC<QuizProps> = ({ onBack }) => {
         <div>
           <h3 className="font-semibold text-white mb-2">3. Chọn số câu hỏi</h3>
           <div className="flex justify-center gap-2">
-            {[5, 10, 20].map(n => (
-              <button key={n} onClick={() => setNumQuestions(n)} className={`px-4 py-2 text-sm rounded-xl transition-colors ${numQuestions === n ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-gray-200 hover:bg-slate-600'}`}>{n} câu</button>
-            ))}
-            <button onClick={() => setNumQuestions(wordsForQuiz.length)} className={`px-4 py-2 text-sm rounded-xl transition-colors ${numQuestions === wordsForQuiz.length ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-gray-200 hover:bg-slate-600'}`}>Tất cả ({wordsForQuiz.length})</button>
-          </div>
-        </div>
-
-        <button onClick={handleStartQuiz} disabled={wordsForQuiz.length === 0} className="w-full flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98] disabled:bg-indigo-400 disabled:cursor-not-allowed">
-            Bắt đầu
-        </button>
-      </div>
-      <AiWordSelectorModal 
-        isOpen={isAiModalOpen}
-        onClose={() => setIsAiModalOpen(false)}
-        availableWords={themeFilteredWords}
-        onConfirm={handleAiSelect}
-      />
-    </>
-  );
-
-  const renderLoading = () => (
-      <div className="text-center py-10 space-y-4">
-        <Loader2 className="w-10 h-10 mx-auto animate-spin text-indigo-400" />
-        <h2 className="text-xl font-bold text-white">Đang chuẩn bị câu hỏi...</h2>
-        <p className="text-gray-400">Việc này có thể mất một vài giây.</p>
-      </div>
-  );
-
-  const renderPlaying = () => {
-    const currentQuestion = quizQuestions[currentQuestionIndex];
-    if (!currentQuestion) return renderSetup();
-    
-    return (
-      <div className="space-y-6 animate-fade-in">
-        <div>
-          <div className="flex justify-between items-center mb-2">
-            <h2 className="text-lg font-bold text-white">Câu hỏi {currentQuestionIndex + 1} / {quizQuestions.length}</h2>
-            <button onClick={onBack} className="text-sm text-indigo-400 hover:underline">Thoát</button>
-          </div>
-          <div className="w-full bg-slate-700 rounded-full h-2.5">
-            <div className="bg-indigo-500 h-2.5 rounded-full transition-all duration-300" style={{ width: `${((currentQuestionIndex + 1) / quizQuestions.length) * 100}%` }}></div>
-          </div>
-        </div>
-        
-        <div className="text-center p-6 bg-slate-800/50 rounded-2xl">
-          <p className="text-xl text-gray-300">{currentQuestion.question}</p>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {currentQuestion.options.map((option, index) => {
-            const isCorrect = option === currentQuestion.correctAnswer;
-            const isSelected = option === selectedAnswer;
-            let buttonClass = 'bg-slate-700/80 hover:bg-slate-700 hover:scale-[1.02] text-white';
-            if (selectedAnswer) {
-              if (isCorrect) buttonClass = 'bg-green-500 ring-2 ring-green-400 text-white scale-105';
-              else if (isSelected && !isCorrect) buttonClass = 'bg-red-500 ring-2 ring-red-400 text-white';
-              else buttonClass = 'bg-slate-700/50 opacity-60';
-            }
-            return (
-              <button key={index} onClick={() => handleAnswerSelect(option)} disabled={!!selectedAnswer} className={`w-full text-center py-3 px-4 rounded-2xl font-semibold text-lg transition-all duration-300 ${buttonClass}`}>
-                {option}
-              </button>
-            )
-          })}
-        </div>
-
-        {selectedAnswer && (
-          <button onClick={handleNextQuestion} className="w-full flex items-center justify-center px-4 py-3 bg-slate-600 hover:bg-slate-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98]">
-            {currentQuestionIndex < quizQuestions.length - 1 ? 'Câu tiếp theo' : 'Xem kết quả'}
-          </button>
-        )}
-      </div>
-    );
-  };
-  
-  const renderContent = () => {
-    switch (view) {
-      case 'setup':
-        return renderSetup();
-      case 'loading':
-        return renderLoading();
-      case 'playing':
-        return renderPlaying();
-      case 'results':
-        return <ResultsScreen />;
-      default:
-        return renderSetup();
-    }
-  };
-
-  return <div className="animate-fade-in">{renderContent()}</div>;
-};
-
-export default Quiz;
+            {[5, 1...

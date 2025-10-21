@@ -22,7 +22,7 @@ interface MemoryMatchProps {
 
 const MemoryMatch: React.FC<MemoryMatchProps> = ({ onBack }) => {
   const { words, getAvailableThemes } = useVocabulary();
-  const { uiLanguage: targetLanguage, recordActivity, addXp } = useSettings();
+  const { uiLanguage: targetLanguage, addXp } = useSettings();
   const { addHistoryEntry } = useHistory();
 
   const [gameState, setGameState] = useState<'setup' | 'playing' | 'won' | 'lost'>('setup');
@@ -111,10 +111,9 @@ const MemoryMatch: React.FC<MemoryMatchProps> = ({ onBack }) => {
         ? `Thắng game Lật thẻ (${pairCount} cặp).`
         : `Thắng game Lật thẻ (${pairCount} cặp).`;
       addHistoryEntry('MEMORY_MATCH_WON', details, { moves, timeLeft });
-      recordActivity();
       addXp(pairCount * 5); // 5 XP per pair
     }
-  }, [matchedWordIds, pairCount, cards.length, addHistoryEntry, moves, timeLeft, timeLimit, gameState, recordActivity, addXp]);
+  }, [matchedWordIds, pairCount, cards.length, addHistoryEntry, moves, timeLeft, timeLimit, gameState, addXp]);
 
   const handleCardClick = (index: number) => {
     if (isChecking || flippedIndices.length >= 2 || flippedIndices.includes(index) || matchedWordIds.includes(cards[index].wordId)) {

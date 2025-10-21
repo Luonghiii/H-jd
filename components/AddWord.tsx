@@ -51,7 +51,7 @@ const AddWord: React.FC<AddWordProps> = ({ onBack }) => {
 
   const { words, addWord, addMultipleWords, getAvailableThemes } = useVocabulary();
   const { addHistoryEntry } = useHistory();
-  const { uiLanguage, learningLanguage, recordActivity } = useSettings();
+  const { uiLanguage, learningLanguage } = useSettings();
   
   const languageNameMap = {
       german: 'tiếng Đức',
@@ -69,7 +69,6 @@ const AddWord: React.FC<AddWordProps> = ({ onBack }) => {
       setIsManualLoading(false);
 
       if (success) {
-        recordActivity();
         addHistoryEntry('WORDS_ADDED', `Đã thêm thủ công 1 từ.`, { wordCount: 1 });
         setWord('');
         setTranslation('');
@@ -163,7 +162,6 @@ const AddWord: React.FC<AddWordProps> = ({ onBack }) => {
       if (count > 0) {
           addHistoryEntry('WORDS_ADDED', `Đã thêm ${count} từ mới.`, { wordCount: count });
           eventBus.dispatch('notification', { type: 'success', message: `Đã thêm ${count} từ mới!` });
-          recordActivity();
       } else {
           eventBus.dispatch('notification', { type: 'info', message: 'Không có từ mới nào được thêm.' });
       }

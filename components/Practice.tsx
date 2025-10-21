@@ -23,7 +23,7 @@ interface PracticeProps {
 
 const Practice: React.FC<PracticeProps> = ({ onBack }) => {
   const { words, getAvailableThemes } = useVocabulary();
-  const { uiLanguage, learningLanguage, recordActivity, addXp } = useSettings();
+  const { uiLanguage, learningLanguage, addXp } = useSettings();
   const { openInspector } = useInspector();
   const { addHistoryEntry } = useHistory();
   const { logActivity } = useActivityTracker();
@@ -109,9 +109,8 @@ const Practice: React.FC<PracticeProps> = ({ onBack }) => {
     setAnswers([]);
     setUserAnswer('');
     setAnswerStatus('idle');
-    recordActivity(); // Record activity as soon as the session starts
     setView('playing');
-  }, [wordsForPractice, numWords, initialPracticeWords, recordActivity]);
+  }, [wordsForPractice, numWords, initialPracticeWords]);
 
   const handleNextQuestion = () => {
       if (currentWordIndex < practiceWords.length - 1) {

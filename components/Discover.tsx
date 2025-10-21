@@ -29,7 +29,7 @@ const iconOptions = Object.keys(iconMap);
 type Tab = 'community' | 'create' | 'my-decks';
 
 const CommunityDecksTab: React.FC = () => {
-    const { learningLanguage, recordActivity } = useSettings();
+    const { learningLanguage } = useSettings();
     const { addMultipleWords } = useVocabulary();
     const { addHistoryEntry } = useHistory();
     const { t } = useI18n();
@@ -78,7 +78,6 @@ const CommunityDecksTab: React.FC = () => {
         try {
             const count = await addMultipleWords(wordsToAdd);
             if (count > 0) {
-                recordActivity();
                 eventBus.dispatch('notification', { type: 'success', message: `Đã thêm ${count} từ mới từ bộ "${deck.title}"!` });
                 addHistoryEntry('COMMUNITY_DECK_ADDED', `Đã thêm ${count} từ từ bộ "${deck.title}".`, { count });
             } else {

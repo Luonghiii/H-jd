@@ -13,7 +13,7 @@ interface SentenceGeneratorProps {
 
 const SentenceGenerator: React.FC<SentenceGeneratorProps> = ({ onBack }) => {
     const { words } = useVocabulary();
-    const { uiLanguage, learningLanguage, recordActivity, addXp } = useSettings();
+    const { uiLanguage, learningLanguage, addXp } = useSettings();
     const { addHistoryEntry } = useHistory();
     const [selectedWord, setSelectedWord] = useState<VocabularyWord | null>(null);
     const [generatedSentence, setGeneratedSentence] = useState('');
@@ -37,7 +37,6 @@ const SentenceGenerator: React.FC<SentenceGeneratorProps> = ({ onBack }) => {
 
         const result = await generateSentence(word, uiLanguage, learningLanguage);
         addHistoryEntry('SENTENCE_GENERATED', `Tạo câu ví dụ cho từ "${word.word}".`, { word: word.word });
-        recordActivity();
         const parts = result.split('---Translation---');
         if (parts.length === 2) {
             setGeneratedSentence(parts[0].trim());

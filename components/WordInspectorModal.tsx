@@ -12,7 +12,7 @@ import eventBus from '../utils/eventBus';
 export const QuickTranslateModal: React.FC = () => {
     const { data, closeQuickTranslate } = useQuickTranslate();
     const { addWord } = useVocabulary();
-    const { uiLanguage, recordActivity } = useSettings();
+    const { uiLanguage } = useSettings();
     const modalRef = useRef<HTMLDivElement>(null);
     const [style, setStyle] = useState<React.CSSProperties>({});
     const [isAdding, setIsAdding] = useState(false);
@@ -62,7 +62,6 @@ export const QuickTranslateModal: React.FC = () => {
         setIsAdding(true);
         const success = await addWord(data.word, data.translation, uiLanguage, data.theme);
         if (success) {
-            recordActivity();
             eventBus.dispatch('notification', { type: 'success', message: `Đã thêm từ "${data.word}"!` });
         }
         setIsAdding(false);

@@ -10,7 +10,7 @@ interface ReviewProps {
 
 const Review: React.FC<ReviewProps> = ({ onBack }) => {
     const { words, updateWordSrs } = useVocabulary();
-    const { uiLanguage: targetLanguage, recordActivity, addXp } = useSettings();
+    const { uiLanguage: targetLanguage, addXp } = useSettings();
     const { addHistoryEntry } = useHistory();
     const [isSessionActive, setIsSessionActive] = useState(false);
     
@@ -31,7 +31,6 @@ const Review: React.FC<ReviewProps> = ({ onBack }) => {
         setIsFlipped(false);
         setSessionStats({ hard: 0, good: 0, easy: 0 });
         setIsSessionActive(true);
-        recordActivity(); // Record activity as soon as the session starts
     };
     
     const endSession = () => {
