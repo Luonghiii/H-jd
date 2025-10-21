@@ -36,9 +36,10 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
     
     // Multiplayer State
     const [gameRoom, setGameRoom] = useState<GameRoom | null>(null);
-    const [joinCode, setJoinCode] = useState('');
+    const [joinCodeInput, setJoinCodeInput] = useState('');
     const [isFindingMatch, setIsFindingMatch] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isJoining, setIsJoining] = useState(false);
     const [timeLeft, setTimeLeft] = useState(TURN_DURATION);
     const timerRef = useRef<number | null>(null);
 
@@ -91,6 +92,13 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
 
         const unsubscribe = onGameRoomSnapshot(gameRoom.id, (room) => {
             if (room) {
+                if (room.playerUids.includes(currentUser.uid)) {
+                     if (view !== 'playing' && view !== 'finished') {
+                        setView('lobby');
+                    }
+                    setIsJoining(false);
+                }
+
                 const wasPlaying = gameRoom?.status === 'playing';
                 setGameRoom(room);
                 if (room.status === 'playing' && room.gameState.currentPlayerUid === currentUser.uid) {
@@ -104,6 +112,7 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
                 eventBus.dispatch('notification', { type: 'info', message: 'Phòng chơi đã bị hủy.' });
                 setGameRoom(null);
                 setView('setup');
+                setIsJoining(false);
             }
         });
 
@@ -111,7 +120,7 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
             stopTimer();
             unsubscribe();
         };
-    }, [gameRoom?.id, currentUser, startTimer, stopTimer]);
+    }, [gameRoom?.id, currentUser, startTimer, stopTimer, view]);
     
     const handleCreateRoom = async (isPublic: boolean) => {
         if (!currentUser) return;
@@ -136,21 +145,26 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
     
     const handleJoinRoom = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!joinCode.trim() || !currentUser) return;
-        
+        const code = joinCodeInput.trim();
+        if (!code || !currentUser || isJoining) return;
+
+        setIsJoining(true);
         try {
-            const room = await getGameRoomByCode(joinCode);
+            const room = await getGameRoomByCode(code);
             if (room) {
+                 if (room.playerUids.length >= 2 && !room.playerUids.includes(currentUser.uid)) {
+                    throw new Error("Phòng đã đầy!");
+                }
                 const player: GameRoomPlayer = { uid: currentUser.uid, displayName: profile.displayName || 'Player 2', photoURL: profile.photoURL };
                 await joinGameRoom(room.id, player);
-                 // The onGameRoomSnapshot will handle setting the room and view
-                setGameRoom(room); // Optimistically set room to start listening
-                setView('lobby');
+                setGameRoom(room);
             } else {
                 eventBus.dispatch('notification', { type: 'error', message: 'Không tìm thấy phòng với mã này.' });
+                setIsJoining(false);
             }
         } catch (error: any) {
             eventBus.dispatch('notification', { type: 'error', message: error.message });
+            setIsJoining(false);
         }
     };
     
@@ -275,6 +289,15 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
         setIsSubmitting(false);
     };
 
+    if (isJoining) {
+        return (
+            <div className="text-center py-10 space-y-4 flex flex-col items-center animate-fade-in text-white">
+                <Loader2 className="w-10 h-10 animate-spin text-indigo-400" />
+                <h2 className="text-2xl font-bold">Đang vào phòng...</h2>
+            </div>
+        );
+    }
+
     if (view === 'setup') {
         return (
             <div className="space-y-6 text-center animate-fade-in text-white">
@@ -307,7 +330,7 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
                         <button onClick={() => handleCreateRoom(false)} className="w-full py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-semibold flex items-center justify-center gap-2"><Plus className="w-5 h-5"/> Tạo phòng riêng</button>
 
                          <form onSubmit={handleJoinRoom} className="flex gap-2 pt-2">
-                            <input value={joinCode} onChange={e => setJoinCode(e.target.value.toUpperCase())} placeholder="NHẬP MÃ" maxLength={6} className="flex-grow px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-center font-bold tracking-widest placeholder:font-normal placeholder:tracking-normal placeholder:text-gray-500"/>
+                            <input value={joinCodeInput} onChange={e => setJoinCodeInput(e.target.value.toUpperCase())} placeholder="NHẬP MÃ" maxLength={6} className="flex-grow px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-center font-bold tracking-widest placeholder:font-normal placeholder:tracking-normal placeholder:text-gray-500"/>
                              <button type="submit" className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg font-semibold text-white flex items-center justify-center gap-2">
                                 <Key className="w-4 h-4" /> Vào phòng
                             </button>
