@@ -224,18 +224,19 @@ export interface GameRoom {
 
     // State that changes during the game
     gameState: {
-        history: { by: string; word: string; }[]; // uid of player
+        history: { by: string; word: string; turn?: number; score?: number; letter?: string }[];
         usedWords: string[];
-        currentPlayerUid: string;
+        currentPlayerUid?: string; // Optional, for turn-based modes
         turnStartTime: number;
         gameOverReason: string;
         winnerUid?: string;
         
         // Mode-specific state
         scores: { [uid: string]: number };
-        currentRound?: number;
-        roundLetter?: string;
-        lastWord?: string;
+        currentRound: number;
+        roundLetter?: string; // For 'longest' mode
+        lastWord?: string; // For 'chain' mode
+        turnSubmissions?: { [uid: string]: string }; // For 'longest' multiplayer
     };
 
     createdAt: number;

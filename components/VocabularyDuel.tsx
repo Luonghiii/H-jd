@@ -1,3 +1,5 @@
+
+
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useVocabulary } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
@@ -154,7 +156,7 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
     
     // AI Game State
     const [aiDifficulty, setAiDifficulty] = useState<Difficulty>('medium');
-    const [aiGameHistory, setAiGameHistory] = useState<{by: 'player'|'ai', word: string}[]>([]);
+    const [aiGameHistory, setAiGameHistory] = useState<any[]>([]);
     const [playerInput, setPlayerInput] = useState('');
     const [isPlayerTurn, setIsPlayerTurn] = useState(true);
     const [isAiThinking, setIsAiThinking] = useState(false);
@@ -162,12 +164,95 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
     const [aiGameMode, setAiGameMode] = useState<GameMode>('theme');
     const [aiGameSettings, setAiGameSettings] = useState<{ theme?: string; targetScore?: number }>({ theme: 'any', targetScore: 100 });
     const [aiScores, setAiScores] = useState({ player: 0, ai: 0 });
-    const [aiIsStarting, setAiIsStarting] = useState(false);
+    const [currentLetter, setCurrentLetter] = useState('');
+    const aiWordPromiseRef = useRef<Promise<{word: string}>>();
+
+
     const gameOverReasonRef = useRef(aiGameOverReason);
 
     // Universal Timer State
     const [timeLeft, setTimeLeft] = useState(TURN_DURATION);
     const timerRef = useRef<number | null>(null);
+    const turnTimeoutRef = useRef<number | null>(null);
+
+    const stopTimer = useCallback(() => {
+        if (timerRef.current) clearInterval(timerRef.current);
+        timerRef.current = null;
+        if(turnTimeoutRef.current) clearTimeout(turnTimeoutRef.current);
+        turnTimeoutRef.current = null;
+    }, []);
+
+    const startTimer = useCallback((onTimeout: () => void) => {
+        stopTimer();
+        setTimeLeft(TURN_DURATION);
+        timerRef.current = window.setInterval(() => {
+            setTimeLeft(prev => {
+                if (prev <= 1) {
+                    stopTimer();
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+
+        turnTimeoutRef.current = window.setTimeout(onTimeout, TURN_DURATION * 1000);
+    }, [stopTimer]);
+    
+    const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const getRandomLetter = () => ALPHABET[Math.floor(Math.random() * ALPHABET.length)];
+
+    const processAITurn = useCallback(async () => {
+        const playerWord = playerInput.trim().toLowerCase();
+        let aiWord = '';
+        if (aiWordPromiseRef.current) {
+            aiWord = (await aiWordPromiseRef.current).word;
+        }
+
+        const usedWords = aiGameHistory.map(h => h.word).filter(Boolean);
+        const context = { mode: 'longest' as GameMode, startLetter: currentLetter };
+
+        const [playerResult, aiResult] = await Promise.all([
+            playerWord ? validateDuelWord(playerWord, usedWords, learningLanguage, context) : Promise.resolve({isValid: false, reason: "Không nhập từ."}),
+            aiWord ? validateDuelWord(aiWord, [...usedWords, playerWord], learningLanguage, context) : Promise.resolve({isValid: false, reason: "Không tìm thấy từ."})
+        ]);
+        
+        const playerTurnScore = playerResult.isValid ? playerWord.length : 0;
+        const aiTurnScore = aiResult.isValid ? aiWord.length : 0;
+
+        const newPlayerScore = aiScores.player + playerTurnScore;
+        const newAiScore = aiScores.ai + aiTurnScore;
+        
+        setAiGameHistory(prev => [...prev, {
+            by: 'turn', letter: currentLetter, turn: prev.length + 1,
+            player: { word: playerWord, score: playerTurnScore, valid: playerResult.isValid },
+            ai: { word: aiWord, score: aiTurnScore, valid: aiResult.isValid }
+        }]);
+
+        setAiScores({ player: newPlayerScore, ai: newAiScore });
+
+        const target = aiGameSettings.targetScore || 100;
+        if (newPlayerScore >= target && newAiScore >= target) {
+            setAiGameOverReason(newPlayerScore > newAiScore ? `Bạn thắng sát sao ${newPlayerScore}-${newAiScore}!` : newPlayerScore < newAiScore ? `AI thắng sát sao ${newAiScore}-${newPlayerScore}!` : 'Hòa!');
+        } else if (newPlayerScore >= target) {
+            setAiGameOverReason(`Bạn thắng với ${newPlayerScore} điểm!`);
+        } else if (newAiScore >= target) {
+            setAiGameOverReason(`AI thắng với ${newAiScore} điểm!`);
+        } else {
+            startNewAITurn();
+        }
+    }, [playerInput, aiGameHistory, currentLetter, learningLanguage, aiScores, aiGameSettings.targetScore]);
+
+    const startNewAITurn = useCallback(() => {
+        stopTimer();
+        const letter = getRandomLetter();
+        setCurrentLetter(letter);
+        setPlayerInput('');
+        startTimer(processAITurn);
+        
+        const usedWords = aiGameHistory.map(h => h.word).filter(Boolean);
+        aiWordPromiseRef.current = getAiDuelWord(usedWords, learningLanguage, aiDifficulty, { mode: 'longest', startLetter: letter });
+
+    }, [stopTimer, startTimer, processAITurn, aiGameHistory, learningLanguage, aiDifficulty]);
 
     const handleStartAiGame = useCallback(async () => {
         setAiGameMode(selectedGameMode);
@@ -185,83 +270,89 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
         setView('ai_game');
         
         if (selectedGameMode === 'longest') {
-            setAiIsStarting(true);
-            try {
-                const { word: startWord } = await getAiDuelWord([], learningLanguage, aiDifficulty, { mode: 'longest' });
-                if (startWord) {
-                    setAiGameHistory([{ by: 'ai', word: startWord }]);
-                }
-            } catch (e) {
-                setAiGameOverReason('AI không thể bắt đầu. Vui lòng thử lại.');
-            } finally {
-                setAiIsStarting(false);
-            }
-        }
-
-    }, [selectedGameMode, selectedTheme, targetScore, learningLanguage, aiDifficulty]);
-
-    const stopTimer = useCallback(() => {
-        if (timerRef.current) clearInterval(timerRef.current);
-        timerRef.current = null;
-    }, []);
-
-    const startTimer = useCallback((onTimeout: () => void) => {
-        stopTimer();
-        setTimeLeft(TURN_DURATION);
-        timerRef.current = window.setInterval(() => {
-            setTimeLeft(prev => {
-                if (prev <= 1) {
-                    stopTimer();
-                    onTimeout();
-                    return 0;
-                }
-                return prev - 1;
-            });
-        }, 1000);
-    }, [stopTimer]);
-
-    // Multiplayer Timer Logic
-    useEffect(() => {
-        if (!gameRoom || !currentUser || view !== 'playing') return;
-
-        if (gameRoom.status === 'playing' && gameRoom.gameState.currentPlayerUid === currentUser.uid) {
-            const onTimeout = () => {
-                if (gameRoom && gameRoom.status === 'playing' && gameRoom.gameState.currentPlayerUid === currentUser?.uid) {
-                    const winner = gameRoom.players.find(p => p.uid !== currentUser.uid);
-                    updateGameRoom(gameRoom.id, {
-                        "gameState.gameOverReason": `Người chơi ${profile.displayName} đã hết giờ!`,
-                        "gameState.winnerUid": winner?.uid,
-                        status: 'finished'
-                    });
-                }
-            };
-            startTimer(onTimeout);
+            startNewAITurn();
         } else {
-            stopTimer();
+            // For turn-based modes, start the timer for the player's first turn.
+            startTimer(() => {
+                setAiGameOverReason('Hết giờ! AI thắng!');
+            });
         }
+
+    }, [selectedGameMode, selectedTheme, targetScore, startNewAITurn, startTimer]);
+    
+    const handlePlayerSubmit_AI = useCallback(async (e: React.FormEvent) => {
+        e.preventDefault();
         
-        return () => stopTimer();
-    }, [gameRoom?.gameState.currentPlayerUid, gameRoom?.status, currentUser?.uid, view, startTimer, stopTimer]);
-
-
-    // AI Game Timer Logic
-    useEffect(() => {
-        if (view !== 'ai_game' || aiGameOverReason) {
-            stopTimer();
+        if (aiGameMode === 'longest') {
+            // For 'longest' mode, submission is handled by the timer.
+            // We just give feedback that the word is acknowledged.
+            eventBus.dispatch('notification', { type: 'info', message: `Đã ghi nhận từ: "${playerInput.trim()}"` });
             return;
         }
 
-        if (isPlayerTurn) {
-            const onTimeout = () => {
-                setAiGameOverReason('Hết giờ! Bạn đã thua.');
-            };
-            startTimer(onTimeout);
-        } else {
-            stopTimer();
-        }
+        const word = playerInput.trim().toLowerCase();
+        if (!word || isSubmitting || !isPlayerTurn) return;
 
-        return () => stopTimer();
-    }, [view, isPlayerTurn, aiGameOverReason, startTimer, stopTimer]);
+        stopTimer();
+        setIsSubmitting(true);
+        setIsPlayerTurn(false);
+
+        try {
+            const usedWords = aiGameHistory.map(h => h.word).filter(Boolean);
+            const context = {
+                mode: aiGameMode,
+                theme: aiGameSettings.theme,
+                lastWord: aiGameHistory.length > 0 ? aiGameHistory[aiGameHistory.length - 1].word : undefined
+            };
+
+            const playerValidation = await validateDuelWord(word, usedWords, learningLanguage, context);
+            const newPlayerHistoryEntry = { by: 'player', word };
+
+            if (playerValidation.isValid) {
+                const newHistoryWithPlayerWord = [...aiGameHistory, newPlayerHistoryEntry];
+                setAiGameHistory(newHistoryWithPlayerWord);
+                setPlayerInput('');
+                
+                setIsAiThinking(true);
+                const aiResponse = await getAiDuelWord(newHistoryWithPlayerWord.map(h => h.word), learningLanguage, aiDifficulty, {
+                    ...context,
+                    lastWord: word
+                });
+                setIsAiThinking(false);
+                
+                const aiWord = aiResponse.word.trim().toLowerCase();
+
+                if (aiWord) {
+                    const aiValidation = await validateDuelWord(aiWord, newHistoryWithPlayerWord.map(h => h.word), learningLanguage, {
+                        ...context,
+                        lastWord: word
+                    });
+
+                    if (aiValidation.isValid) {
+                        setAiGameHistory(prev => [...prev, { by: 'ai', word: aiWord }]);
+                        setIsPlayerTurn(true);
+                        startTimer(() => {
+                            setAiGameOverReason('Hết giờ! AI thắng!');
+                        });
+                    } else {
+                        setAiGameHistory(prev => [...prev, { by: 'ai', word: `${aiWord} (không hợp lệ)` }]);
+                        setAiGameOverReason(`AI dùng từ không hợp lệ. Bạn thắng!`);
+                    }
+                } else {
+                     setAiGameOverReason('AI không tìm được từ. Bạn thắng!');
+                }
+            } else {
+                setAiGameHistory(prev => [...prev, newPlayerHistoryEntry]);
+                setAiGameOverReason(playerValidation.reason || "Từ không hợp lệ. Bạn thua!");
+            }
+
+        } catch (err) {
+            eventBus.dispatch('notification', { type: 'error', message: 'Lỗi khi kiểm tra từ.' });
+            setIsPlayerTurn(true); // Give turn back to player on error
+        } finally {
+            setIsSubmitting(false);
+        }
+    }, [aiGameMode, playerInput, isSubmitting, isPlayerTurn, stopTimer, aiGameHistory, aiGameSettings.theme, learningLanguage, aiDifficulty, startTimer]);
 
 
     // Multiplayer Snapshot Listener
@@ -296,6 +387,73 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
 
         return () => unsubscribe();
     }, [gameRoom?.id, currentUser, view]);
+    
+    // Multiplayer Timer and Turn Processing (HOST ONLY)
+    useEffect(() => {
+        if (!gameRoom || view !== 'playing' || gameRoom.hostUid !== currentUser?.uid || gameRoom.gameMode !== 'longest') return;
+
+        const timeSinceTurnStart = Date.now() - gameRoom.gameState.turnStartTime;
+        if (timeSinceTurnStart >= TURN_DURATION * 1000 && gameRoom.status === 'playing') {
+            // Process turn if overdue
+            processMultiplayerTurn();
+        } else if (gameRoom.status === 'playing') {
+            const timeoutId = setTimeout(processMultiplayerTurn, (TURN_DURATION * 1000) - timeSinceTurnStart);
+            return () => clearTimeout(timeoutId);
+        }
+    }, [gameRoom?.gameState.turnStartTime, gameRoom?.hostUid, currentUser?.uid, view, gameRoom?.gameMode]);
+    
+     const processMultiplayerTurn = useCallback(async () => {
+        if (!gameRoom || gameRoom.hostUid !== currentUser?.uid || gameRoom.status !== 'playing') return;
+
+        const submissions = gameRoom.gameState.turnSubmissions || {};
+        const usedWords = gameRoom.gameState.usedWords;
+        const context = { mode: 'longest' as GameMode, startLetter: gameRoom.gameState.roundLetter };
+
+        const validationPromises = gameRoom.players.map(player => {
+            const word = submissions[player.uid];
+            return word ? validateDuelWord(word, usedWords, learningLanguage, context) : Promise.resolve({ isValid: false, reason: "Không nộp." });
+        });
+
+        const results = await Promise.all(validationPromises);
+        
+        const newScores = { ...gameRoom.gameState.scores };
+        const turnHistory: any = { by: 'turn', letter: gameRoom.gameState.roundLetter, turn: gameRoom.gameState.currentRound };
+        let newUsedWords = [...usedWords];
+
+        gameRoom.players.forEach((player, index) => {
+            const word = submissions[player.uid] || '';
+            const score = results[index].isValid ? word.length : 0;
+            newScores[player.uid] = (newScores[player.uid] || 0) + score;
+            turnHistory[player.uid] = { word, score, valid: results[index].isValid };
+            if (results[index].isValid) {
+                newUsedWords.push(word);
+            }
+        });
+        
+        const winner = gameRoom.players.find(p => newScores[p.uid] >= (gameRoom.settings.targetScore || 100));
+
+        if (winner) {
+            updateGameRoom(gameRoom.id, {
+                status: 'finished',
+                'gameState.winnerUid': winner.uid,
+                'gameState.gameOverReason': `${winner.displayName} thắng!`,
+                'gameState.scores': newScores,
+                'gameState.history': [...gameRoom.gameState.history, turnHistory],
+            });
+        } else {
+             updateGameRoom(gameRoom.id, {
+                'gameState.scores': newScores,
+                'gameState.history': [...gameRoom.gameState.history, turnHistory],
+                'gameState.usedWords': newUsedWords,
+                'gameState.currentRound': gameRoom.gameState.currentRound + 1,
+                'gameState.roundLetter': getRandomLetter(),
+                'gameState.turnStartTime': Date.now(),
+                'gameState.turnSubmissions': {},
+            });
+        }
+
+    }, [gameRoom, currentUser?.uid, learningLanguage]);
+
 
      const handleLeaveRoom = useCallback(async () => {
         if (!gameRoom || !currentUser) return;
@@ -333,7 +491,7 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
                 theme: selectedGameMode === 'theme' ? (selectedTheme.trim() || 'any') : undefined,
                 targetScore: selectedGameMode === 'longest' ? targetScore : undefined,
             },
-            gameState: { history: [], usedWords: [], currentPlayerUid: '', turnStartTime: 0, gameOverReason: '', scores: {}, currentRound: 1, lastWord: '' },
+            gameState: { history: [], usedWords: [], turnStartTime: 0, gameOverReason: '', scores: {}, currentRound: 1 },
             isPublic
         };
         
@@ -397,21 +555,18 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
         
         const updates: any = {
             status: 'playing',
-            'gameState.currentPlayerUid': gameRoom.players[0].uid,
             'gameState.turnStartTime': Date.now(),
         };
 
         if (gameRoom.gameMode === 'longest') {
-            const { word: startWord } = await getAiDuelWord([], learningLanguage, 'medium', { mode: 'longest' });
-            if (startWord) {
-                updates['gameState.lastWord'] = startWord;
-                updates['gameState.usedWords'] = [startWord];
-                updates['gameState.history'] = [{ by: 'ai', word: startWord }];
-            }
+            updates['gameState.roundLetter'] = getRandomLetter();
+            updates['gameState.turnSubmissions'] = {};
+        } else {
+            updates['gameState.currentPlayerUid'] = gameRoom.players[0].uid;
         }
 
         updateGameRoom(gameRoom.id, updates);
-    }, [gameRoom, currentUser, learningLanguage]);
+    }, [gameRoom, currentUser]);
 
     useEffect(() => {
         if (gameRoom?.status === 'waiting' && gameRoom.isPublic && gameRoom.players.length === 2 && gameRoom.hostUid === currentUser?.uid) {
@@ -423,131 +578,63 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
     const handleMultiplayerSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         const word = playerInput.trim().toLowerCase();
-        if (!word || isSubmitting || !gameRoom || gameRoom.gameState.currentPlayerUid !== currentUser?.uid) return;
+        if (!word || isSubmitting || !gameRoom || !currentUser) return;
         
-        stopTimer();
-        setIsSubmitting(true);
-        
-        try {
-            const context = { mode: gameRoom.gameMode, theme: gameRoom.settings.theme, lastWord: gameRoom.gameState.lastWord };
-            const { isValid, reason } = await validateDuelWord(word, gameRoom.gameState.usedWords, learningLanguage, context);
-
-            if (isValid) {
-                const nextPlayer = gameRoom.players.find(p => p.uid !== currentUser.uid)!;
-                const newHistory = [...gameRoom.gameState.history, { by: currentUser.uid, word }];
-                const newUsedWords = [...gameRoom.gameState.usedWords, word];
-                
-                const updates: any = {
-                    "gameState.history": newHistory,
-                    "gameState.usedWords": newUsedWords,
-                    "gameState.currentPlayerUid": nextPlayer.uid,
-                    "gameState.turnStartTime": Date.now(),
-                };
-
-                if(gameRoom.gameMode === 'chain' || gameRoom.gameMode === 'longest') updates["gameState.lastWord"] = word;
-                
-                const myNewScore = (gameRoom.gameState.scores[currentUser.uid] || 0) + word.length;
-                if(gameRoom.gameMode === 'longest') {
-                    updates[`gameState.scores.${currentUser.uid}`] = myNewScore;
-                }
-                
-                if (gameRoom.gameMode === 'longest' && myNewScore >= (gameRoom.settings.targetScore || 100)) {
-                    updates['gameState.winnerUid'] = currentUser.uid;
-                    updates['gameState.gameOverReason'] = `${profile.displayName} thắng khi đạt ${myNewScore} điểm!`;
-                    updates['status'] = 'finished';
-                }
-
-                await updateGameRoom(gameRoom.id, updates);
-
-            } else {
-                const winner = gameRoom.players.find(p => p.uid !== currentUser.uid)!;
-                await updateGameRoom(gameRoom.id, {
-                    status: 'finished',
-                    "gameState.gameOverReason": reason || "Từ không hợp lệ.",
-                    "gameState.winnerUid": winner.uid,
-                });
-            }
-        } catch(e) {
-            eventBus.dispatch('notification', { type: 'error', message: 'Lỗi khi kiểm tra từ.' });
-            startTimer(() => {}); // Restart timer on error without timeout action
-        } finally {
-            setPlayerInput('');
+        if (gameRoom.gameMode === 'longest') {
+            setIsSubmitting(true);
+            await updateGameRoom(gameRoom.id, {
+                [`gameState.turnSubmissions.${currentUser.uid}`]: word
+            });
             setIsSubmitting(false);
+            // Host will handle validation at end of turn
+        } else { // Turn-based modes
+            if (gameRoom.gameState.currentPlayerUid !== currentUser.uid) return;
+            stopTimer();
+            setIsSubmitting(true);
+            try {
+                const context = { mode: gameRoom.gameMode, theme: gameRoom.settings.theme, lastWord: gameRoom.gameState.lastWord };
+                const { isValid, reason } = await validateDuelWord(word, gameRoom.gameState.usedWords, learningLanguage, context);
+
+                if (isValid) {
+                    const nextPlayer = gameRoom.players.find(p => p.uid !== currentUser.uid)!;
+                    await updateGameRoom(gameRoom.id, {
+                        "gameState.history": [...gameRoom.gameState.history, { by: currentUser.uid, word }],
+                        "gameState.usedWords": [...gameRoom.gameState.usedWords, word],
+                        "gameState.currentPlayerUid": nextPlayer.uid,
+                        "gameState.turnStartTime": Date.now(),
+                        "gameState.lastWord": gameRoom.gameMode === 'chain' ? word : gameRoom.gameState.lastWord
+                    });
+                } else {
+                    const winner = gameRoom.players.find(p => p.uid !== currentUser.uid)!;
+                    await updateGameRoom(gameRoom.id, {
+                        status: 'finished', "gameState.gameOverReason": reason || "Từ không hợp lệ.", "gameState.winnerUid": winner.uid,
+                    });
+                }
+            } catch(e) {
+                eventBus.dispatch('notification', { type: 'error', message: 'Lỗi khi kiểm tra từ.' });
+                startTimer(() => {});
+            } finally {
+                setPlayerInput('');
+                setIsSubmitting(false);
+            }
         }
     };
     
-    const triggerAiTurn = async (currentHistory: typeof aiGameHistory) => {
-        setIsAiThinking(true);
-        const usedWords = currentHistory.map(h => h.word);
-        try {
-            const lastWord = currentHistory.length > 0 ? currentHistory[currentHistory.length - 1].word : undefined;
-            const context = { mode: aiGameMode, theme: aiGameSettings.theme, lastWord, targetScore: aiGameSettings.targetScore };
-            const { word: aiWord } = await getAiDuelWord(usedWords, learningLanguage, aiDifficulty, context);
-            
-            if (!aiWord) {
-                setAiGameOverReason('AI đã hết từ! Bạn thắng!');
-                return;
-            }
-
-            const { isValid, reason } = await validateDuelWord(aiWord, usedWords, learningLanguage, context);
-            
-            if (isValid) {
-                const newScores = { ...aiScores };
-                if (aiGameMode === 'longest') {
-                    newScores.ai += aiWord.length;
-                    setAiScores(newScores);
-                }
-                
-                const newHistory = [...currentHistory, { by: 'ai', word: aiWord }];
-                setAiGameHistory(newHistory);
-
-                if (aiGameMode === 'longest' && newScores.ai >= (aiGameSettings.targetScore || 100)) {
-                    setAiGameOverReason(`AI thắng với ${newScores.ai} điểm!`);
-                }
-            } else {
-                setAiGameOverReason(`AI đã dùng từ không hợp lệ: "${reason}". Bạn thắng!`);
-            }
-        } catch(e) {
-            setAiGameOverReason('AI gặp lỗi. Bạn thắng!');
-        } finally {
-            setIsAiThinking(false);
-            setIsPlayerTurn(true);
+    // Timer rendering for multiplayer
+     useEffect(() => {
+        if (gameRoom?.status === 'playing' && view === 'playing') {
+            const serverStartTime = gameRoom.gameState.turnStartTime;
+            const updateTimer = () => {
+                const elapsed = Math.floor((Date.now() - serverStartTime) / 1000);
+                const remaining = TURN_DURATION - elapsed;
+                setTimeLeft(Math.max(0, remaining));
+            };
+            updateTimer();
+            const intervalId = setInterval(updateTimer, 1000);
+            return () => clearInterval(intervalId);
         }
-    };
-
-    const handlePlayerSubmit_AI = async (e: React.FormEvent) => {
-        e.preventDefault();
-        const word = playerInput.trim().toLowerCase();
-        if (!word || !isPlayerTurn || isAiThinking || aiGameOverReason) return;
-        
-        stopTimer();
-        setIsSubmitting(true);
-        const usedWords = aiGameHistory.map(h => h.word);
-        const lastWord = aiGameHistory.length > 0 ? aiGameHistory[aiGameHistory.length - 1].word : undefined;
-        const context = { mode: aiGameMode, theme: aiGameSettings.theme, lastWord };
-        const { isValid, reason } = await validateDuelWord(word, usedWords, learningLanguage, context);
-        
-        if (isValid) {
-            const newPlayerScore = aiScores.player + word.length;
-            if (aiGameMode === 'longest') {
-                setAiScores(prev => ({ ...prev, player: newPlayerScore }));
-            }
-            const newHistory = [...aiGameHistory, { by: 'player', word }];
-            setAiGameHistory(newHistory);
-            
-            if (aiGameMode === 'longest' && newPlayerScore >= (aiGameSettings.targetScore || 100)) {
-                setAiGameOverReason(`Bạn thắng với ${newPlayerScore} điểm!`);
-            } else {
-                setIsPlayerTurn(false);
-                setPlayerInput('');
-                triggerAiTurn(newHistory);
-            }
-        } else {
-            setAiGameOverReason(reason || 'Từ không hợp lệ. Bạn đã thua!');
-        }
-        setIsSubmitting(false);
-    };
-
+    }, [gameRoom?.gameState.turnStartTime, gameRoom?.status, view]);
+    
     useEffect(() => {
         if (aiGameOverReason && aiGameOverReason !== gameOverReasonRef.current) {
             if (aiGameOverReason.includes('Bạn thắng!')) {
@@ -594,21 +681,35 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
                     </div>
                 ) : (
                     <>
-                        {aiGameMode === 'longest' && <div className="flex justify-around text-center"><p>Bạn: <strong className="text-cyan-400">{aiScores.player}</strong></p><p>AI: <strong className="text-indigo-400">{aiScores.ai}</strong></p></div>}
+                        {aiGameMode === 'longest' && (
+                            <div className="text-center space-y-2">
+                                <p className="text-sm text-gray-400">Vòng này, bắt đầu với chữ</p>
+                                <p className="text-6xl font-bold text-cyan-300">{currentLetter}</p>
+                                <div className="flex justify-around text-center pt-2"><p>Bạn: <strong className="text-cyan-400">{aiScores.player}</strong></p><p>AI: <strong className="text-indigo-400">{aiScores.ai}</strong></p></div>
+                            </div>
+                        )}
                         <div className="flex-grow p-4 bg-slate-800/50 rounded-xl overflow-y-auto space-y-4">
-                           {aiIsStarting && <div className="text-center text-gray-400">AI đang chọn từ bắt đầu...</div>}
                            {aiGameHistory.map((item, index) => (
+                                item.by === 'turn' ? (
+                                    <div key={index} className="text-xs text-center text-slate-400 border-b border-slate-700 pb-2 mb-2">
+                                        Vòng {item.turn} - Chữ '{item.letter}'<br/>
+                                        Bạn: {item.player.word || '(trống)'} ({item.player.score}đ) | AI: {item.ai.word || '(trống)'} ({item.ai.score}đ)
+                                    </div>
+                                ) : (
                                 <div key={index} className={`flex items-start gap-3 ${item.by === 'player' ? 'justify-end' : ''}`}>
                                     {item.by === 'ai' && <div className="p-1.5 bg-indigo-500 rounded-full flex-shrink-0"><Bot className="w-5 h-5"/></div>}
                                     <div className={`px-4 py-2 rounded-2xl max-w-xs break-words ${item.by === 'player' ? 'bg-slate-600 rounded-br-none' : 'bg-indigo-900/80 rounded-bl-none'}`}>{item.word}</div>
                                 </div>
+                                )
                            ))}
                            {isAiThinking && <div className="flex items-start gap-3"><div className="p-1.5 bg-indigo-500 rounded-full"><Bot className="w-5 h-5"/></div><div className="px-4 py-2 rounded-2xl bg-indigo-900/80 rounded-bl-none"><Loader2 className="w-5 h-5 animate-spin"/></div></div>}
                         </div>
                         <form onSubmit={handlePlayerSubmit_AI} className="flex items-center gap-2">
-                             <TurnTimer timeLeft={timeLeft} duration={TURN_DURATION} />
-                            <input value={playerInput} onChange={e => setPlayerInput(e.target.value)} placeholder={isPlayerTurn ? "Đến lượt bạn..." : "Chờ AI..."} disabled={!isPlayerTurn || isSubmitting || isAiThinking} className="flex-grow w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500" autoFocus/>
-                            <button type="submit" disabled={!isPlayerTurn || isSubmitting || !playerInput || isAiThinking} className="p-3 bg-indigo-600 rounded-full disabled:bg-indigo-400">{isSubmitting ? <Loader2 className="w-6 h-6 animate-spin"/> : <Send className="w-6 h-6"/>}</button>
+                            {aiGameMode === 'longest' ? (
+                                <TurnTimer timeLeft={timeLeft} duration={TURN_DURATION} />
+                            ) : null}
+                            <input value={playerInput} onChange={e => setPlayerInput(e.target.value)} placeholder={isPlayerTurn || aiGameMode === 'longest' ? "Nhập từ của bạn..." : "Chờ AI..."} disabled={aiGameMode !== 'longest' && !isPlayerTurn} className="flex-grow w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500" autoFocus/>
+                            <button type="submit" disabled={aiGameMode !== 'longest' && (!isPlayerTurn || !playerInput)} className="p-3 bg-indigo-600 rounded-full disabled:bg-indigo-400">{isSubmitting ? <Loader2 className="w-6 h-6 animate-spin"/> : <Send className="w-6 h-6"/>}</button>
                         </form>
                     </>
                 )}
