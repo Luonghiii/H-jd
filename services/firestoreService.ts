@@ -23,7 +23,7 @@ import {
   writeBatch
 } from 'firebase/firestore';
 import { User } from 'firebase/auth';
-import { AiAssistantMessage, CommunityDeck, ConversationSession, GeneratedWord, HistoryEntry, LearningLanguage, UserStats, VocabularyWord, UserDoc } from '../types';
+import { AiAssistantMessage, CommunityDeck, ConversationSession, GeneratedWord, HistoryEntry, LearningLanguage, UserStats, VocabularyWord, UserDoc, GameRoom, GameRoomPlayer } from '../types';
 import eventBus from '../utils/eventBus';
 import { defaultGermanWords } from '../data/german_words';
 import { defaultEnglishWords } from '../data/english_words';
@@ -391,6 +391,91 @@ export const getLeaderboardData = async (statField: 'longestStreak' | 'totalWord
         console.error("Error getting leaderboard data:", error);
         throw new Error("Could not fetch leaderboard data.");
     }
+};
+
+// =====================
+// Vocabulary Duel Multiplayer
+// =====================
+const generateRoomCode = (): string => {
+    return Math.random().toString(36).substring(2, 8).toUpperCase();
+};
+
+export const createGameRoom = async (roomData: Omit<GameRoom, 'id' | 'code' | 'createdAt'>): Promise<GameRoom> => {
+    const code = generateRoomCode(); // You'd need a robust way to ensure uniqueness in production
+    const newRoomRef = doc(collection(db, 'game_rooms'));
+    
+    const newRoom: GameRoom = {
+        ...roomData,
+        id: newRoomRef.id,
+        code: code,
+        createdAt: Date.now(),
+    };
+    
+    await setDoc(newRoomRef, newRoom);
+    return newRoom;
+};
+
+export const joinGameRoom = async (roomId: string, player: GameRoomPlayer): Promise<void> => {
+    const roomRef = doc(db, 'game_rooms', roomId);
+    await runTransaction(db, async (transaction) => {
+        const roomDoc = await transaction.get(roomRef);
+        if (!roomDoc.exists()) {
+            throw new Error("Phòng không tồn tại!");
+        }
+        const room = roomDoc.data() as GameRoom;
+        if (room.players.length >= 2) {
+            throw new Error("Phòng đã đầy!");
+        }
+        if (room.players.some(p => p.uid === player.uid)) {
+            return; // Player already in room
+        }
+        transaction.update(roomRef, {
+            players: [...room.players, player]
+        });
+    });
+};
+
+export const getGameRoomByCode = async (code: string): Promise<GameRoom | null> => {
+    const q = query(collection(db, "game_rooms"), where("code", "==", code.toUpperCase()), limit(1));
+    const querySnapshot = await getDocs(q);
+    if (querySnapshot.empty) {
+        return null;
+    }
+    return { id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() } as GameRoom;
+};
+
+export const findPublicGameRoom = async (): Promise<GameRoom | null> => {
+    const q = query(
+        collection(db, "game_rooms"), 
+        where("isPublic", "==", true),
+        where("status", "==", "waiting"),
+        // Firestore doesn't support array.length queries directly. We need to handle this in code.
+        // A workaround is to store player_count as a separate field. For now, we'll fetch and filter.
+        limit(10) // Fetch a few potential rooms
+    );
+    const querySnapshot = await getDocs(q);
+    const availableRoomDoc = querySnapshot.docs.find(doc => doc.data().players.length === 1);
+
+    if (!availableRoomDoc) {
+        return null;
+    }
+    return { id: availableRoomDoc.id, ...availableRoomDoc.data() } as GameRoom;
+};
+
+export const updateGameRoom = async (roomId: string, data: Partial<GameRoom> | DocumentData): Promise<void> => {
+    const roomRef = doc(db, 'game_rooms', roomId);
+    await updateDoc(roomRef, data);
+};
+
+export const onGameRoomSnapshot = (roomId: string, callback: (room: GameRoom | null) => void): Unsubscribe => {
+    const roomRef = doc(db, 'game_rooms', roomId);
+    return onSnapshot(roomRef, (doc) => {
+        if (doc.exists()) {
+            callback({ id: doc.id, ...doc.data() } as GameRoom);
+        } else {
+            callback(null);
+        }
+    });
 };
 
 

@@ -196,3 +196,45 @@ export interface ConversationAnalysis {
     explanation: string;
   }[];
 }
+
+// Multiplayer Duel Types
+export interface GameRoomPlayer {
+    uid: string;
+    displayName: string;
+    photoURL: string | null;
+}
+
+export interface GameRoom {
+    id: string; // Firestore document ID
+    code: string; // 6-char room code
+    status: 'waiting' | 'playing' | 'finished';
+    players: GameRoomPlayer[];
+    hostUid: string;
+    gameMode: 'theme' | 'longest' | 'chain';
+    
+    // Settings decided by host
+    settings: {
+        theme?: string;
+        rounds?: number;
+        difficulty: 'easy' | 'medium' | 'hard' | 'hell';
+    };
+
+    // State that changes during the game
+    gameState: {
+        history: { by: string; word: string; }[]; // uid of player
+        usedWords: string[];
+        currentPlayerUid: string;
+        turnStartTime: number;
+        gameOverReason: string;
+        winnerUid?: string;
+        
+        // Mode-specific state
+        scores?: { [uid: string]: number };
+        currentRound?: number;
+        roundLetter?: string;
+        lastWord?: string;
+    };
+
+    createdAt: number;
+    isPublic?: boolean; // For matchmaking
+}
