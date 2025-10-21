@@ -215,9 +215,9 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
             payload['stats.lastActivityDate'] = yesterday; 
             eventBus.dispatch('notification', { type: 'info', message: 'Chuỗi của bạn đã được bảo vệ bởi Đóng Băng Chuỗi!' });
         } else {
-            newCurrentStreak = 0; // Reset streak to 0
-            payload['stats.currentStreak'] = 0;
-            if(currentStreak > 0) {
+            newCurrentStreak = 1; // Start a new streak
+            payload['stats.currentStreak'] = 1;
+             if(currentStreak > 0) {
                  eventBus.dispatch('notification', { type: 'warning', message: 'Bạn đã mất chuỗi ngày học! Hãy cố gắng luyện tập mỗi ngày nhé.' });
             }
         }

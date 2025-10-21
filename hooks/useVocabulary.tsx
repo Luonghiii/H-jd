@@ -153,29 +153,35 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
             return false;
         }
 
-        const newWord: VocabularyWord = {
+        const newWord: Omit<VocabularyWord, 'translation'> & { translation: { vietnamese: string, english: string } } = {
             id: crypto.randomUUID(),
             word: trimmedWord,
             translation: {
                 vietnamese: language === 'vietnamese' ? translationStr : '',
                 english: language === 'english' ? translationStr : '',
             },
-            theme,
             createdAt: Date.now(),
             isStarred: false,
-            imageUrl,
             srsLevel: 0,
             nextReview: Date.now(),
             language: learningLanguage,
         };
 
-        if (language === 'vietnamese' && !newWord.translation.english) {
-            newWord.translation.english = await translateWord(trimmedWord, 'English', learningLanguage);
-        } else if (language === 'english' && !newWord.translation.vietnamese) {
-            newWord.translation.vietnamese = await translateWord(trimmedWord, 'Vietnamese', learningLanguage);
+        const finalWord: any = { ...newWord };
+        if (theme) {
+            finalWord.theme = theme;
+        }
+        if (imageUrl) {
+            finalWord.imageUrl = imageUrl;
+        }
+
+        if (language === 'vietnamese' && !finalWord.translation.english) {
+            finalWord.translation.english = await translateWord(trimmedWord, 'English', learningLanguage);
+        } else if (language === 'english' && !finalWord.translation.vietnamese) {
+            finalWord.translation.vietnamese = await translateWord(trimmedWord, 'Vietnamese', learningLanguage);
         }
         
-        await addWordDoc(currentUser.uid, newWord);
+        await addWordDoc(currentUser.uid, finalWord as VocabularyWord);
         await addXp(10); // Grant 10 XP for adding a word
         return true;
     }, [currentUser, words, learningLanguage, addXp]);
