@@ -208,18 +208,20 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
             payload['stats.streakFreeses'] = increment(1);
             eventBus.dispatch('notification', { type: 'success', message: 'Chúc mừng! Bạn đạt chuỗi 7 ngày và nhận được 1 Đóng Băng Chuỗi.' });
         }
-    } else { // Streak is broken
+    } else { // Streak is broken or just starting
         if (streakFreeses > 0) {
             payload['stats.streakFreeses'] = increment(-1);
             // The streak is preserved, not reset. We "fill in" the missed day.
             payload['stats.lastActivityDate'] = yesterday; 
             eventBus.dispatch('notification', { type: 'info', message: 'Chuỗi của bạn đã được bảo vệ bởi Đóng Băng Chuỗi!' });
-        } else {
-            newCurrentStreak = 1; // Start a new streak
-            payload['stats.currentStreak'] = 1;
-             if(currentStreak > 0) {
+        } else { // No freezes left, streak is broken or starting from 0
+            if (currentStreak > 0) {
                  eventBus.dispatch('notification', { type: 'warning', message: 'Bạn đã mất chuỗi ngày học! Hãy cố gắng luyện tập mỗi ngày nhé.' });
+            } else {
+                 eventBus.dispatch('notification', { type: 'success', message: 'Chuỗi ngày học mới của bạn đã bắt đầu! Cố lên nào!' });
             }
+            newCurrentStreak = 1;
+            payload['stats.currentStreak'] = 1;
         }
     }
     
