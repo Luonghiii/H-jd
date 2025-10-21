@@ -166,6 +166,7 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
     const [aiGameSettings, setAiGameSettings] = useState<{ theme?: string; targetScore?: number }>({ theme: 'any', targetScore: 100 });
     const [aiScores, setAiScores] = useState({ player: 0, ai: 0 });
     const [currentLetter, setCurrentLetter] = useState('');
+    const currentLetterRef = useRef(''); // Ref to avoid stale closure
     const aiWordPromiseRef = useRef<Promise<{word: string}>>();
 
 
@@ -182,6 +183,76 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
         if(turnTimeoutRef.current) clearTimeout(turnTimeoutRef.current);
         turnTimeoutRef.current = null;
     }, []);
+
+    const processAITurn = useCallback(async () => {
+        const playerWord = playerInputRef.current.trim().toLowerCase();
+        let aiWord = '';
+        if (aiWordPromiseRef.current) {
+            aiWord = (await aiWordPromiseRef.current).word;
+        }
+
+        // Use functional updates to get the latest state
+        setAiGameHistory(prevHistory => {
+            const turnNumber = prevHistory.filter(h => h.by === 'turn').length + 1;
+            const turnLetter = currentLetterRef.current;
+            const tempHistoryEntry = {
+                by: 'turn', letter: turnLetter, turn: turnNumber,
+                player: { word: playerWord || '(trống)', score: '...', valid: 'loading' },
+                ai: { word: aiWord || '(trống)', score: '...', valid: 'loading' }
+            };
+            return [...prevHistory, tempHistoryEntry];
+        });
+
+        setPlayerInput('');
+        playerInputRef.current = '';
+
+        const usedWords = aiGameHistory.map(h => h.word).filter(Boolean);
+        const context = { mode: 'longest' as GameMode, startLetter: currentLetterRef.current };
+
+        const [playerResult, aiResult] = await Promise.all([
+            playerWord ? validateDuelWord(playerWord, usedWords, learningLanguage, context) : Promise.resolve({isValid: false, reason: "Không nhập từ."}),
+            aiWord ? validateDuelWord(aiWord, [...usedWords, playerWord], learningLanguage, context) : Promise.resolve({isValid: false, reason: "Không tìm thấy từ."})
+        ]);
+        
+        const playerTurnScore = playerResult.isValid ? playerWord.length : 0;
+        const aiTurnScore = aiResult.isValid ? aiWord.length : 0;
+        
+        let finalPlayerScore = 0;
+        let finalAiScore = 0;
+
+        setAiScores(prevScores => {
+            finalPlayerScore = prevScores.player + playerTurnScore;
+            finalAiScore = prevScores.ai + aiTurnScore;
+            return { player: finalPlayerScore, ai: finalAiScore };
+        });
+
+        setAiGameHistory(prevHistory => {
+            const newHistory = [...prevHistory];
+            const lastEntryIndex = newHistory.length - 1;
+            if (newHistory[lastEntryIndex]?.by === 'turn') {
+                newHistory[lastEntryIndex] = {
+                    ...newHistory[lastEntryIndex],
+                    player: { word: playerWord || '(trống)', score: playerTurnScore, valid: playerResult.isValid },
+                    ai: { word: aiWord || '(trống)', score: aiTurnScore, valid: aiResult.isValid }
+                };
+            }
+            return newHistory;
+        });
+        
+        const target = aiGameSettings.targetScore || 100;
+        if (finalPlayerScore >= target && finalAiScore >= target) {
+            setAiGameOverReason(finalPlayerScore > finalAiScore ? `Bạn thắng sát sao ${finalPlayerScore}-${finalAiScore}!` : finalPlayerScore < finalAiScore ? `AI thắng sát sao ${finalAiScore}-${finalPlayerScore}!` : 'Hòa!');
+        } else if (finalPlayerScore >= target) {
+            setAiGameOverReason(`Bạn thắng với ${finalPlayerScore} điểm!`);
+        } else if (finalAiScore >= target) {
+            setAiGameOverReason(`AI thắng với ${finalAiScore} điểm!`);
+        } else {
+            // This needs to be a direct call, not in a .then() to avoid race conditions.
+            startNewAITurn();
+        }
+
+    }, [learningLanguage, aiGameSettings.targetScore]);
+
 
     const startTimer = useCallback((onTimeout: () => void) => {
         stopTimer();
@@ -202,66 +273,11 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
     const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     const getRandomLetter = () => ALPHABET[Math.floor(Math.random() * ALPHABET.length)];
 
-    const processAITurn = useCallback(async () => {
-        const playerWord = playerInputRef.current.trim().toLowerCase();
-        let aiWord = '';
-        if (aiWordPromiseRef.current) {
-            aiWord = (await aiWordPromiseRef.current).word;
-        }
-
-        const turnNumber = aiGameHistory.filter(h => h.by === 'turn').length + 1;
-        const tempHistoryEntry = {
-            by: 'turn', letter: currentLetter, turn: turnNumber,
-            player: { word: playerWord || '(trống)', score: '...', valid: 'loading' },
-            ai: { word: aiWord || '(trống)', score: '...', valid: 'loading' }
-        };
-        setAiGameHistory(prev => [...prev, tempHistoryEntry]);
-        setPlayerInput('');
-        playerInputRef.current = '';
-
-        const usedWords = aiGameHistory.map(h => h.word).filter(Boolean);
-        const context = { mode: 'longest' as GameMode, startLetter: currentLetter };
-
-        const [playerResult, aiResult] = await Promise.all([
-            playerWord ? validateDuelWord(playerWord, usedWords, learningLanguage, context) : Promise.resolve({isValid: false, reason: "Không nhập từ."}),
-            aiWord ? validateDuelWord(aiWord, [...usedWords, playerWord], learningLanguage, context) : Promise.resolve({isValid: false, reason: "Không tìm thấy từ."})
-        ]);
-        
-        const playerTurnScore = playerResult.isValid ? playerWord.length : 0;
-        const aiTurnScore = aiResult.isValid ? aiWord.length : 0;
-
-        const newPlayerScore = aiScores.player + playerTurnScore;
-        const newAiScore = aiScores.ai + aiTurnScore;
-        
-        setAiGameHistory(prev => {
-            const newHistory = [...prev];
-            const lastEntryIndex = newHistory.length - 1;
-            newHistory[lastEntryIndex] = {
-                by: 'turn', letter: currentLetter, turn: turnNumber,
-                player: { word: playerWord || '(trống)', score: playerTurnScore, valid: playerResult.isValid },
-                ai: { word: aiWord || '(trống)', score: aiTurnScore, valid: aiResult.isValid }
-            };
-            return newHistory;
-        });
-
-        setAiScores({ player: newPlayerScore, ai: newAiScore });
-
-        const target = aiGameSettings.targetScore || 100;
-        if (newPlayerScore >= target && newAiScore >= target) {
-            setAiGameOverReason(newPlayerScore > newAiScore ? `Bạn thắng sát sao ${newPlayerScore}-${newAiScore}!` : newPlayerScore < newAiScore ? `AI thắng sát sao ${newAiScore}-${newPlayerScore}!` : 'Hòa!');
-        } else if (newPlayerScore >= target) {
-            setAiGameOverReason(`Bạn thắng với ${newPlayerScore} điểm!`);
-        } else if (newAiScore >= target) {
-            setAiGameOverReason(`AI thắng với ${newAiScore} điểm!`);
-        } else {
-            startNewAITurn();
-        }
-    }, [aiGameHistory, currentLetter, learningLanguage, aiScores, aiGameSettings.targetScore]);
-
     const startNewAITurn = useCallback(() => {
         stopTimer();
         const letter = getRandomLetter();
         setCurrentLetter(letter);
+        currentLetterRef.current = letter; // Update ref
         setPlayerInput('');
         playerInputRef.current = '';
         startTimer(processAITurn);
@@ -302,7 +318,8 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
         e.preventDefault();
         
         if (aiGameMode === 'longest') {
-            eventBus.dispatch('notification', { type: 'info', message: `Đã ghi nhận từ: "${playerInput.trim()}"` });
+            eventBus.dispatch('notification', { type: 'info', message: `Đã ghi nhận từ: "${playerInputRef.current.trim()}"` });
+            setPlayerInput(''); // Clear visual input, ref is still holding the value for processing
             return;
         }
 
