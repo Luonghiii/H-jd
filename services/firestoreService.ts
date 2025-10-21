@@ -191,8 +191,6 @@ export const appendHistoryEntry = async (uid: string, newEntry: HistoryEntry): P
 
 export const getApprovedCommunityDecks = async (language: LearningLanguage): Promise<CommunityDeck[]> => {
     const decksRef = collection(db, 'communityDecks');
-    // CORRECT: Query with server-side filtering. This requires a composite index in Firestore.
-    // Firestore will provide an error with a link to create it if it doesn't exist.
     const q = query(
         decksRef,
         where('language', '==', language),
@@ -217,7 +215,6 @@ export const getApprovedCommunityDecks = async (language: LearningLanguage): Pro
 export const getUserSubmissions = async (uid: string): Promise<CommunityDeck[]> => {
     if (!uid) return [];
     const decksRef = collection(db, 'communityDecks');
-    // CORRECT: Query with a 'where' clause to only get the current user's decks.
     const q = query(
         decksRef,
         where('creatorUid', '==', uid),
