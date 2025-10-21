@@ -290,8 +290,8 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
     const handleStartAiGame = useCallback(async () => {
         setAiGameMode(selectedGameMode);
         setAiGameSettings({ 
-            theme: selectedGameMode === 'theme' ? (selectedTheme.trim() || 'any') : undefined,
-            targetScore: selectedGameMode === 'longest' ? targetScore : undefined,
+            ...(selectedGameMode === 'theme' && { theme: selectedTheme.trim() || 'any' }),
+            ...(selectedGameMode === 'longest' && { targetScore: targetScore }),
         });
         
         setAiGameHistory([]);
@@ -333,7 +333,7 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
         try {
             const usedWords = aiGameHistory.map(h => h.word).filter(Boolean);
             const context = {
-                mode: aiGameMode,
+                mode: aiGameMode as GameMode,
                 theme: aiGameSettings.theme,
                 lastWord: aiGameHistory.length > 0 ? aiGameHistory[aiGameHistory.length - 1].word : undefined
             };
@@ -521,8 +521,8 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
             gameMode: selectedGameMode,
             settings: { 
                 difficulty: 'medium',
-                theme: selectedGameMode === 'theme' ? (selectedTheme.trim() || 'any') : undefined,
-                targetScore: selectedGameMode === 'longest' ? targetScore : undefined,
+                ...(selectedGameMode === 'theme' && { theme: selectedTheme.trim() || 'any' }),
+                ...(selectedGameMode === 'longest' && { targetScore: targetScore }),
             },
             gameState: { history: [], usedWords: [], turnStartTime: 0, gameOverReason: '', scores: {}, currentRound: 1 },
             isPublic
