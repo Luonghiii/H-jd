@@ -38,27 +38,35 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
     const [gameRoom, setGameRoom] = useState<GameRoom | null>(null);
     const [joinCode, setJoinCode] = useState('');
     const [isFindingMatch, setIsFindingMatch] = useState(false);
-    const [playerInput, setPlayerInput] = useState('');
-    const [isProcessing, setIsProcessing] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [timeLeft, setTimeLeft] = useState(TURN_DURATION);
     const timerRef = useRef<number | null>(null);
 
     // AI Game State (for single player)
     const [aiDifficulty, setAiDifficulty] = useState<Difficulty>('medium');
     const [aiGameHistory, setAiGameHistory] = useState<{by: 'player'|'ai', word: string}[]>([]);
-    
+    const [playerInput, setPlayerInput] = useState('');
+    const [isPlayerTurn, setIsPlayerTurn] = useState(true);
+    const [isAiThinking, setIsAiThinking] = useState(false);
+    const [aiGameOverReason, setAiGameOverReason] = useState('');
+
     const stopTimer = useCallback(() => {
         if (timerRef.current) clearInterval(timerRef.current);
     }, []);
 
+    // Multiplayer useEffect
     useEffect(() => {
         if (!gameRoom || !currentUser) return;
 
         const unsubscribe = onGameRoomSnapshot(gameRoom.id, (room) => {
             if (room) {
+                const wasPlaying = gameRoom?.status === 'playing';
                 setGameRoom(room);
                 if (room.status === 'playing' && room.gameState.currentPlayerUid === currentUser.uid) {
-                    startTimer();
+                    // Only start timer if it's a new turn or game just started
+                    if (gameRoom.gameState.history.length !== room.gameState.history.length || !wasPlaying) {
+                       startTimer();
+                    }
                 } else {
                     stopTimer();
                 }
@@ -69,7 +77,10 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
             }
         });
 
-        return () => unsubscribe();
+        return () => {
+            stopTimer();
+            unsubscribe();
+        };
     }, [gameRoom?.id, currentUser]);
     
     const startTimer = useCallback(() => {
@@ -79,8 +90,7 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
             setTimeLeft(prev => {
                 if (prev <= 1) {
                     stopTimer();
-                    // Handle timeout on Firestore
-                    if (gameRoom && gameRoom.gameState.currentPlayerUid === currentUser?.uid) {
+                    if (gameRoom && gameRoom.status === 'playing' && gameRoom.gameState.currentPlayerUid === currentUser?.uid) {
                         updateGameRoom(gameRoom.id, {
                             "gameState.gameOverReason": `Người chơi ${profile.displayName} đã hết giờ!`,
                             "gameState.winnerUid": gameRoom.players.find(p => p.uid !== currentUser.uid)?.uid,
@@ -101,41 +111,37 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
         const player: GameRoomPlayer = { uid: currentUser.uid, displayName: profile.displayName || 'Player 1', photoURL: profile.photoURL };
 
         const newRoomData: Omit<GameRoom, 'id'|'code'|'createdAt'> = {
-            status: 'waiting',
-            players: [player],
-            hostUid: currentUser.uid,
-            gameMode: 'theme', // Default, can be changed in lobby
+            status: 'waiting', players: [player], hostUid: currentUser.uid, gameMode: 'theme',
             settings: { difficulty: 'medium' },
-            gameState: {
-                history: [],
-                usedWords: [],
-                currentPlayerUid: '',
-                turnStartTime: 0,
-                gameOverReason: '',
-            },
+            gameState: { history: [], usedWords: [], currentPlayerUid: '', turnStartTime: 0, gameOverReason: '' },
             isPublic
         };
         
-        const room = await createGameRoom(newRoomData);
-        setGameRoom(room);
-        setView('lobby');
+        try {
+            const room = await createGameRoom(newRoomData);
+            setGameRoom(room); // Set room locally to trigger listener
+            setView('lobby');
+        } catch(e: any) {
+             eventBus.dispatch('notification', { type: 'error', message: e.message || 'Không thể tạo phòng.' });
+        }
     };
     
     const handleJoinRoom = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!joinCode.trim() || !currentUser) return;
         
-        const room = await getGameRoomByCode(joinCode);
-        if (room) {
-            try {
+        try {
+            const room = await getGameRoomByCode(joinCode);
+            if (room) {
                 const player: GameRoomPlayer = { uid: currentUser.uid, displayName: profile.displayName || 'Player 2', photoURL: profile.photoURL };
                 await joinGameRoom(room.id, player);
-                // setGameRoom(room) will be handled by the snapshot listener
-            } catch (error: any) {
-                eventBus.dispatch('notification', { type: 'error', message: error.message });
+                setGameRoom(room); // Set room to trigger listener
+                setView('lobby');
+            } else {
+                eventBus.dispatch('notification', { type: 'error', message: 'Không tìm thấy phòng với mã này.' });
             }
-        } else {
-            eventBus.dispatch('notification', { type: 'error', message: 'Không tìm thấy phòng với mã này.' });
+        } catch (error: any) {
+            eventBus.dispatch('notification', { type: 'error', message: error.message });
         }
     };
     
@@ -148,9 +154,9 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
             if (publicRoom) {
                 const player: GameRoomPlayer = { uid: currentUser.uid, displayName: profile.displayName || 'Player 2', photoURL: profile.photoURL };
                 await joinGameRoom(publicRoom.id, player);
-                // The listener will pick up the new player. The host's client will start the game.
+                setGameRoom(publicRoom);
+                setView('lobby');
             } else {
-                // No room found, create a new public one and wait
                 await handleCreateRoom(true);
             }
         } catch (error: any) {
@@ -170,7 +176,6 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
         });
     };
 
-    // Auto-start for matchmaking
     useEffect(() => {
         if (gameRoom?.status === 'waiting' && gameRoom.isPublic && gameRoom.players.length === 2 && gameRoom.hostUid === currentUser?.uid) {
             handleStartGame();
@@ -181,37 +186,96 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
     const handleMultiplayerSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         const word = playerInput.trim().toLowerCase();
-        if (!word || isProcessing || !gameRoom || gameRoom.gameState.currentPlayerUid !== currentUser?.uid) return;
+        if (!word || isSubmitting || !gameRoom || gameRoom.gameState.currentPlayerUid !== currentUser?.uid) return;
         
         stopTimer();
-        setIsProcessing(true);
+        setIsSubmitting(true);
         
-        const { isValid, reason } = await validateDuelWord(word, gameRoom.gameState.usedWords, learningLanguage, { mode: 'theme', theme: 'any' });
+        try {
+            const { isValid, reason } = await validateDuelWord(word, gameRoom.gameState.usedWords, learningLanguage, { mode: 'theme', theme: 'any' });
 
-        if (isValid) {
-            const nextPlayer = gameRoom.players.find(p => p.uid !== currentUser.uid)!;
-            const newHistory = [...gameRoom.gameState.history, { by: currentUser.uid, word }];
-            const newUsedWords = [...gameRoom.gameState.usedWords, word];
-            
-            await updateGameRoom(gameRoom.id, {
-                "gameState.history": newHistory,
-                "gameState.usedWords": newUsedWords,
-                "gameState.currentPlayerUid": nextPlayer.uid,
-                "gameState.turnStartTime": Date.now(),
-            });
-        } else {
-            const winner = gameRoom.players.find(p => p.uid !== currentUser.uid)!;
-            await updateGameRoom(gameRoom.id, {
-                status: 'finished',
-                "gameState.gameOverReason": reason || "Từ không hợp lệ.",
-                "gameState.winnerUid": winner.uid,
-            });
+            if (isValid) {
+                const nextPlayer = gameRoom.players.find(p => p.uid !== currentUser.uid)!;
+                await updateGameRoom(gameRoom.id, {
+                    "gameState.history": [...gameRoom.gameState.history, { by: currentUser.uid, word }],
+                    "gameState.usedWords": [...gameRoom.gameState.usedWords, word],
+                    "gameState.currentPlayerUid": nextPlayer.uid,
+                    "gameState.turnStartTime": Date.now(),
+                });
+            } else {
+                const winner = gameRoom.players.find(p => p.uid !== currentUser.uid)!;
+                await updateGameRoom(gameRoom.id, {
+                    status: 'finished',
+                    "gameState.gameOverReason": reason || "Từ không hợp lệ.",
+                    "gameState.winnerUid": winner.uid,
+                });
+            }
+        } catch(e) {
+            eventBus.dispatch('notification', { type: 'error', message: 'Lỗi khi kiểm tra từ.' });
+            startTimer(); // Restart timer if validation fails
+        } finally {
+            setPlayerInput('');
+            setIsSubmitting(false);
         }
-        
-        setPlayerInput('');
-        setIsProcessing(false);
     };
     
+    // --- AI Game Logic ---
+    const handleStartAiGame = () => {
+        setAiGameHistory([]);
+        setPlayerInput('');
+        setIsPlayerTurn(true);
+        setIsAiThinking(false);
+        setAiGameOverReason('');
+        setView('ai_game');
+    };
+    
+    const triggerAiTurn = async (currentHistory: typeof aiGameHistory) => {
+        setIsAiThinking(true);
+        const usedWords = currentHistory.map(h => h.word);
+        try {
+            const { word: aiWord } = await getAiDuelWord(usedWords, learningLanguage, aiDifficulty, { mode: 'theme', theme: 'any' });
+            
+            if (!aiWord) {
+                setAiGameOverReason('AI đã hết từ! Bạn thắng!');
+                return;
+            }
+
+            const { isValid, reason } = await validateDuelWord(aiWord, usedWords, learningLanguage, { mode: 'theme', theme: 'any' });
+            
+            if (isValid) {
+                setAiGameHistory(prev => [...prev, { by: 'ai', word: aiWord }]);
+            } else {
+                setAiGameOverReason(`AI đã dùng từ không hợp lệ: "${reason}". Bạn thắng!`);
+            }
+        } catch(e) {
+            setAiGameOverReason('AI gặp lỗi. Bạn thắng!');
+        } finally {
+            setIsAiThinking(false);
+            setIsPlayerTurn(true);
+        }
+    };
+
+    const handlePlayerSubmit_AI = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const word = playerInput.trim().toLowerCase();
+        if (!word || !isPlayerTurn || isAiThinking || aiGameOverReason) return;
+        
+        setIsSubmitting(true);
+        const usedWords = aiGameHistory.map(h => h.word);
+        const { isValid, reason } = await validateDuelWord(word, usedWords, learningLanguage, { mode: 'theme', theme: 'any' });
+        
+        if (isValid) {
+            const newHistory = [...aiGameHistory, { by: 'player', word }];
+            setAiGameHistory(newHistory);
+            setIsPlayerTurn(false);
+            setPlayerInput('');
+            setTimeout(() => triggerAiTurn(newHistory), difficultySettings[aiDifficulty].thinkingTime);
+        } else {
+            setAiGameOverReason(reason || 'Từ không hợp lệ. Bạn đã thua!');
+        }
+        setIsSubmitting(false);
+    };
+
     if (view === 'setup') {
         return (
             <div className="space-y-6 text-center animate-fade-in text-white">
@@ -225,7 +289,7 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
                 <div className="space-y-4">
                     <div className="p-4 bg-slate-800/50 rounded-xl space-y-3">
                          <h3 className="font-semibold text-lg">Chơi một mình</h3>
-                         <button onClick={() => setView('ai_game')} className="w-full py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-semibold flex items-center justify-center gap-2"><Bot className="w-5 h-5"/> Chơi với AI</button>
+                         <button onClick={handleStartAiGame} className="w-full py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-semibold flex items-center justify-center gap-2"><Bot className="w-5 h-5"/> Chơi với AI</button>
                     </div>
                     
                     <div className="p-4 bg-slate-800/50 rounded-xl space-y-3">
@@ -254,8 +318,34 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
     }
     
     if (view === 'ai_game') {
-        // Render single player vs AI game here...
-        return <div><button onClick={() => setView('setup')}>Back</button> Single player mode is under construction.</div>;
+        return (
+            <div className="flex flex-col h-full max-h-[75vh] space-y-4 animate-fade-in text-white">
+                <h2 className="text-xl font-bold text-center">Đấu với AI ({difficultySettings[aiDifficulty].name})</h2>
+                {aiGameOverReason ? (
+                    <div className="text-center py-10 space-y-4 flex flex-col items-center">
+                        <h2 className="text-2xl font-bold">{aiGameOverReason.includes('thắng') ? 'Bạn đã thắng!' : 'Bạn đã thua!'}</h2>
+                        <p className="text-gray-400">{aiGameOverReason}</p>
+                        <button onClick={() => setView('setup')} className="px-6 py-3 bg-slate-600 hover:bg-slate-700 font-semibold rounded-xl">Quay lại</button>
+                    </div>
+                ) : (
+                    <>
+                        <div className="flex-grow p-4 bg-slate-800/50 rounded-xl overflow-y-auto space-y-4">
+                           {aiGameHistory.map((item, index) => (
+                                <div key={index} className={`flex items-start gap-3 ${item.by === 'player' ? 'justify-end' : ''}`}>
+                                    {item.by === 'ai' && <div className="p-1.5 bg-indigo-500 rounded-full flex-shrink-0"><Bot className="w-5 h-5"/></div>}
+                                    <div className={`px-4 py-2 rounded-2xl max-w-xs break-words ${item.by === 'player' ? 'bg-slate-600 rounded-br-none' : 'bg-indigo-900/80 rounded-bl-none'}`}>{item.word}</div>
+                                </div>
+                           ))}
+                           {isAiThinking && <div className="flex items-start gap-3"><div className="p-1.5 bg-indigo-500 rounded-full"><Bot className="w-5 h-5"/></div><div className="px-4 py-2 rounded-2xl bg-indigo-900/80 rounded-bl-none"><Loader2 className="w-5 h-5 animate-spin"/></div></div>}
+                        </div>
+                        <form onSubmit={handlePlayerSubmit_AI} className="flex gap-2">
+                            <input value={playerInput} onChange={e => setPlayerInput(e.target.value)} placeholder={isPlayerTurn ? "Đến lượt bạn..." : "Chờ AI..."} disabled={!isPlayerTurn || isSubmitting || isAiThinking} className="flex-grow w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500" autoFocus/>
+                            <button type="submit" disabled={!isPlayerTurn || isSubmitting || !playerInput || isAiThinking} className="p-3 bg-indigo-600 rounded-full disabled:bg-indigo-400">{isSubmitting ? <Loader2 className="w-6 h-6 animate-spin"/> : <Send className="w-6 h-6"/>}</button>
+                        </form>
+                    </>
+                )}
+            </div>
+        );
     }
     
     if (view === 'lobby' && gameRoom) {
@@ -273,12 +363,13 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
                             <span>{p.displayName}</span>
                         </div>
                     ))}
+                     {gameRoom.players.length < 2 && <div className="flex items-center gap-3 p-2 rounded-lg text-slate-400 justify-center"><Loader2 className="w-4 h-4 animate-spin mr-2"/> Đang chờ...</div>}
                 </div>
-                {isHost ? (
+                {isHost && !gameRoom.isPublic && (
                     <button onClick={handleStartGame} disabled={gameRoom.players.length < 2} className="w-full py-3 bg-indigo-600 rounded-lg font-semibold disabled:bg-indigo-400">Bắt đầu</button>
-                ) : (
-                    <p>Đang chờ chủ phòng bắt đầu...</p>
                 )}
+                 {!isHost && <p>Đang chờ chủ phòng bắt đầu...</p>}
+                 {gameRoom.isPublic && <p>Sẽ bắt đầu khi có người tham gia...</p>}
             </div>
         );
     }
@@ -292,11 +383,10 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
              const winner = gameRoom.players.find(p => p.uid === gameRoom.gameState.winnerUid);
              const playerWon = winner?.uid === currentUser?.uid;
              
-             // This effect runs only once when the game finishes
              useEffect(() => {
                 if(playerWon) {
                     incrementDuelWins();
-                    addXp(50); // Bonus XP for winning
+                    addXp(50);
                 }
              }, []);
 
@@ -347,12 +437,12 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
                         value={playerInput}
                         onChange={e => setPlayerInput(e.target.value)}
                         placeholder={isMyTurn ? "Đến lượt bạn..." : `Chờ ${gameRoom.players.find(p => p.uid !== currentUser?.uid)?.displayName}...`}
-                        disabled={!isMyTurn || isProcessing}
+                        disabled={!isMyTurn || isSubmitting}
                         className="flex-grow w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         autoFocus
                     />
-                    <button type="submit" disabled={!isMyTurn || isProcessing || !playerInput} className="p-3 bg-indigo-600 rounded-full disabled:bg-indigo-400">
-                        {isProcessing ? <Loader2 className="w-6 h-6 animate-spin"/> : <Send className="w-6 h-6"/>}
+                    <button type="submit" disabled={!isMyTurn || isSubmitting || !playerInput} className="p-3 bg-indigo-600 rounded-full disabled:bg-indigo-400">
+                        {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin"/> : <Send className="w-6 h-6"/>}
                     </button>
                 </form>
              </div>
