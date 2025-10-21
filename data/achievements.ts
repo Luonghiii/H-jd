@@ -1,5 +1,5 @@
 import { HistoryEntry } from "../types";
-import { BookCopy, Flame, Star, BookOpen, CheckSquare, BrainCircuit, Users, PenSquare, Layers, Award, Puzzle, Shuffle, Link as LinkIcon, Dices, Wand2, Library, Image as ImageIcon } from 'lucide-react';
+import { BookCopy, Flame, Star, BookOpen, CheckSquare, BrainCircuit, Users, PenSquare, Layers, Award, Puzzle, Shuffle, Link as LinkIcon, Dices, Wand2, Library, Image as ImageIcon, Share2, Bookmark } from 'lucide-react';
 // FIX: Add missing React import for React.ElementType
 import React from 'react';
 
@@ -11,6 +11,16 @@ export interface Achievement {
     levels: [number, number, number, number, number];
     source: 'stats.totalWords' | 'stats.currentStreak' | 'stats.longestStreak' | `stats.achievementCounters.${HistoryEntry['type']}`;
 }
+
+export const levelStyles = {
+    0: { icon: 'text-slate-500', bg: 'bg-slate-200', star: 'text-slate-300', progress: 'bg-slate-300' },
+    1: { icon: 'text-yellow-600', bg: 'bg-yellow-600/20', star: 'text-yellow-600', progress: 'bg-yellow-600' }, // Bronze
+    2: { icon: 'text-slate-400', bg: 'bg-slate-400/20', star: 'text-slate-400', progress: 'bg-slate-400' }, // Silver
+    3: { icon: 'text-yellow-400', bg: 'bg-yellow-400/20', star: 'text-yellow-400', progress: 'bg-yellow-400' }, // Gold
+    4: { icon: 'text-cyan-400', bg: 'bg-cyan-400/20', star: 'text-cyan-400', progress: 'bg-cyan-400' },   // Diamond
+    5: { icon: 'text-purple-500', bg: 'bg-purple-500/20', star: 'text-purple-500', progress: 'bg-purple-500' }  // Amethyst
+};
+
 
 export const achievementsList: Achievement[] = [
     {
@@ -172,5 +182,21 @@ export const achievementsList: Achievement[] = [
         icon: Users, // Re-using
         levels: [3, 7, 14, 30, 50],
         source: 'stats.achievementCounters.LOGIN'
+    },
+    {
+        id: 'communityBuilder',
+        name: 'Nhà Xây Dựng Cộng Đồng',
+        description: 'Đóng góp các bộ từ vựng cho cộng đồng học tập.',
+        icon: Share2,
+        levels: [1, 3, 5, 10, 20],
+        source: 'stats.achievementCounters.COMMUNITY_DECK_SUBMITTED'
+    },
+    {
+        id: 'curator',
+        name: 'Nhà Tuyển Chọn',
+        description: 'Đánh dấu các từ quan trọng hoặc yêu thích của bạn.',
+        icon: Bookmark,
+        levels: [10, 50, 100, 200, 500],
+        source: 'stats.achievementCounters.WORD_STARRED'
     }
 ];

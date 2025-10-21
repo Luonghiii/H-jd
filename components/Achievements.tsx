@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAchievements } from '../hooks/useAchievements';
-import { achievementsList } from '../data/achievements';
+import { achievementsList, levelStyles } from '../data/achievements';
 import { Star, Lock } from 'lucide-react';
 import { useI18n } from '../hooks/useI18n';
 
@@ -12,12 +12,13 @@ const AchievementCard: React.FC<{ achievement: typeof achievementsList[0], progr
     const progressPercent = nextLevelGoal > 0 ? Math.min((currentProgress / nextLevelGoal) * 100, 100) : 0;
 
     const isMaxLevel = currentLevel === 5;
+    const styles = levelStyles[currentLevel as keyof typeof levelStyles] || levelStyles[0];
 
     return (
         <div className={`bg-white/50 border rounded-2xl p-4 flex flex-col transition-all duration-300 neu-light ${currentLevel === 0 ? 'opacity-70' : ''}`}>
             <div className="flex items-start gap-4">
-                <div className={`p-3 rounded-lg ${currentLevel > 0 ? 'bg-amber-500/20' : 'bg-slate-200'}`}>
-                    <achievement.icon className={`w-7 h-7 ${currentLevel > 0 ? 'text-amber-500' : 'text-slate-500'}`} />
+                <div className={`p-3 rounded-lg ${styles.bg}`}>
+                    <achievement.icon className={`w-7 h-7 ${styles.icon}`} />
                 </div>
                 <div>
                     <h3 className="text-lg font-bold text-slate-800">{achievement.name}</h3>
@@ -30,7 +31,7 @@ const AchievementCard: React.FC<{ achievement: typeof achievementsList[0], progr
                         {[...Array(5)].map((_, i) => (
                             <Star 
                                 key={i} 
-                                className={`w-4 h-4 transition-colors ${i < currentLevel ? (isMaxLevel ? 'text-cyan-400' : 'text-yellow-400') : 'text-slate-300'}`} 
+                                className={`w-4 h-4 transition-colors ${i < currentLevel ? styles.star : 'text-slate-300'}`} 
                                 fill={i < currentLevel ? 'currentColor' : 'none'}
                             />
                         ))}
@@ -41,7 +42,7 @@ const AchievementCard: React.FC<{ achievement: typeof achievementsList[0], progr
                 </div>
                 <div className="w-full bg-slate-200 rounded-full h-2.5 neu-inset-light">
                     <div 
-                        className={`h-2.5 rounded-full transition-all duration-500 ${isMaxLevel ? 'bg-cyan-400' : 'bg-yellow-400'}`} 
+                        className={`h-2.5 rounded-full transition-all duration-500 ${styles.progress}`} 
                         style={{ width: `${isMaxLevel ? 100 : progressPercent}%` }}
                     ></div>
                 </div>

@@ -3,6 +3,7 @@ import { useVocabulary } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
 import { Swords, ArrowLeft, Bot, User, Send, Loader2, Trophy, ShieldAlert, Brain, Scaling, Link as LinkIcon, Edit } from 'lucide-react';
 import { validateDuelWord, getAiDuelWord } from '../services/geminiService';
+import { useHistory } from '../hooks/useHistory';
 
 const TURN_DURATION = 15; // 15 seconds per turn
 
@@ -49,7 +50,8 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
     const [lastWord, setLastWord] = useState('');
 
     const { getAvailableThemes } = useVocabulary();
-    const { learningLanguage } = useSettings();
+    const { learningLanguage, recordActivity } = useSettings();
+    const { addHistoryEntry } = useHistory();
     const timerRef = useRef<number | null>(null);
     const gameHistoryRef = useRef<HTMLDivElement>(null);
 
@@ -60,6 +62,15 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
         if (timerRef.current) clearInterval(timerRef.current);
     };
 
+    const handleGameOver = (reason: string, playerWon: boolean) => {
+        setGameOverReason(reason);
+        addHistoryEntry('VOCABULARY_DUEL_COMPLETED', reason);
+        if(playerWon) {
+            recordActivity();
+        }
+        setGameState('gameOver');
+    }
+
     const startTimer = () => {
         stopTimer();
         setTimeLeft(TURN_DURATION);
@@ -69,16 +80,13 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
                     stopTimer();
                     if (gameMode === 'longest') {
                         setAiScore(s => s + 1); // Player ran out of time, AI gets a point
-                        // Check if it's the last round
                         if (currentRound >= rounds) {
-                            setGameState('gameOver');
+                            handleGameOver(`Bạn đã hết thời gian ở vòng cuối!`, false);
                         } else {
-                            // Move to next round
                             handleNextRound();
                         }
                     } else {
-                        setGameOverReason(`Bạn đã hết thời gian!`);
-                        setGameState('gameOver');
+                        handleGameOver(`Bạn đã hết thời gian!`, false);
                     }
                     return 0;
                 }
@@ -155,11 +163,10 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
         } else {
             if (gameMode === 'longest') {
                 setAiScore(s => s + 1);
-                if (currentRound >= rounds) setGameState('gameOver');
+                if (currentRound >= rounds) handleGameOver(reason || "Từ không hợp lệ.", false);
                 else handleNextRound();
             } else {
-                setGameOverReason(reason || "Từ không hợp lệ.");
-                setGameState('gameOver');
+                handleGameOver(reason || "Từ không hợp lệ.", false);
             }
         }
     };
@@ -185,10 +192,11 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
                         const playerWord = gameHistory[gameHistory.length - 1].word;
                         if (playerWord.length > aiWord.length) setPlayerScore(s => s + 1);
                         else if (aiWord.length > playerWord.length) setAiScore(s => s + 1);
-                        // else it's a tie, no points
 
                         if (currentRound >= rounds) {
-                            setGameState('gameOver');
+                           const finalPlayerScore = playerScore + (playerWord.length > aiWord.length ? 1 : 0);
+                           const finalAiScore = aiScore + (aiWord.length > playerWord.length ? 1 : 0);
+                           handleGameOver(`Kết thúc ${rounds} vòng.`, finalPlayerScore > finalAiScore);
                         } else {
                             handleNextRound();
                         }
@@ -201,16 +209,15 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
                 } else {
                     if (gameMode === 'longest') {
                         setPlayerScore(s => s + 1); // AI failed, player gets point
-                        if (currentRound >= rounds) setGameState('gameOver');
+                        if (currentRound >= rounds) handleGameOver("AI không tìm được từ.", true);
                         else handleNextRound();
                     } else {
-                        setGameOverReason(aiWord ? "AI đã dùng từ bị lặp!" : "AI không thể nghĩ ra từ nào! Bạn thắng!");
-                        setGameState('gameOver');
+                        handleGameOver(aiWord ? "AI đã dùng từ bị lặp! Bạn thắng!" : "AI không thể nghĩ ra từ nào! Bạn thắng!", true);
                     }
                 }
             }, thinkingTime);
         }
-    }, [turn, gameState, difficulty, theme, usedWords, learningLanguage, lastWord, roundLetter]);
+    }, [turn, gameState, difficulty, theme, usedWords, learningLanguage, lastWord, roundLetter, rounds, playerScore, aiScore]);
     
     const renderRules = () => {
         let title = '';

@@ -149,3 +149,55 @@ export const resizeWordImageAsDataUrl = (file: File): Promise<string> => {
         reader.onerror = () => reject(new Error("Không thể đọc file."));
     });
 };
+
+export const resizeDeckIconAsDataUrl = (file: File): Promise<string> => {
+    const MAX_ICON_DIMENSION = 128;
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            if (!event.target?.result) {
+                return reject(new Error("Couldn't read file"));
+            }
+            const img = new Image();
+            img.src = event.target.result as string;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                
+                const sourceWidth = img.width;
+                const sourceHeight = img.height;
+                const sourceSize = Math.min(sourceWidth, sourceHeight);
+                const sourceX = (sourceWidth - sourceSize) / 2;
+                const sourceY = (sourceHeight - sourceSize) / 2;
+                
+                canvas.width = MAX_ICON_DIMENSION;
+                canvas.height = MAX_ICON_DIMENSION;
+
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    return reject(new Error('Could not get canvas context'));
+                }
+                
+                ctx.drawImage(
+                    img,
+                    sourceX,
+                    sourceY,
+                    sourceSize,
+                    sourceSize,
+                    0,
+                    0,
+                    MAX_ICON_DIMENSION,
+                    MAX_ICON_DIMENSION
+                );
+
+                const dataUrl = canvas.toDataURL('image/png', 0.9);
+                if (dataUrl.length > 50 * 1024) { // 50KB limit for icon
+                     return reject(new Error('Ảnh icon quá lớn (sau khi nén > 50KB).'));
+                }
+                resolve(dataUrl);
+            };
+            img.onerror = (err) => reject(err);
+        };
+        reader.onerror = (err) => reject(err);
+    });
+};

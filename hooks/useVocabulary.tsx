@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { VocabularyWord, TargetLanguage, LearningLanguage, GeneratedWord } from '../types';
 import { translateWord } from '../services/geminiService';
@@ -6,6 +5,7 @@ import { useSettings } from './useSettings';
 import { useAuth } from './useAuth';
 import { onUserDataSnapshot, updateUserData } from '../services/firestoreService';
 import eventBus from '../utils/eventBus';
+import { useHistory } from './useHistory';
 
 // SRS Calculation Logic
 // PerformanceRating: 0-2 (hard), 3 (good), 4-5 (easy)
@@ -108,7 +108,8 @@ const VocabularyContext = createContext<VocabularyContextType | undefined>(undef
 // FIX: Implement and export the missing VocabularyProvider component.
 export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const { currentUser } = useAuth();
-    const { learningLanguage, updateWordCountStat } = useSettings();
+    const { learningLanguage, updateWordCountStat, incrementAchievementCounter } = useSettings();
+    const { addHistoryEntry } = useHistory();
     const [words, setWords] = useState<VocabularyWord[]>([]);
     const [isWordsLoading, setIsWordsLoading] = useState(true);
     const [lastDeletedWord, setLastDeletedWord] = useState<VocabularyWord | null>(null);
@@ -210,6 +211,7 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
         const wordToDelete = words.find(w => w.id === id);
         if (wordToDelete) {
             setLastDeletedWord(wordToDelete);
+            addHistoryEntry('WORD_DELETED', `Đã xóa từ: "${wordToDelete.word}".`, { word: wordToDelete.word });
             if (undoTimeoutRef.current) {
                 clearTimeout(undoTimeoutRef.current);
             }
@@ -218,7 +220,7 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
 
         const newWords = words.filter(w => w.id !== id);
         await updateUserData(currentUser.uid, { [`words.${learningLanguage}`]: newWords });
-    }, [currentUser, words, learningLanguage]);
+    }, [currentUser, words, learningLanguage, addHistoryEntry]);
 
     const undoDelete = useCallback(async () => {
         if (!currentUser || !lastDeletedWord) return;
@@ -239,11 +241,15 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
 
     const updateWordImage = (wordId: string, imageUrl: string | null) => updateWord(wordId, { imageUrl: imageUrl ?? undefined });
     const updateWordSpeechAudio = (wordId: string, audioB64: string) => updateWord(wordId, { speechAudio: audioB64 });
-    // FIX: Made toggleWordStar async to match its type definition, which expects a Promise.
+
     const toggleWordStar = async (id: string) => {
         const word = words.find(w => w.id === id);
         if (word) {
             await updateWord(id, { isStarred: !word.isStarred });
+            if (!word.isStarred) { // This means it's about to be starred
+                await incrementAchievementCounter('WORD_STARRED');
+                addHistoryEntry('WORD_STARRED', `Đã gắn sao từ: "${word.word}".`, { word: word.word });
+            }
         }
     };
 

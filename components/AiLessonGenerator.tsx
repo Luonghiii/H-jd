@@ -30,6 +30,7 @@ const AiLessonGenerator: React.FC<AiLessonGeneratorProps> = ({ onBack }) => {
             if (result) {
                 setLesson(result);
                 addHistoryEntry('AI_LESSON_GENERATED', `Đã tạo bài học về chủ đề: "${theme}"`, { theme });
+                recordActivity();
             } else {
                 eventBus.dispatch('notification', { type: 'error', message: 'Không thể tạo bài học. Vui lòng thử lại.' });
             }

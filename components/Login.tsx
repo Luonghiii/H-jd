@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { auth, googleProvider, signInWithPopup, sendPasswordResetEmail, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification, signOut } from '../services/firebase';
 import { User } from 'firebase/auth';
 import { createUserDocument } from '../services/firestoreService';
-import { BookOpen, User as UserIcon, Lock, Loader2, Eye, EyeOff, AtSign } from 'lucide-react';
+import { BookOpen, User as UserIcon, Lock, Loader2, Eye, EyeOff } from 'lucide-react';
 
 type View = 'login' | 'register' | 'forgotPassword';
 
@@ -142,7 +142,7 @@ const Login: React.FC = () => {
                 <form onSubmit={handleEmailPasswordSubmit} className="space-y-4 mt-6">
                     {(view === 'login' || view === 'register') ? (
                          <div className="relative">
-                            <AtSign className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+                            <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
                             <input 
                                 type="email"
                                 value={email} 
@@ -174,7 +174,7 @@ const Login: React.FC = () => {
                     )}
                     {view === 'forgotPassword' && (
                          <div className="relative">
-                            <AtSign className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+                            <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
                             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Nhập email của bạn" className="w-full pl-12 pr-4 py-3 bg-white/10 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500/50" required />
                         </div>
                     )}

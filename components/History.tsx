@@ -3,7 +3,7 @@ import { useHistory } from '../hooks/useHistory';
 import { HistoryEntry } from '../types';
 import { useInspector } from '../hooks/useInspector';
 import { useVocabulary } from '../hooks/useVocabulary';
-import { LogIn, LogOut, PlusSquare, BookOpen, CheckSquare, Award, XCircle, Trash2, Link, Puzzle, Shuffle, BrainCircuit, Volume2, Wand2, Image as ImageIcon, Search, PenSquare, Layers, ChevronDown, Dices, RefreshCw, Library, MessageCircle } from 'lucide-react';
+import { LogIn, LogOut, PlusSquare, BookOpen, CheckSquare, Award, XCircle, Trash2, Link, Puzzle, Shuffle, BrainCircuit, Volume2, Wand2, Image as ImageIcon, Search, PenSquare, Layers, ChevronDown, Dices, RefreshCw, Library, MessageCircle, Share2, Swords, Bookmark } from 'lucide-react';
 
 const ICONS: { [key in HistoryEntry['type']]: React.ElementType } = {
     LOGIN: LogIn,
@@ -27,6 +27,11 @@ const ICONS: { [key in HistoryEntry['type']]: React.ElementType } = {
     LUCKY_WHEEL_CORRECT_ANSWER: Dices,
     AI_LESSON_GENERATED: Library,
     AI_TUTOR_SESSION_COMPLETED: MessageCircle,
+    COMMUNITY_DECK_SUBMITTED: Share2,
+    WORD_STARRED: Bookmark,
+    WORD_DELETED: Trash2,
+    COMMUNITY_DECK_ADDED: PlusSquare,
+    VOCABULARY_DUEL_COMPLETED: Swords,
 };
 
 const formatTimeAgo = (timestamp: number) => {

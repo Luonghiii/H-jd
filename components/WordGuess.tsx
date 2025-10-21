@@ -6,6 +6,7 @@ import { generateHintsForWord } from '../services/geminiService';
 import { VocabularyWord } from '../types';
 import { ArrowLeft, RefreshCw, Lightbulb, ChevronDown, Sparkles } from 'lucide-react';
 import { useInspector } from '../hooks/useInspector';
+import AiWordSelectorModal from './AiWordSelectorModal';
 
 interface WordGuessProps {
   onBack: () => void;
@@ -27,6 +28,7 @@ const WordGuess: React.FC<WordGuessProps> = ({ onBack }) => {
     
     const [selectedThemes, setSelectedThemes] = useState<Set<string>>(new Set(['all']));
     const availableThemes = useMemo(() => getAvailableThemes(), [getAvailableThemes]);
+    const [isAiModalOpen, setIsAiModalOpen] = useState(false);
     
     const themeFilteredWords = useMemo(() => {
         if (selectedThemes.has('all')) return words;
@@ -155,28 +157,17 @@ const WordGuess: React.FC<WordGuessProps> = ({ onBack }) => {
     };
     const handleSelectAll = () => setSelectedIds(new Set(themeFilteredWords.map(w => w.id)));
     const handleDeselectAll = () => setSelectedIds(new Set());
-
-    const handleSmartSet = (type: 'hardest' | 'oldest' | 'review') => {
-        let sortedWords = [...themeFilteredWords];
-        switch(type) {
-        case 'hardest':
-            sortedWords.sort((a,b) => a.srsLevel - b.srsLevel);
-            break;
-        case 'oldest':
-            sortedWords.sort((a,b) => a.createdAt - b.createdAt);
-            break;
-        case 'review':
-            sortedWords = sortedWords.filter(w => w.nextReview <= Date.now()).sort((a,b) => a.nextReview - b.nextReview);
-            break;
-        }
-        const newIds = new Set(sortedWords.slice(0, 10).map(w => w.id));
-        setSelectedIds(newIds);
+    
+    const handleAiSelect = (aiWords: VocabularyWord[]) => {
+      const newIds = new Set(aiWords.map(w => w.id));
+      setSelectedIds(newIds);
+      setIsAiModalOpen(false);
     };
-
 
     if (gameState === 'setup') {
         const isStartDisabled = wordsForGame.length === 0;
         return (
+          <>
             <div className="space-y-6 animate-fade-in">
                  <div className="flex items-center justify-between">
                     <div className="text-center sm:text-left">
@@ -190,17 +181,20 @@ const WordGuess: React.FC<WordGuessProps> = ({ onBack }) => {
                 </div>
 
                 <div>
-                    <h3 className="font-semibold text-white mb-2 flex items-center gap-2"><Sparkles className="w-5 h-5 text-amber-400"/> Bộ gợi ý của AI</h3>
-                    <div className="flex flex-wrap gap-2">
-                        <button onClick={() => handleSmartSet('review')} className="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded-lg text-gray-200">10 từ cần ôn</button>
-                        <button onClick={() => handleSmartSet('hardest')} className="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded-lg text-gray-200">10 từ khó nhất</button>
-                        <button onClick={() => handleSmartSet('oldest')} className="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded-lg text-gray-200">10 từ cũ nhất</button>
-                    </div>
+                    <h3 className="font-semibold text-white mb-2">Lựa chọn từ</h3>
+                    <button 
+                        onClick={() => setIsAiModalOpen(true)}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600/20 text-indigo-300 border border-indigo-500/50 rounded-xl hover:bg-indigo-600/40"
+                    >
+                        <Sparkles className="w-5 h-5" />
+                        Nhờ AI chọn giúp
+                    </button>
                 </div>
+
 
                 <details className="group bg-slate-800/50 border border-slate-700 rounded-2xl text-left">
                     <summary className="list-none p-3 cursor-pointer flex justify-between items-center">
-                        <h3 className="font-semibold text-white">1. Chọn chủ đề <span className="text-gray-400 font-normal text-sm">({selectedThemes.has('all') ? 'Tất cả' : `${selectedThemes.size} đã chọn`})</span></h3>
+                        <h3 className="font-semibold text-white">Hoặc, chọn thủ công...</h3>
                         <ChevronDown className="w-5 h-5 text-gray-400 transition-transform group-open:rotate-180" />
                     </summary>
                     <div className="p-3 border-t border-slate-600">
@@ -212,7 +206,7 @@ const WordGuess: React.FC<WordGuessProps> = ({ onBack }) => {
                 </details>
 
                  <div>
-                    <h3 className="font-semibold text-white mb-2 text-left">2. Chọn từ ({selectedIds.size} / {themeFilteredWords.length} đã chọn)</h3>
+                    <h3 className="font-semibold text-white mb-2 text-left">Chọn từ ({selectedIds.size} / {themeFilteredWords.length} đã chọn)</h3>
                     <div className="flex gap-2 mb-2 justify-start">
                         <button onClick={handleSelectAll} className="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded-lg text-gray-200">Chọn tất cả</button>
                         <button onClick={handleDeselectAll} className="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded-lg text-gray-200">Bỏ chọn tất cả</button>
@@ -248,6 +242,13 @@ const WordGuess: React.FC<WordGuessProps> = ({ onBack }) => {
                 </button>
                  {isStartDisabled && <p className="text-center text-sm text-amber-400">Bạn cần có ít nhất một từ trong các lựa chọn để chơi.</p>}
             </div>
+             <AiWordSelectorModal 
+                isOpen={isAiModalOpen}
+                onClose={() => setIsAiModalOpen(false)}
+                availableWords={themeFilteredWords}
+                onConfirm={handleAiSelect}
+            />
+          </>
         );
     }
     

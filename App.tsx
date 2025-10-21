@@ -34,7 +34,6 @@ import { ActivityTrackerProvider } from './hooks/useActivityTracker';
 import { AchievementsProvider } from './hooks/useAchievements';
 import Achievements from './components/Achievements';
 import Discover from './components/Discover';
-import { seedCommunityDecks } from './services/firestoreService';
 
 const AppLayout: React.FC<{ onOpenSettings: () => void; }> = ({ onOpenSettings }) => {
   const [currentView, _setCurrentView] = useState<View>(View.Home);
@@ -165,8 +164,8 @@ const AppContent: React.FC = () => {
 
   return (
     <React.Fragment key={currentUser.uid}>
-      <VocabularyProvider>
-        <HistoryProvider>
+      <HistoryProvider>
+        <VocabularyProvider>
           <InspectorProvider>
             <QuickTranslateProvider>
               <ActivityTrackerProvider>
@@ -183,19 +182,13 @@ const AppContent: React.FC = () => {
               </ActivityTrackerProvider>
             </QuickTranslateProvider>
           </InspectorProvider>
-        </HistoryProvider>
-      </VocabularyProvider>
+        </VocabularyProvider>
+      </HistoryProvider>
     </React.Fragment>
   );
 }
 
 const App: React.FC = () => {
-  useEffect(() => {
-    // Run the seeding function once on app startup.
-    // It has an internal check to prevent re-seeding if data exists.
-    seedCommunityDecks();
-  }, []);
-  
   return (
     <AuthProvider>
         <SettingsProvider>

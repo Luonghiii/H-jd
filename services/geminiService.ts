@@ -1,4 +1,5 @@
 
+
 import { GoogleGenAI, Type, Modality, FunctionDeclaration } from "@google/genai";
 // FIX: Added AiSuggestion to the import list.
 import { VocabularyWord, WordInfo, TargetLanguage, LearningLanguage, ChatMessage, GeneratedWord, Quiz, AiLesson, UserStats, Turn, HistoryEntry, AiAssistantMessage, View, AiSuggestion } from '../types';
@@ -71,18 +72,21 @@ export const generateWordsFromPrompt = async (prompt: string, existingWords: str
             ? `When assigning a theme, first try to use one from this existing list if it's a good fit: [${themes.join(', ')}]. Only create a new, general Vietnamese theme if none of the existing ones are suitable.`
             : `Assign a relevant, general theme in Vietnamese for each word (e.g., "Thức ăn", "Động vật", "Công việc").`;
 
-        const systemInstruction = `You are an AI assistant for a language learning app. Your task is to generate a list of vocabulary words based on the user's prompt. The user is learning ${learningLanguage}.
-  - Provide the word in ${learningLanguage}.
-  - Provide the Vietnamese translation (translation_vi).
-  - Provide the English translation (translation_en).
-  - ${themesInstruction}
-  - Do not include words from this list of already existing words: ${existingWords.join(', ')}.
+        // Updated system instruction for large-scale generation
+        const systemInstruction = `You are an AI assistant for a language learning app. Your primary task is to generate a large list of vocabulary words based on the user's prompt. The user is learning ${learningLanguage}.
+  - The user's prompt might request a large number of words (e.g., "100 words", "1000 words"). Fulfill the request as accurately as possible.
+  - For each word, you MUST provide:
+    1. The word in ${learningLanguage} ("word").
+    2. The Vietnamese translation ("translation_vi").
+    3. The English translation ("translation_en").
+    4. A relevant theme in Vietnamese ("theme"). ${themesInstruction}
+  - CRITICAL: Do not include any words from this list of already existing words: ${existingWords.join(', ')}.
   - If a word has multiple meanings, choose the most common one.
-  - Your response MUST be a JSON array of objects, each with "word", "translation_vi", "translation_en", and "theme" keys.
-  - Do not output anything else besides the JSON array.`;
+  - Your response MUST be a single, valid JSON array of objects. Each object must have "word", "translation_vi", "translation_en", and "theme" keys.
+  - Do not output any other text, markdown, or explanations outside of the JSON array.`;
 
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-2.5-pro', // Upgraded model for larger capacity
             contents: prompt,
             config: {
                 systemInstruction,
@@ -659,7 +663,11 @@ export const validateDuelWord = async (word: string, usedWords: string[], learni
      return executeWithKeyRotation(async (ai) => {
         let rule = '';
         switch(context.mode) {
-            case 'theme': rule = `The word must be related to the theme: ${context.theme}.`; break;
+            case 'theme': 
+                rule = context.theme === 'any' 
+                    ? 'The word must be a common, valid word.' 
+                    : `The word must be related to the theme: ${context.theme}.`; 
+                break;
             case 'longest': rule = `The word must start with the letter '${context.startingLetter}'.`; break;
             case 'chain': rule = `The word must start with the last letter of '${context.lastWord}', which is '${context.lastWord.slice(-1)}'.`; break;
         }
@@ -696,7 +704,11 @@ export const getAiDuelWord = async (usedWords: string[], learningLanguage: Learn
     return executeWithKeyRotation(async (ai) => {
         let rule = '';
         switch(context.mode) {
-            case 'theme': rule = `The word must be related to the theme: ${context.theme}.`; break;
+             case 'theme': 
+                rule = context.theme === 'any' 
+                    ? 'Provide any common word.'
+                    : `The word must be related to the theme: ${context.theme}.`; 
+                break;
             case 'longest': rule = `The word must start with the letter '${context.startingLetter}'.`; break;
             case 'chain': rule = `The word must start with the last letter of '${context.lastWord}', which is '${context.lastWord.slice(-1)}'.`; break;
             case 'first': rule = 'Just provide any common starting word.'; break;
@@ -832,7 +844,7 @@ export const getAiAssistantResponse = async (
 - Your main goal is to help the user learn more effectively.
 - You have access to the user's stats, vocabulary list, and a detailed log of their recent actions. Use this data to provide personalized feedback and suggestions.
 - Keep your responses concise and in Vietnamese.
-- When asked to create an "exercise chain" or "chuỗi bài tập", use the 'navigateToGame' function to suggest a sequence of 2-3 different games. Announce the chain you've created in your text response before the function calls.
+- When asked for an "exercise chain" or "chuỗi bài tập", you MUST first announce the recommended sequence of 2-3 games in your text response (e.g., 'Tuyệt vời! Hãy bắt đầu với Lật Thẻ, sau đó là Đố Vui.'). Then, use the 'navigateToGame' function to navigate to the *first* game in that sequence.
 - Analyze the user's request and provided context to give helpful answers. For example, if asked "How did I do this week?", summarize their activity from the log. If asked "what words am I bad at?", look for words with low srsLevel in their vocabulary or incorrect answers in the activity log.
 
 CONTEXT:

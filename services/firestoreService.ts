@@ -26,7 +26,6 @@ import eventBus from '../utils/eventBus';
 import { defaultGermanWords } from '../data/german_words';
 import { defaultEnglishWords } from '../data/english_words';
 import { defaultChineseWords } from '../data/chinese_words';
-import { defaultCommunityDecks } from '../data/community_decks';
 
 // =====================
 // Types
@@ -189,32 +188,6 @@ export const appendHistoryEntry = async (uid: string, newEntry: HistoryEntry): P
 // =====================
 // Community Decks
 // =====================
-
-/**
- * Seeds the community decks collection if it's empty.
- */
-export const seedCommunityDecks = async (): Promise<void> => {
-    const decksRef = collection(db, 'communityDecks');
-    // Check if any system-generated decks already exist to prevent re-seeding.
-    const q = query(decksRef, where('creatorUid', '==', 'system'), limit(1));
-
-    try {
-        const snapshot = await getDocs(q);
-        if (!snapshot.empty) {
-            // console.log("Community decks already seeded.");
-            return;
-        }
-
-        console.log("Seeding default community decks...");
-        for (const deck of defaultCommunityDecks) {
-            await addDoc(decksRef, deck);
-        }
-        console.log("Seeding complete.");
-    } catch (error) {
-        console.error("Error seeding community decks:", error);
-    }
-};
-
 
 export const getApprovedCommunityDecks = async (language: LearningLanguage): Promise<CommunityDeck[]> => {
     const decksRef = collection(db, 'communityDecks');

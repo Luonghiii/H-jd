@@ -5,7 +5,7 @@ import eventBus from '../utils/eventBus';
 import ImageGenerationModal from './ImageGenerationModal';
 import { resizeAndCropImageAsDataUrl } from '../services/storageService';
 import { useAchievements } from '../hooks/useAchievements';
-import { achievementsList } from '../data/achievements';
+import { achievementsList, levelStyles } from '../data/achievements';
 import { useI18n } from '../hooks/useI18n';
 
 interface ProfileModalProps {
@@ -192,13 +192,14 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                                 {unlockedAchievements.length > 0 ? unlockedAchievements.map(ach => {
                                     const progress = userAchievements[ach.id];
                                     const isSelected = profile.selectedAchievement?.id === ach.id;
+                                    const styles = levelStyles[progress.level as keyof typeof levelStyles] || levelStyles[0];
                                     return (
                                         <button
                                             key={ach.id}
                                             onClick={() => updateSelectedAchievement({ id: ach.id, level: progress.level })}
                                             className={`w-full flex items-center gap-3 p-2 text-left rounded-lg transition-all ${isSelected ? 'ring-2 ring-indigo-500 bg-white/50' : 'hover:bg-black/5'}`}
                                         >
-                                            <div className="w-8 h-8 flex items-center justify-center bg-amber-500/20 rounded-md"><ach.icon className="w-5 h-5 text-amber-500" /></div>
+                                            <div className={`w-8 h-8 flex items-center justify-center ${styles.bg} rounded-md`}><ach.icon className={`w-5 h-5 ${styles.icon}`} /></div>
                                             <div className="flex-grow">
                                                 <p className="font-semibold text-sm text-slate-800">{ach.name}</p>
                                                 <p className="text-xs text-slate-600">{t('achievements.level')} {progress.level}</p>

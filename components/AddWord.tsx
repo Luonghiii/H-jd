@@ -46,7 +46,6 @@ const AddWord: React.FC<AddWordProps> = ({ onBack }) => {
   const uploadInputRef = useRef<HTMLInputElement>(null);
 
   // General state
-  const [feedback, setFeedback] = useState<{type: 'success' | 'error' | 'info', message: string} | null>(null);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [wordsForReview, setWordsForReview] = useState<GeneratedWord[]>([]);
 
@@ -60,17 +59,10 @@ const AddWord: React.FC<AddWordProps> = ({ onBack }) => {
       chinese: 'tiếng Trung'
   };
 
-  const clearFeedback = () => {
-      if (feedback) {
-          setTimeout(() => setFeedback(null), 4000);
-      }
-  };
-
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (word.trim() && translation.trim() && !isManualLoading) {
       setIsManualLoading(true);
-      setFeedback(null);
       const trimmedWord = word.trim();
       const success = await addWord(trimmedWord, translation.trim(), uiLanguage, manualTheme.trim());
       
@@ -82,8 +74,7 @@ const AddWord: React.FC<AddWordProps> = ({ onBack }) => {
         setWord('');
         setTranslation('');
         setManualTheme('');
-        setFeedback({ type: 'success', message: `Đã thêm từ "${trimmedWord}"!` });
-        clearFeedback();
+        eventBus.dispatch('notification', { type: 'success', message: `Đã thêm từ "${trimmedWord}"!` });
       }
     }
   };
@@ -92,7 +83,6 @@ const AddWord: React.FC<AddWordProps> = ({ onBack }) => {
     e.preventDefault();
     if (aiPrompt.trim() && !isAiLoading) {
       setIsAiLoading(true);
-      setFeedback(null);
       eventBus.dispatch('notification', { type: 'info', message: 'AI đang tìm từ vựng...' });
       try {
         const existingWords = words.map(w => w.word);
@@ -102,17 +92,15 @@ const AddWord: React.FC<AddWordProps> = ({ onBack }) => {
             setWordsForReview(generatedWords);
             setIsReviewModalOpen(true);
         } else {
-            setFeedback({ type: 'info', message: `Không tìm thấy từ mới nào khớp với yêu cầu.` });
-            clearFeedback();
+            eventBus.dispatch('notification', { type: 'info', message: `Không tìm thấy từ mới nào khớp với yêu cầu.` });
         }
         setAiPrompt('');
       } catch (error: any) {
         if (error.message === "All API keys failed.") {
-             setFeedback({ type: 'error', message: "Tất cả API key đều không hoạt động. Vui lòng kiểm tra lại trong Cài đặt." });
+             eventBus.dispatch('notification', { type: 'error', message: "Tất cả API key đều không hoạt động. Vui lòng kiểm tra lại trong Cài đặt." });
         } else {
-             setFeedback({ type: 'error', message: "Lỗi không xác định khi tạo từ." });
+             eventBus.dispatch('notification', { type: 'error', message: "Lỗi không xác định khi tạo từ." });
         }
-        clearFeedback();
       } finally {
         setIsAiLoading(false);
       }
@@ -123,7 +111,6 @@ const AddWord: React.FC<AddWordProps> = ({ onBack }) => {
     const file = e.target.files?.[0];
     if (file) {
       setUploadedFile(file);
-      setFeedback(null);
       if (file.type.startsWith('image/')) {
         setFilePreview(URL.createObjectURL(file));
       } else {
@@ -135,7 +122,6 @@ const AddWord: React.FC<AddWordProps> = ({ onBack }) => {
   const handleUploadSubmit = async () => {
     if (uploadedFile && !isUploading) {
         setIsUploading(true);
-        setFeedback(null);
         eventBus.dispatch('notification', { type: 'info', message: 'AI đang phân tích file...' });
         try {
             const { base64, mimeType } = await fileToBase64(uploadedFile);
@@ -156,18 +142,16 @@ const AddWord: React.FC<AddWordProps> = ({ onBack }) => {
                 setWordsForReview(generatedWords);
                 setIsReviewModalOpen(true);
             } else {
-                setFeedback({ type: 'info', message: `Không tìm thấy từ mới nào từ ${sourceText}.` });
-                clearFeedback();
+                eventBus.dispatch('notification', { type: 'info', message: `Không tìm thấy từ mới nào từ ${sourceText}.` });
             }
             setUploadedFile(null);
             setFilePreview(null);
         } catch(error: any) {
             if (error.message === "All API keys failed.") {
-                setFeedback({ type: 'error', message: "Tất cả API key đều không hoạt động. Vui lòng kiểm tra lại trong Cài đặt." });
+                eventBus.dispatch('notification', { type: 'error', message: "Tất cả API key đều không hoạt động. Vui lòng kiểm tra lại trong Cài đặt." });
             } else {
-                setFeedback({ type: 'error', message: "Lỗi không xác định khi phân tích file." });
+                eventBus.dispatch('notification', { type: 'error', message: "Lỗi không xác định khi phân tích file." });
             }
-            clearFeedback();
         } finally {
             setIsUploading(false);
         }
@@ -178,14 +162,13 @@ const AddWord: React.FC<AddWordProps> = ({ onBack }) => {
       const count = await addMultipleWords(wordsToAdd);
       if (count > 0) {
           addHistoryEntry('WORDS_ADDED', `Đã thêm ${count} từ mới.`, { wordCount: count });
-          setFeedback({ type: 'success', message: `Đã thêm ${count} từ mới!` });
+          eventBus.dispatch('notification', { type: 'success', message: `Đã thêm ${count} từ mới!` });
           recordActivity();
       } else {
-          setFeedback({ type: 'info', message: 'Không có từ mới nào được thêm.' });
+          eventBus.dispatch('notification', { type: 'info', message: 'Không có từ mới nào được thêm.' });
       }
       setIsReviewModalOpen(false);
       setWordsForReview([]);
-      clearFeedback();
   };
 
   const renderTabs = () => (
@@ -232,7 +215,7 @@ const AddWord: React.FC<AddWordProps> = ({ onBack }) => {
                 id="ai-prompt"
                 value={aiPrompt}
                 onChange={(e) => setAiPrompt(e.target.value)}
-                placeholder="ví dụ: 10 động từ thông dụng về nấu ăn"
+                placeholder="ví dụ: 100 từ vựng về chủ đề không gian"
                 className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
                 required
                 disabled={isAiLoading}
@@ -297,16 +280,6 @@ const AddWord: React.FC<AddWordProps> = ({ onBack }) => {
             </button>
         </div>
       {renderTabs()}
-
-      {feedback && (
-          <div className={`p-3 rounded-xl text-center text-sm font-medium ${
-              feedback.type === 'success' ? 'bg-green-500/20 text-green-300' 
-              : feedback.type === 'error' ? 'bg-red-500/20 text-red-300'
-              : 'bg-blue-500/20 text-blue-300'
-            }`}>
-              {feedback.message}
-          </div>
-      )}
 
       {mode === 'manual' && renderManualForm()}
       {mode === 'ai' && renderAiForm()}

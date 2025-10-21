@@ -18,10 +18,10 @@ const ICONS: { [key in NotificationType]: React.ElementType } = {
 };
 
 const STYLES: { [key in NotificationType]: string } = {
-    info: 'bg-blue-500/80 border-blue-400 text-white',
-    success: 'bg-green-600/80 border-green-500 text-white',
-    warning: 'bg-yellow-500/80 border-yellow-400 text-black',
-    error: 'bg-red-600/80 border-red-500 text-white',
+    info: 'bg-blue-500/90 border-blue-400 text-white',
+    success: 'bg-emerald-500 border-emerald-600 text-white',
+    warning: 'bg-amber-500 border-amber-600 text-black',
+    error: 'bg-red-600 border-red-700 text-white',
 };
 
 const NotificationToast: React.FC<{ notification: Notification; onDismiss: (id: number) => void }> = ({ notification, onDismiss }) => {
@@ -33,17 +33,19 @@ const NotificationToast: React.FC<{ notification: Notification; onDismiss: (id: 
         }, 5000); // Auto-dismiss after 5 seconds
         return () => clearTimeout(timer);
     }, [notification.id, onDismiss]);
+    
+    const textStyle = notification.type === 'success' ? 'font-bold' : 'font-medium';
 
     return (
         <div 
-            className={`flex items-start p-4 rounded-xl shadow-lg border backdrop-blur-md transition-all duration-300 animate-fade-in-up ${STYLES[notification.type]}`}
+            className={`flex items-start p-4 rounded-xl shadow-2xl border backdrop-blur-lg transition-all duration-300 animate-fade-in-up ${STYLES[notification.type]}`}
             role="alert"
         >
             <div className="flex-shrink-0 pt-0.5">
                 <Icon className="w-5 h-5" />
             </div>
             <div className="ml-3 flex-1">
-                <p className="text-sm font-medium">{notification.message}</p>
+                <p className={`text-sm ${textStyle}`}>{notification.message}</p>
             </div>
             <button 
                 onClick={() => onDismiss(notification.id)} 

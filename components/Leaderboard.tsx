@@ -3,7 +3,7 @@ import { useSettings } from '../hooks/useSettings';
 import { useAuth } from '../hooks/useAuth';
 import { getLeaderboardData, LeaderboardEntry } from '../services/firestoreService';
 import { Trophy, Flame, BookOpen, UserCheck, Loader2, User as UserIcon, AlertTriangle } from 'lucide-react';
-import { achievementsList } from '../data/achievements';
+import { achievementsList, levelStyles } from '../data/achievements';
 
 type LeaderboardTab = 'streak' | 'words';
 
@@ -110,6 +110,8 @@ const Leaderboard: React.FC = () => {
                         const achData = entry.selectedAchievement 
                             ? achievementsList.find(a => a.id === entry.selectedAchievement!.id) 
                             : null;
+                        const achLevel = entry.selectedAchievement?.level || 0;
+                        const achStyle = levelStyles[achLevel as keyof typeof levelStyles] || levelStyles[0];
                         
                         return (
                             <div key={entry.uid} className={`flex items-center p-3 sm:p-4 rounded-2xl border transition-all duration-300 ${isCurrentUser ? 'bg-indigo-600/30 border-indigo-500 scale-105 shadow-lg shadow-indigo-500/20' : 'bg-slate-800/50 border-slate-700'}`}>
@@ -129,7 +131,7 @@ const Leaderboard: React.FC = () => {
                                         <p className={`font-semibold truncate ${isCurrentUser ? 'text-white' : 'text-gray-200'}`}>{displayName}</p>
                                         {achData && entry.selectedAchievement && (
                                             <div title={`${achData.name} (Cấp ${entry.selectedAchievement.level})`}>
-                                                <achData.icon className="w-5 h-5 text-amber-400 flex-shrink-0" />
+                                                <achData.icon className={`w-5 h-5 ${achStyle.icon} flex-shrink-0`} />
                                             </div>
                                         )}
                                     </div>

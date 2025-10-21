@@ -6,7 +6,7 @@ import { useHistory } from '../hooks/useHistory';
 import { auth } from '../services/firebase';
 import { signOut } from 'firebase/auth';
 import { useI18n } from '../hooks/useI18n';
-import { achievementsList } from '../data/achievements';
+import { achievementsList, levelStyles } from '../data/achievements';
 
 const UiLanguageSelector: React.FC = () => {
   const { uiLanguage, setUiLanguage } = useSettings();
@@ -116,6 +116,8 @@ const Header: React.FC<{ onOpenSettings: () => void; onOpenProfile: () => void; 
   const selectedAchData = profile.selectedAchievement
     ? achievementsList.find(a => a.id === profile.selectedAchievement?.id)
     : null;
+  const achLevel = profile.selectedAchievement?.level || 0;
+  const achStyle = levelStyles[achLevel as keyof typeof levelStyles] || levelStyles[0];
 
   return (
     <header className="py-4 px-4 sm:px-8">
@@ -159,7 +161,7 @@ const Header: React.FC<{ onOpenSettings: () => void; onOpenProfile: () => void; 
                     className="absolute -bottom-1 -right-1 p-1 bg-slate-100 rounded-full shadow-md pointer-events-none"
                     title={`${selectedAchData.name} (Cấp ${profile.selectedAchievement.level})`}
                 >
-                    <selectedAchData.icon className="w-4 h-4 text-amber-500" />
+                    <selectedAchData.icon className={`w-4 h-4 ${achStyle.icon}`} />
                 </div>
             )}
             <ProfileDropdown 
