@@ -37,7 +37,7 @@ const Practice: React.FC<PracticeProps> = ({ onBack }) => {
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
   const [userAnswer, setUserAnswer] = useState('');
   const [answers, setAnswers] = useState<Answer[]>([]);
-  const [answerStatus, setAnswerStatus] = useState<'idle' | 'correct' | 'incorrect'>('idle');
+  const [answerStatus, setAnswerStatus] = useState<'idle' | 'correct' | 'incorrect' | 'showing_feedback'>('idle');
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [isGrading, setIsGrading] = useState(false);
   
@@ -108,6 +108,7 @@ const Practice: React.FC<PracticeProps> = ({ onBack }) => {
     setCurrentWordIndex(0);
     setAnswers([]);
     setUserAnswer('');
+    setAnswerStatus('idle');
     recordActivity(); // Record activity as soon as the session starts
     setView('playing');
   }, [wordsForPractice, numWords, initialPracticeWords, recordActivity]);
@@ -355,7 +356,7 @@ const Practice: React.FC<PracticeProps> = ({ onBack }) => {
              {answerStatus === 'incorrect' && <X className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 text-red-500" />}
         </div>
         {lastAnswerFeedback && answerStatus !== 'idle' && (
-            <p className="text-xs text-yellow-400 mt-2 text-center animate-fade-in">💡 AI: {lastAnswerFeedback}</p>
+            <p className="text-sm text-yellow-400 mt-2 text-center animate-fade-in">💡 AI: {lastAnswerFeedback}</p>
         )}
         {answerStatus === 'idle' ? (
             <button type="submit" className="w-full mt-4 flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98]" disabled={!userAnswer.trim() || isGrading}>
