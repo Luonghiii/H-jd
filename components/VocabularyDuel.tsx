@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useVocabulary } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
-import { Swords, ArrowLeft, Bot, User, Send, Loader2, Trophy, ShieldAlert, Users, Plus, Key, Brain, Link as LinkIcon, LogOut } from 'lucide-react';
+import { Swords, ArrowLeft, Bot, User, Send, Loader2, Trophy, ShieldAlert, Users, Plus, Key, Brain, Link as LinkIcon, LogOut, XCircle } from 'lucide-react';
 import { validateDuelWord, getAiDuelWord } from '../services/geminiService';
 import { useHistory } from '../hooks/useHistory';
 import { GameRoom, GameRoomPlayer, GameMode } from '../types';
@@ -10,6 +10,50 @@ import { createGameRoom, getGameRoomByCode, joinGameRoom, onGameRoomSnapshot, up
 import eventBus from '../utils/eventBus';
 
 const TURN_DURATION = 15; // 15 seconds per turn
+
+const TurnTimer: React.FC<{ timeLeft: number; duration: number }> = ({ timeLeft, duration }) => {
+    const radius = 20;
+    const circumference = 2 * Math.PI * radius;
+    const progress = timeLeft / duration;
+    const offset = circumference - progress * circumference;
+
+    const getColor = () => {
+        if (progress > 0.5) return 'stroke-green-400';
+        if (progress > 0.2) return 'stroke-yellow-400';
+        return 'stroke-red-500';
+    };
+
+    return (
+        <div className="relative w-12 h-12">
+            <svg className="w-full h-full" viewBox="0 0 44 44">
+                <circle
+                    className="stroke-slate-600"
+                    cx="22"
+                    cy="22"
+                    r={radius}
+                    strokeWidth="3"
+                    fill="transparent"
+                />
+                <circle
+                    className={`transition-all duration-300 ${getColor()}`}
+                    cx="22"
+                    cy="22"
+                    r={radius}
+                    strokeWidth="3"
+                    fill="transparent"
+                    strokeDasharray={circumference}
+                    strokeDashoffset={offset}
+                    strokeLinecap="round"
+                    transform="rotate(-90 22 22)"
+                />
+            </svg>
+            <span className="absolute inset-0 flex items-center justify-center font-bold text-lg">
+                {timeLeft}
+            </span>
+        </div>
+    );
+};
+
 
 interface VocabularyDuelProps {
     onBack: () => void;
@@ -107,9 +151,7 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
     const [isFindingMatch, setIsFindingMatch] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isJoining, setIsJoining] = useState(false);
-    const [timeLeft, setTimeLeft] = useState(TURN_DURATION);
-    const timerRef = useRef<number | null>(null);
-
+    
     // AI Game State
     const [aiDifficulty, setAiDifficulty] = useState<Difficulty>('medium');
     const [aiGameHistory, setAiGameHistory] = useState<{by: 'player'|'ai', word: string}[]>([]);
@@ -122,6 +164,10 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
     const [aiScores, setAiScores] = useState({ player: 0, ai: 0 });
     const [aiCurrentRound, setAiCurrentRound] = useState(1);
     const gameOverReasonRef = useRef(aiGameOverReason);
+
+    // Universal Timer State
+    const [timeLeft, setTimeLeft] = useState(TURN_DURATION);
+    const timerRef = useRef<number | null>(null);
 
     const handleStartAiGame = useCallback(() => {
         setAiGameMode(selectedGameMode);
@@ -142,30 +188,69 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
 
     const stopTimer = useCallback(() => {
         if (timerRef.current) clearInterval(timerRef.current);
+        timerRef.current = null;
     }, []);
 
-    const startTimer = useCallback(() => {
+    const startTimer = useCallback((onTimeout: () => void) => {
         stopTimer();
         setTimeLeft(TURN_DURATION);
         timerRef.current = window.setInterval(() => {
             setTimeLeft(prev => {
                 if (prev <= 1) {
                     stopTimer();
-                    if (gameRoom && gameRoom.status === 'playing' && gameRoom.gameState.currentPlayerUid === currentUser?.uid) {
-                        updateGameRoom(gameRoom.id, {
-                            "gameState.gameOverReason": `Người chơi ${profile.displayName} đã hết giờ!`,
-                            "gameState.winnerUid": gameRoom.players.find(p => p.uid !== currentUser.uid)?.uid,
-                            status: 'finished'
-                        });
-                    }
+                    onTimeout();
                     return 0;
                 }
                 return prev - 1;
             });
         }, 1000);
-    }, [gameRoom, currentUser, profile.displayName, stopTimer]);
+    }, [stopTimer]);
 
-    // Multiplayer useEffect
+    // Multiplayer Timer Logic
+    useEffect(() => {
+        if (!gameRoom || !currentUser || view !== 'playing') return;
+
+        if (gameRoom.status === 'playing' && gameRoom.gameState.currentPlayerUid === currentUser.uid) {
+            const onTimeout = () => {
+                if (gameRoom && gameRoom.status === 'playing' && gameRoom.gameState.currentPlayerUid === currentUser?.uid) {
+                    const winner = gameRoom.players.find(p => p.uid !== currentUser.uid);
+                    updateGameRoom(gameRoom.id, {
+                        "gameState.gameOverReason": `Người chơi ${profile.displayName} đã hết giờ!`,
+                        "gameState.winnerUid": winner?.uid,
+                        status: 'finished'
+                    });
+                }
+            };
+            startTimer(onTimeout);
+        } else {
+            stopTimer();
+        }
+        
+        return () => stopTimer();
+    }, [gameRoom?.gameState.currentPlayerUid, gameRoom?.status, currentUser?.uid, view, startTimer, stopTimer]);
+
+
+    // AI Game Timer Logic
+    useEffect(() => {
+        if (view !== 'ai_game' || aiGameOverReason) {
+            stopTimer();
+            return;
+        }
+
+        if (isPlayerTurn) {
+            const onTimeout = () => {
+                setAiGameOverReason('Hết giờ! Bạn đã thua.');
+            };
+            startTimer(onTimeout);
+        } else {
+            stopTimer();
+        }
+
+        return () => stopTimer();
+    }, [view, isPlayerTurn, aiGameOverReason, startTimer, stopTimer]);
+
+
+    // Multiplayer Snapshot Listener
     useEffect(() => {
         if (!gameRoom?.id || !currentUser) return;
 
@@ -186,16 +271,7 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
                     }
                     setIsJoining(false);
                 }
-
-                const wasPlaying = gameRoom?.status === 'playing';
                 setGameRoom(room);
-                if (room.status === 'playing' && room.gameState.currentPlayerUid === currentUser.uid) {
-                    if ((gameRoom?.gameState.history.length !== room.gameState.history.length) || !wasPlaying) {
-                       startTimer();
-                    }
-                } else {
-                    stopTimer();
-                }
             } else {
                 eventBus.dispatch('notification', { type: 'info', message: 'Phòng chơi đã bị hủy hoặc không tồn tại.' });
                 setGameRoom(null);
@@ -204,11 +280,8 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
             }
         });
 
-        return () => {
-            stopTimer();
-            unsubscribe();
-        };
-    }, [gameRoom?.id, currentUser, startTimer, stopTimer, view]);
+        return () => unsubscribe();
+    }, [gameRoom?.id, currentUser, view]);
 
      const handleLeaveRoom = useCallback(async () => {
         if (!gameRoom || !currentUser) return;
@@ -381,7 +454,7 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
             }
         } catch(e) {
             eventBus.dispatch('notification', { type: 'error', message: 'Lỗi khi kiểm tra từ.' });
-            startTimer();
+            startTimer(() => {}); // Restart timer on error without timeout action
         } finally {
             setPlayerInput('');
             setIsSubmitting(false);
@@ -437,6 +510,7 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
         const word = playerInput.trim().toLowerCase();
         if (!word || !isPlayerTurn || isAiThinking || aiGameOverReason) return;
         
+        stopTimer();
         setIsSubmitting(true);
         const usedWords = aiGameHistory.map(h => h.word);
         const context = { mode: aiGameMode, theme: aiGameSettings.theme, lastWord: aiGameHistory.length > 0 ? aiGameHistory[aiGameHistory.length - 1].word : undefined };
@@ -503,9 +577,12 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
                         </button>
                         <div className="relative flex py-2 items-center"><div className="flex-grow border-t border-slate-600"></div><span className="flex-shrink mx-4 text-xs text-slate-400 uppercase">Hoặc</span><div className="flex-grow border-t border-slate-600"></div></div>
                         <button onClick={() => handleCreateRoom(false)} className="w-full py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-semibold flex items-center justify-center gap-2"><Plus className="w-5 h-5"/> Tạo phòng riêng</button>
-                         <form onSubmit={handleJoinRoom} className="flex gap-2 pt-2">
-                            <input value={joinCodeInput} onChange={e => setJoinCodeInput(e.target.value.toUpperCase())} placeholder="NHẬP MÃ" maxLength={6} className="flex-grow px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-center font-bold tracking-widest placeholder:font-normal placeholder:tracking-normal placeholder:text-gray-500"/>
-                             <button type="submit" className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg font-semibold text-white flex items-center justify-center gap-2"><Key className="w-4 h-4" /> Vào phòng</button>
+                         <form onSubmit={handleJoinRoom} className="flex items-stretch gap-2 pt-2">
+                            <input value={joinCodeInput} onChange={e => setJoinCodeInput(e.target.value.toUpperCase())} placeholder="NHẬP MÃ" maxLength={6} className="flex-grow min-w-0 px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-center font-bold tracking-widest placeholder:font-normal placeholder:tracking-normal placeholder:text-gray-500"/>
+                             <button type="submit" className="flex-shrink-0 px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg font-semibold text-white flex items-center justify-center gap-2">
+                                <Key className="w-5 h-5" />
+                                <span className="hidden sm:inline">Vào phòng</span>
+                            </button>
                          </form>
                     </div>
                 </div>
@@ -545,9 +622,15 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
         const roundDisplay = aiGameMode === 'longest' ? ` (Vòng ${aiCurrentRound}/${aiGameSettings.rounds})` : '';
         return (
             <div className="flex flex-col h-full max-h-[75vh] space-y-4 animate-fade-in text-white">
-                <h2 className="text-xl font-bold text-center">Đấu với AI ({difficultySettings[aiDifficulty].name}){roundDisplay}</h2>
+                 <div className="flex justify-between items-center">
+                    <h2 className="text-xl font-bold text-center">Đấu với AI ({difficultySettings[aiDifficulty].name}){roundDisplay}</h2>
+                    <button onClick={() => setAiGameOverReason('Bạn đã bỏ cuộc.')} className="flex-shrink-0 flex items-center gap-2 px-3 py-2 text-sm bg-red-800/50 hover:bg-red-800 text-red-200 font-semibold rounded-xl transition-colors">
+                        <XCircle className="w-4 h-4" />
+                        <span>Bỏ cuộc</span>
+                    </button>
+                </div>
                 {aiGameOverReason ? (
-                    <div className="text-center py-10 space-y-4 flex flex-col items-center">
+                    <div className="text-center py-10 space-y-4 flex flex-col items-center flex-grow justify-center">
                         <h2 className="text-2xl font-bold">{aiGameOverReason.includes('Bạn thắng!') ? 'Bạn đã thắng!' : aiGameOverReason.includes('Hòa!') ? 'Hòa!' : 'Bạn đã thua!'}</h2>
                         <p className="text-gray-400">{aiGameOverReason}</p>
                         <div className="flex gap-4">
@@ -567,7 +650,8 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
                            ))}
                            {isAiThinking && <div className="flex items-start gap-3"><div className="p-1.5 bg-indigo-500 rounded-full"><Bot className="w-5 h-5"/></div><div className="px-4 py-2 rounded-2xl bg-indigo-900/80 rounded-bl-none"><Loader2 className="w-5 h-5 animate-spin"/></div></div>}
                         </div>
-                        <form onSubmit={handlePlayerSubmit_AI} className="flex gap-2">
+                        <form onSubmit={handlePlayerSubmit_AI} className="flex items-center gap-2">
+                             <TurnTimer timeLeft={timeLeft} duration={TURN_DURATION} />
                             <input value={playerInput} onChange={e => setPlayerInput(e.target.value)} placeholder={isPlayerTurn ? "Đến lượt bạn..." : "Chờ AI..."} disabled={!isPlayerTurn || isSubmitting || isAiThinking} className="flex-grow w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500" autoFocus/>
                             <button type="submit" disabled={!isPlayerTurn || isSubmitting || !playerInput || isAiThinking} className="p-3 bg-indigo-600 rounded-full disabled:bg-indigo-400">{isSubmitting ? <Loader2 className="w-6 h-6 animate-spin"/> : <Send className="w-6 h-6"/>}</button>
                         </form>
