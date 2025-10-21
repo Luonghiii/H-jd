@@ -18,6 +18,7 @@ import SettingsModal from './components/SettingsModal';
 import ProfileModal from './components/ProfileModal';
 import ApiKeySetup from './components/ApiKeySetup';
 import NotificationManager from './components/NotificationManager';
+import eventBus from './utils/eventBus';
 import { Loader2 } from 'lucide-react';
 import BottomNavBar from './components/BottomNavBar';
 import { I18nProvider } from './hooks/useI18n';
@@ -132,17 +133,56 @@ const AppLayout: React.FC<{ onOpenSettings: () => void; }> = ({ onOpenSettings }
   );
 };
 
-// This component logs the login event. Streak handling is now triggered by addHistoryEntry.
-const LoginAndStreakHandler: React.FC = () => {
-    const { addHistoryEntry } = useHistory();
-    const hasLoggedRef = useRef(false);
+const formatTimeAgo = (timestamp: number): string => {
+    const seconds = Math.floor((Date.now() - timestamp) / 1000);
+    if (seconds < 5) return "vừa xong";
+    if (seconds < 60) return `${seconds} giây trước`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes} phút trước`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} giờ trước`;
+    const days = Math.floor(hours / 24);
+    if (days < 30) return `${days} ngày trước`;
+    const months = Math.floor(days / 30);
+    if (months < 12) return `${months} tháng trước`;
+    const years = Math.floor(months / 12);
+    return `${years} năm trước`;
+};
 
+const LoginAndStreakHandler: React.FC = () => {
+    const { addHistoryEntry, history, hasMore } = useHistory();
+    const loggedInRef = useRef(false);
+    const notificationShownRef = useRef(false);
+
+    // Effect to add the login entry once per session.
     useEffect(() => {
-        if (!hasLoggedRef.current) {
+        if (!loggedInRef.current) {
             addHistoryEntry('LOGIN', 'Đăng nhập thành công.');
-            hasLoggedRef.current = true;
+            loggedInRef.current = true;
         }
     }, [addHistoryEntry]);
+
+    // Effect to show the notification about the last login, once per session.
+    useEffect(() => {
+        if (notificationShownRef.current) return;
+
+        // history is sorted descending. We need at least two logins: the current one and the previous one.
+        const loginEntries = history.filter(e => e.type === 'LOGIN');
+        if (loginEntries.length > 1) {
+            const previousLogin = loginEntries[1]; // The latest is [0], the one before is [1].
+            const timeAgo = formatTimeAgo(previousLogin.timestamp);
+            
+            eventBus.dispatch('notification', {
+                type: 'info',
+                message: `Lần gần nhất bạn đăng nhập là ${timeAgo}.`
+            });
+            notificationShownRef.current = true;
+        } else if (!hasMore && loginEntries.length <= 1) {
+            // If all history is loaded (`!hasMore`) and there's still only one or zero logins,
+            // it means there's no previous login to report. Stop checking.
+            notificationShownRef.current = true;
+        }
+    }, [history, hasMore]);
     
     return null;
 };
