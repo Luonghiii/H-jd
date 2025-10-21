@@ -112,6 +112,18 @@ const Practice: React.FC<PracticeProps> = ({ onBack }) => {
     setView('playing');
   }, [wordsForPractice, numWords, initialPracticeWords, recordActivity]);
 
+  const handleNextQuestion = () => {
+      if (currentWordIndex < practiceWords.length - 1) {
+          setCurrentWordIndex(prev => prev + 1);
+          setUserAnswer('');
+          setAnswerStatus('idle');
+      } else {
+          addHistoryEntry('PRACTICE_SESSION_COMPLETED', `Hoàn thành phiên luyện tập với ${practiceWords.length} từ.`, { count: practiceWords.length });
+          addXp(15);
+          setView('results');
+      }
+  };
+
   const handleSubmitAnswer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!userAnswer.trim() || answerStatus !== 'idle' || isGrading) return;
@@ -151,18 +163,6 @@ const Practice: React.FC<PracticeProps> = ({ onBack }) => {
     
     setAnswers(prev => [...prev, { word: currentWord, userAnswer: userAnswer.trim(), isCorrect, aiFeedback }]);
     setAnswerStatus(isCorrect ? 'correct' : 'incorrect');
-    
-    setTimeout(() => {
-        if (currentWordIndex < practiceWords.length - 1) {
-            setCurrentWordIndex(prev => prev + 1);
-            setUserAnswer('');
-            setAnswerStatus('idle');
-        } else {
-            addHistoryEntry('PRACTICE_SESSION_COMPLETED', `Hoàn thành phiên luyện tập với ${practiceWords.length} từ.`, { count: practiceWords.length });
-            addXp(15);
-            setView('results');
-        }
-    }, aiFeedback ? 2500 : 1500); // Longer delay if showing AI feedback
   };
   
   const getStatusClasses = () => {
@@ -301,7 +301,7 @@ const Practice: React.FC<PracticeProps> = ({ onBack }) => {
                                 <span className="text-green-400">Đáp án đúng: {word.translation[uiLanguage]}</span>
                             </>
                         }</p>
-                        {aiFeedback && <p className="text-xs text-cyan-400 mt-1">💡 AI: {aiFeedback}</p>}
+                        {aiFeedback && <p className="text-xs text-yellow-400 mt-1">💡 AI: {aiFeedback}</p>}
                     </div>
                 ))}
             </div>
@@ -355,11 +355,17 @@ const Practice: React.FC<PracticeProps> = ({ onBack }) => {
              {answerStatus === 'incorrect' && <X className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 text-red-500" />}
         </div>
         {lastAnswerFeedback && answerStatus !== 'idle' && (
-            <p className="text-xs text-cyan-400 mt-2 text-center animate-fade-in">💡 AI: {lastAnswerFeedback}</p>
+            <p className="text-xs text-yellow-400 mt-2 text-center animate-fade-in">💡 AI: {lastAnswerFeedback}</p>
         )}
-        <button type="submit" className="w-full mt-4 flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98]" disabled={answerStatus !== 'idle' || isGrading}>
-          {isGrading ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> AI đang chấm điểm...</> : 'Kiểm tra'}
-        </button>
+        {answerStatus === 'idle' ? (
+            <button type="submit" className="w-full mt-4 flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98]" disabled={!userAnswer.trim() || isGrading}>
+              {isGrading ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> AI đang chấm điểm...</> : 'Kiểm tra'}
+            </button>
+        ) : (
+            <button type="button" onClick={handleNextQuestion} className="w-full mt-4 flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98]">
+              Tiếp theo
+            </button>
+        )}
       </form>
     </div>
   );
