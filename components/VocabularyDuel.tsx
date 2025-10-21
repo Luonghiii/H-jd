@@ -158,6 +158,7 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
     const [aiDifficulty, setAiDifficulty] = useState<Difficulty>('medium');
     const [aiGameHistory, setAiGameHistory] = useState<any[]>([]);
     const [playerInput, setPlayerInput] = useState('');
+    const playerInputRef = useRef('');
     const [isPlayerTurn, setIsPlayerTurn] = useState(true);
     const [isAiThinking, setIsAiThinking] = useState(false);
     const [aiGameOverReason, setAiGameOverReason] = useState('');
@@ -202,11 +203,21 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
     const getRandomLetter = () => ALPHABET[Math.floor(Math.random() * ALPHABET.length)];
 
     const processAITurn = useCallback(async () => {
-        const playerWord = playerInput.trim().toLowerCase();
+        const playerWord = playerInputRef.current.trim().toLowerCase();
         let aiWord = '';
         if (aiWordPromiseRef.current) {
             aiWord = (await aiWordPromiseRef.current).word;
         }
+
+        const turnNumber = aiGameHistory.filter(h => h.by === 'turn').length + 1;
+        const tempHistoryEntry = {
+            by: 'turn', letter: currentLetter, turn: turnNumber,
+            player: { word: playerWord || '(trống)', score: '...', valid: 'loading' },
+            ai: { word: aiWord || '(trống)', score: '...', valid: 'loading' }
+        };
+        setAiGameHistory(prev => [...prev, tempHistoryEntry]);
+        setPlayerInput('');
+        playerInputRef.current = '';
 
         const usedWords = aiGameHistory.map(h => h.word).filter(Boolean);
         const context = { mode: 'longest' as GameMode, startLetter: currentLetter };
@@ -222,11 +233,16 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
         const newPlayerScore = aiScores.player + playerTurnScore;
         const newAiScore = aiScores.ai + aiTurnScore;
         
-        setAiGameHistory(prev => [...prev, {
-            by: 'turn', letter: currentLetter, turn: prev.length + 1,
-            player: { word: playerWord, score: playerTurnScore, valid: playerResult.isValid },
-            ai: { word: aiWord, score: aiTurnScore, valid: aiResult.isValid }
-        }]);
+        setAiGameHistory(prev => {
+            const newHistory = [...prev];
+            const lastEntryIndex = newHistory.length - 1;
+            newHistory[lastEntryIndex] = {
+                by: 'turn', letter: currentLetter, turn: turnNumber,
+                player: { word: playerWord || '(trống)', score: playerTurnScore, valid: playerResult.isValid },
+                ai: { word: aiWord || '(trống)', score: aiTurnScore, valid: aiResult.isValid }
+            };
+            return newHistory;
+        });
 
         setAiScores({ player: newPlayerScore, ai: newAiScore });
 
@@ -240,13 +256,14 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
         } else {
             startNewAITurn();
         }
-    }, [playerInput, aiGameHistory, currentLetter, learningLanguage, aiScores, aiGameSettings.targetScore]);
+    }, [aiGameHistory, currentLetter, learningLanguage, aiScores, aiGameSettings.targetScore]);
 
     const startNewAITurn = useCallback(() => {
         stopTimer();
         const letter = getRandomLetter();
         setCurrentLetter(letter);
         setPlayerInput('');
+        playerInputRef.current = '';
         startTimer(processAITurn);
         
         const usedWords = aiGameHistory.map(h => h.word).filter(Boolean);
@@ -263,6 +280,7 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
         
         setAiGameHistory([]);
         setPlayerInput('');
+        playerInputRef.current = '';
         setIsPlayerTurn(true);
         setIsAiThinking(false);
         setAiGameOverReason('');
@@ -284,8 +302,6 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
         e.preventDefault();
         
         if (aiGameMode === 'longest') {
-            // For 'longest' mode, submission is handled by the timer.
-            // We just give feedback that the word is acknowledged.
             eventBus.dispatch('notification', { type: 'info', message: `Đã ghi nhận từ: "${playerInput.trim()}"` });
             return;
         }
@@ -708,7 +724,7 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
                             {aiGameMode === 'longest' ? (
                                 <TurnTimer timeLeft={timeLeft} duration={TURN_DURATION} />
                             ) : null}
-                            <input value={playerInput} onChange={e => setPlayerInput(e.target.value)} placeholder={isPlayerTurn || aiGameMode === 'longest' ? "Nhập từ của bạn..." : "Chờ AI..."} disabled={aiGameMode !== 'longest' && !isPlayerTurn} className="flex-grow w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500" autoFocus/>
+                            <input value={playerInput} onChange={e => { setPlayerInput(e.target.value); playerInputRef.current = e.target.value; }} placeholder={isPlayerTurn || aiGameMode === 'longest' ? "Nhập từ của bạn..." : "Chờ AI..."} disabled={aiGameMode !== 'longest' && !isPlayerTurn} className="flex-grow w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500" autoFocus/>
                             <button type="submit" disabled={aiGameMode !== 'longest' && (!isPlayerTurn || !playerInput)} className="p-3 bg-indigo-600 rounded-full disabled:bg-indigo-400">{isSubmitting ? <Loader2 className="w-6 h-6 animate-spin"/> : <Send className="w-6 h-6"/>}</button>
                         </form>
                     </>

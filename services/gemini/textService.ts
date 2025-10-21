@@ -354,13 +354,19 @@ export const validateDuelWord = async (word: string, usedWords: string[], learni
 export const getAiDuelWord = async (usedWords: string[], learningLanguage: LearningLanguage, difficulty: string, context: { mode: GameMode; theme?: string; lastWord?: string; startLetter?: string }): Promise<{ word: string }> => {
     return executeWithKeyRotation(async (ai) => {
         let task = '';
-        if (context.mode === 'theme' && context.theme !== 'any') {
+        if (context.mode === 'longest' && context.startLetter) {
+            let difficultyInstruction = "Give me the longest, valid, and uncommon word you can think of";
+            if (difficulty === 'easy') {
+                difficultyInstruction = "Give me a common, simple, and not too long word";
+            } else if (difficulty === 'medium') {
+                difficultyInstruction = "Give me a word of average length";
+            }
+            task = `${difficultyInstruction} that starts with the letter "${context.startLetter}".`;
+        } else if (context.mode === 'theme' && context.theme !== 'any') {
             task = `Give me a word related to the theme "${context.theme}".`;
         } else if (context.mode === 'chain' && context.lastWord) {
             const lastLetter = context.lastWord.slice(-1);
             task = `Give me a word that starts with the letter "${lastLetter}".`;
-        } else if (context.mode === 'longest' && context.startLetter) {
-            task = `Give me the longest, valid, and uncommon word you can think of that starts with the letter "${context.startLetter}".`;
         } else {
             task = `Give me a valid word.`;
         }
