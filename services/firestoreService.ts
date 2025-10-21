@@ -421,6 +421,7 @@ export const createGameRoom = async (roomData: Omit<GameRoom, 'id' | 'code' | 'c
         language: roomLanguage,
         createdAt: Date.now(),
         playerUids: roomData.players.map(p => p.uid),
+        rematchVotes: [],
     };
     
     await setDoc(newRoomRef, newRoom);
@@ -584,7 +585,7 @@ export const onWordsSnapshot = (
 const HISTORY_PAGE_SIZE = 50;
 export const onHistorySnapshot = (
   uid: string,
-  callback: (entries: HistoryEntry[], lastVisible: QueryDocumentSnapshot | null) => void
+  callback: (entries: HistoryEntry[], lastDoc: QueryDocumentSnapshot | null) => void
 ): Unsubscribe => {
   if (!uid) return () => {};
   const historyCollectionRef = collection(db, 'users', uid, 'history');

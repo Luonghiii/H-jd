@@ -239,6 +239,8 @@ export interface GameRoom {
         lastWord?: string; // For 'chain' mode
         turnSubmissions?: { [uid: string]: string }; // For 'longest' multiplayer
     };
+    
+    rematchVotes?: string[];
 
     createdAt: number;
     isPublic?: boolean; // For matchmaking
