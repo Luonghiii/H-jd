@@ -1,6 +1,5 @@
 import { HistoryEntry } from "../types";
 import { BookCopy, Flame, Star, BookOpen, CheckSquare, BrainCircuit, Users, PenSquare, Layers, Award, Puzzle, Shuffle, Link as LinkIcon, Dices, Wand2, Library, Image as ImageIcon, Share2, Bookmark } from 'lucide-react';
-// FIX: Add missing React import for React.ElementType
 import React from 'react';
 
 export interface Achievement {

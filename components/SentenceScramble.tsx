@@ -16,7 +16,7 @@ type GameState = 'setup' | 'loading' | 'playing' | 'correct';
 
 const SentenceScramble: React.FC<SentenceScrambleProps> = ({ onBack }) => {
     const { words, getAvailableThemes } = useVocabulary();
-    const { learningLanguage, uiLanguage: targetLanguage, recordActivity } = useSettings();
+    const { learningLanguage, uiLanguage: targetLanguage, recordActivity, addXp } = useSettings();
     const { addHistoryEntry } = useHistory();
     const { openInspector } = useInspector();
     const [gameState, setGameState] = useState<GameState>('setup');
@@ -89,8 +89,9 @@ const SentenceScramble: React.FC<SentenceScrambleProps> = ({ onBack }) => {
             setGameState('correct');
             addHistoryEntry('SENTENCE_SCRAMBLE_WON', `Sắp xếp đúng câu: "${originalSentence}"`);
             recordActivity();
+            addXp(15);
         }
-    }, [userSentence, scrambledWords, originalSentence, gameState, addHistoryEntry, recordActivity]);
+    }, [userSentence, scrambledWords, originalSentence, gameState, addHistoryEntry, recordActivity, addXp]);
     
     const handleThemeToggle = (theme: string) => {
         setSelectedThemes(prev => {

@@ -12,7 +12,7 @@ interface AiLessonGeneratorProps {
 }
 
 const AiLessonGenerator: React.FC<AiLessonGeneratorProps> = ({ onBack }) => {
-    const { learningLanguage, uiLanguage, recordActivity } = useSettings();
+    const { learningLanguage, uiLanguage, recordActivity, addXp } = useSettings();
     const { addMultipleWords } = useVocabulary();
     const { addHistoryEntry } = useHistory();
     const [theme, setTheme] = useState('');
@@ -31,6 +31,7 @@ const AiLessonGenerator: React.FC<AiLessonGeneratorProps> = ({ onBack }) => {
                 setLesson(result);
                 addHistoryEntry('AI_LESSON_GENERATED', `Đã tạo bài học về chủ đề: "${theme}"`, { theme });
                 recordActivity();
+                addXp(25); // Grant 25 XP for generating a lesson
             } else {
                 eventBus.dispatch('notification', { type: 'error', message: 'Không thể tạo bài học. Vui lòng thử lại.' });
             }

@@ -28,7 +28,7 @@ const InteractiveImage: React.FC<{onBack: () => void;}> = ({onBack}) => {
     
     const { addMultipleWords } = useVocabulary();
     const { addHistoryEntry } = useHistory();
-    const { learningLanguage, recordActivity } = useSettings();
+    const { learningLanguage, recordActivity, addXp } = useSettings();
     
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const imageRef = useRef<HTMLImageElement>(new Image());
@@ -135,6 +135,7 @@ const InteractiveImage: React.FC<{onBack: () => void;}> = ({onBack}) => {
             if (result) {
                 recordActivity();
                 addHistoryEntry('IMAGE_OBJECT_IDENTIFIED', `Xác định đối tượng "${result.word}" từ ảnh.`, { word: result.word });
+                addXp(5); // Grant 5 XP for identifying an object
             } else {
                 setFeedback("Không thể xác định đối tượng tại vị trí này.");
             }

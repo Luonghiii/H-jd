@@ -10,8 +10,7 @@ interface ReviewProps {
 
 const Review: React.FC<ReviewProps> = ({ onBack }) => {
     const { words, updateWordSrs } = useVocabulary();
-    // FIX: Replaced 'targetLanguage' with 'uiLanguage' from settings and aliased for compatibility.
-    const { uiLanguage: targetLanguage, recordActivity } = useSettings();
+    const { uiLanguage: targetLanguage, recordActivity, addXp } = useSettings();
     const { addHistoryEntry } = useHistory();
     const [isSessionActive, setIsSessionActive] = useState(false);
     
@@ -48,6 +47,10 @@ const Review: React.FC<ReviewProps> = ({ onBack }) => {
         const currentWord = sessionWords[currentIndex];
         updateWordSrs(currentWord.id, performance);
         
+        if (performance !== 'hard') {
+            addXp(2); // Grant 2 XP for a successful review
+        }
+
         setSessionStats(prev => ({ ...prev, [performance]: prev[performance] + 1 }));
 
         if (currentIndex < sessionWords.length - 1) {

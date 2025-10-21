@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useSettings } from '../hooks/useSettings';
+import { useSettings, getXpForLevel } from '../hooks/useSettings';
 import { X, User as UserIcon, Camera, Loader2, Sparkles, BookOpen, Flame, Trophy, CheckCircle, Ban } from 'lucide-react';
 import eventBus from '../utils/eventBus';
 import ImageGenerationModal from './ImageGenerationModal';
@@ -20,6 +20,26 @@ const StatCard: React.FC<{ icon: React.ElementType; value: number | string; labe
         <div className="text-xs text-slate-600 font-medium">{label}</div>
     </div>
 );
+
+const LevelProgress: React.FC<{ level: number; xp: number; }> = ({ level, xp }) => {
+    const xpForNextLevel = getXpForLevel(level);
+    const progress = xpForNextLevel > 0 ? (xp / xpForNextLevel) * 100 : 0;
+
+    return (
+        <div className="bg-white/50 border border-white/30 rounded-2xl p-4 neu-light">
+            <div className="flex justify-between items-center mb-1">
+                <span className="font-bold text-indigo-600">Cấp {level}</span>
+                <span className="text-sm font-medium text-slate-600">{xp} / {xpForNextLevel} XP</span>
+            </div>
+            <div className="w-full bg-slate-200 rounded-full h-4 neu-inset-light overflow-hidden">
+                <div 
+                    className="h-4 rounded-full animated-gradient-bar" 
+                    style={{ width: `${progress}%` }}
+                />
+            </div>
+        </div>
+    );
+};
 
 
 const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
@@ -152,11 +172,14 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                             </div>
                         </div>
 
-                        {/* Stats Section */}
-                        <div className="grid grid-cols-3 gap-3 pt-4 border-t border-slate-200">
-                            <StatCard icon={BookOpen} value={stats.totalWords || 0} label="Từ vựng" />
-                            <StatCard icon={Flame} value={stats.currentStreak || 0} label="Chuỗi" />
-                            <StatCard icon={Trophy} value={stats.longestStreak || 0} label="Kỷ lục" />
+                        {/* Level and Stats Section */}
+                        <div className="space-y-3 pt-4 border-t border-slate-200">
+                            <LevelProgress level={stats.level} xp={stats.xp} />
+                            <div className="grid grid-cols-3 gap-3">
+                                <StatCard icon={BookOpen} value={stats.totalWords || 0} label="Từ vựng" />
+                                <StatCard icon={Flame} value={stats.currentStreak || 0} label="Chuỗi" />
+                                <StatCard icon={Trophy} value={stats.longestStreak || 0} label="Kỷ lục" />
+                            </div>
                         </div>
 
                         {/* Profile Fields */}

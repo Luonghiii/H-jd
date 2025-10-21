@@ -50,7 +50,6 @@ const calculateSrs = (currentSrsLevel: number, performance: PerformanceRating) =
 };
 // End SRS Logic
 
-// FIX: Export themeTranslationMap to resolve import errors.
 export const themeTranslationMap: Record<string, string> = {
   'Thức ăn': 'Food',
   'Đồ uống': 'Drinks',
@@ -86,7 +85,6 @@ export const themeTranslationMap: Record<string, string> = {
   'Cảm xúc': 'Feelings',
 };
 
-// FIX: Define the context type that was missing.
 interface VocabularyContextType {
   words: VocabularyWord[];
   isWordsLoading: boolean;
@@ -105,10 +103,9 @@ interface VocabularyContextType {
 
 const VocabularyContext = createContext<VocabularyContextType | undefined>(undefined);
 
-// FIX: Implement and export the missing VocabularyProvider component.
 export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const { currentUser } = useAuth();
-    const { learningLanguage, updateWordCountStat, incrementAchievementCounter } = useSettings();
+    const { learningLanguage, updateWordCountStat, incrementAchievementCounter, addXp } = useSettings();
     const { addHistoryEntry } = useHistory();
     const [words, setWords] = useState<VocabularyWord[]>([]);
     const [isWordsLoading, setIsWordsLoading] = useState(true);
@@ -174,8 +171,9 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
         
         const newWords = [...words, newWord];
         await updateUserData(currentUser.uid, { [`words.${learningLanguage}`]: newWords });
+        await addXp(10); // Grant 10 XP for adding a word
         return true;
-    }, [currentUser, words, learningLanguage]);
+    }, [currentUser, words, learningLanguage, addXp]);
 
 
     const addMultipleWords = useCallback(async (newWords: GeneratedWord[]): Promise<number> => {
@@ -202,8 +200,9 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
 
         const updatedWords = [...words, ...vocabularyToAdd];
         await updateUserData(currentUser.uid, { [`words.${learningLanguage}`]: updatedWords });
+        await addXp(wordsToAdd.length * 10); // Grant 10 XP per word
         return wordsToAdd.length;
-    }, [currentUser, words, learningLanguage]);
+    }, [currentUser, words, learningLanguage, addXp]);
 
     const deleteWord = useCallback(async (id: string): Promise<void> => {
         if (!currentUser) return;
@@ -249,6 +248,7 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
             if (!word.isStarred) { // This means it's about to be starred
                 await incrementAchievementCounter('WORD_STARRED');
                 addHistoryEntry('WORD_STARRED', `Đã gắn sao từ: "${word.word}".`, { word: word.word });
+                addXp(1); // Grant 1 XP for starring a word
             }
         }
     };
@@ -303,7 +303,6 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
     return <VocabularyContext.Provider value={value}>{children}</VocabularyContext.Provider>;
 };
 
-// FIX: Implement and export the missing useVocabulary hook.
 export const useVocabulary = (): VocabularyContextType => {
   const context = useContext(VocabularyContext);
   if (context === undefined) {

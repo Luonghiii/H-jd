@@ -17,7 +17,7 @@ type GameState = 'setup' | 'playing' | 'results';
 
 const ListeningPractice: React.FC<ListeningPracticeProps> = ({ onBack }) => {
     const { words, getAvailableThemes, updateWordSpeechAudio } = useVocabulary();
-    const { learningLanguage, recordActivity, uiLanguage } = useSettings();
+    const { learningLanguage, recordActivity, uiLanguage, addXp } = useSettings();
     const { openInspector } = useInspector();
     const { addHistoryEntry } = useHistory();
     const { play, isPlaying } = useAudioPlayer();
@@ -95,6 +95,10 @@ const ListeningPractice: React.FC<ListeningPracticeProps> = ({ onBack }) => {
         const currentWord = practiceWords[currentIndex];
         const isCorrect = userAnswer.trim().toLowerCase() === currentWord.word.toLowerCase();
         
+        if (isCorrect) {
+            addXp(4); // Grant 4 XP for a correct answer
+        }
+
         setResults(prev => [...prev, { word: currentWord, isCorrect }]);
         setFeedback(isCorrect ? 'correct' : 'incorrect');
 
@@ -106,6 +110,7 @@ const ListeningPractice: React.FC<ListeningPracticeProps> = ({ onBack }) => {
             } else {
                 addHistoryEntry('PRACTICE_SESSION_COMPLETED', `Hoàn thành luyện nghe ${practiceWords.length} từ.`);
                 recordActivity();
+                addXp(20); // Bonus for completing the session
                 setGameState('results');
             }
         }, 1500);

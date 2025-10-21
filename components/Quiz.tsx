@@ -30,7 +30,7 @@ interface QuizProps {
 
 const Quiz: React.FC<QuizProps> = ({ onBack }) => {
   const { words, getAvailableThemes } = useVocabulary();
-  const { uiLanguage, learningLanguage, recordActivity } = useSettings();
+  const { uiLanguage, learningLanguage, recordActivity, addXp } = useSettings();
   const { openInspector } = useInspector();
   const { addHistoryEntry } = useHistory();
   const { logActivity } = useActivityTracker();
@@ -146,6 +146,10 @@ const Quiz: React.FC<QuizProps> = ({ onBack }) => {
     const currentQuestion = quizQuestions[currentQuestionIndex];
     const isCorrect = answer === currentQuestion.correctAnswer;
     
+    if (isCorrect) {
+        addXp(5); // Grant 5 XP for a correct answer
+    }
+
     logActivity(
         'QUIZ_COMPLETED', // Reusing this type
         `Answered "${answer}" for word "${currentQuestion.word.word}". Correct: ${isCorrect}.`,
@@ -175,6 +179,7 @@ const Quiz: React.FC<QuizProps> = ({ onBack }) => {
       const score = { correct: correctCount, total: quizQuestions.length };
       addHistoryEntry('QUIZ_COMPLETED', `Hoàn thành bài trắc nghiệm. (${score.correct}/${score.total})`, { score });
       recordActivity();
+      addXp(25); // Grant 25 bonus XP for completing a quiz
       setView('results');
     }
   };

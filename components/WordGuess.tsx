@@ -21,7 +21,7 @@ const GERMAN_ALPHABET = 'abcdefghijklmnopqrstuvwxyzäöüß'.split('');
 
 const WordGuess: React.FC<WordGuessProps> = ({ onBack }) => {
     const { words, getAvailableThemes } = useVocabulary();
-    const { learningLanguage, uiLanguage, recordActivity } = useSettings();
+    const { learningLanguage, uiLanguage, recordActivity, addXp } = useSettings();
     const { addHistoryEntry } = useHistory();
     const { openInspector } = useInspector();
     const [gameState, setGameState] = useState<GameState>('setup');
@@ -130,11 +130,12 @@ const WordGuess: React.FC<WordGuessProps> = ({ onBack }) => {
             setGameState('won');
             addHistoryEntry('WORD_GUESS_WON', `Đoán đúng từ: "${wordToGuess.word}"`, {word: wordToGuess.word});
             recordActivity();
+            addXp(30);
         } else if (wrongGuesses >= MAX_WRONG_GUESSES) {
             setGameState('lost');
             addHistoryEntry('WORD_GUESS_LOST', `Đoán sai từ: "${wordToGuess.word}"`, {word: wordToGuess.word});
         }
-    }, [guessedLetters, wordToGuess, gameState, addHistoryEntry, wrongGuesses, recordActivity]);
+    }, [guessedLetters, wordToGuess, gameState, addHistoryEntry, wrongGuesses, recordActivity, addXp]);
     
     const handleThemeToggle = (theme: string) => {
         setSelectedThemes(prev => {

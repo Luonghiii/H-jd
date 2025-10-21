@@ -50,7 +50,7 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
     const [lastWord, setLastWord] = useState('');
 
     const { getAvailableThemes } = useVocabulary();
-    const { learningLanguage, recordActivity } = useSettings();
+    const { learningLanguage, recordActivity, addXp } = useSettings();
     const { addHistoryEntry } = useHistory();
     const timerRef = useRef<number | null>(null);
     const gameHistoryRef = useRef<HTMLDivElement>(null);
@@ -65,9 +65,15 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
     const handleGameOver = (reason: string, playerWon: boolean) => {
         setGameOverReason(reason);
         addHistoryEntry('VOCABULARY_DUEL_COMPLETED', reason);
-        if(playerWon) {
+        
+        const isTie = gameMode === 'longest' && playerScore === aiScore;
+        if (isTie) {
+            addXp(15); // Grant 15 XP for a tie
+        } else if (playerWon) {
+            addXp(50); // Grant 50 XP for a win
             recordActivity();
         }
+        
         setGameState('gameOver');
     }
 

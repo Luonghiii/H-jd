@@ -19,8 +19,7 @@ interface LuckyWheelProps {
 
 const LuckyWheel: React.FC<LuckyWheelProps> = ({ onBack }) => {
   const { words, getAvailableThemes } = useVocabulary();
-  // FIX: Replaced 'targetLanguage' with 'uiLanguage' and aliased to 'targetLanguage' for compatibility.
-  const { uiLanguage: targetLanguage, learningLanguage, stats, updateBestStreak, recordActivity } = useSettings();
+  const { uiLanguage: targetLanguage, learningLanguage, stats, updateBestStreak, recordActivity, addXp } = useSettings();
   const { openInspector } = useInspector();
   const { addHistoryEntry } = useHistory();
   
@@ -134,6 +133,7 @@ const LuckyWheel: React.FC<LuckyWheelProps> = ({ onBack }) => {
       }
       addHistoryEntry('LUCKY_WHEEL_CORRECT_ANSWER', `Trả lời đúng câu hỏi cho từ "${resultWord.word}".`, { word: resultWord.word });
       recordActivity();
+      addXp(10);
     } else {
       setCurrentStreak(0);
     }

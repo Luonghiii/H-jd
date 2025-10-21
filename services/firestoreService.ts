@@ -44,6 +44,7 @@ export interface PublicLeaderboardEntry {
     name: string;
     longestStreak: number;
     totalWords: number;
+    level: number;
     photoURL: string | null;
     selectedAchievement?: { id: string; level: number; } | null;
 }
@@ -52,6 +53,7 @@ export interface LeaderboardEntry {
     uid: string;
     name: string;
     value: number;
+    level: number;
     photoURL: string | null;
     selectedAchievement?: { id: string; level: number; } | null;
 }
@@ -117,6 +119,8 @@ export const createUserDocument = async (user: User): Promise<void> => {
                 lastActivityDate: '',
                 totalWords: initialGermanWords.length,
                 achievementCounters: {},
+                xp: 0,
+                level: 1,
             },
             aiTutorHistory: [],
             aiAssistantSessions: [],
@@ -131,6 +135,7 @@ export const createUserDocument = async (user: User): Promise<void> => {
             name: newDisplayName,
             longestStreak: 0,
             totalWords: initialGermanWords.length,
+            level: 1,
             photoURL: photoURL ?? null,
             selectedAchievement: null,
         };
@@ -293,6 +298,7 @@ export const updateUserLeaderboardEntry = async (uid: string): Promise<void> => 
         name: userData.displayName || '',
         longestStreak: userData.stats?.longestStreak || 0,
         totalWords: userData.stats?.totalWords || 0,
+        level: userData.stats?.level || 1,
         photoURL: userData.photoURL || null,
         selectedAchievement: userData.selectedAchievement || null,
       };
@@ -331,6 +337,7 @@ export const getLeaderboardData = async (statField: 'longestStreak' | 'totalWord
             uid: data.uid,
             name: data.name,
             value: data[statField] || 0,
+            level: data.level || 1,
             photoURL: data.photoURL,
             selectedAchievement: data.selectedAchievement,
         }));

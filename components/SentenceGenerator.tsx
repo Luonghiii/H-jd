@@ -13,7 +13,7 @@ interface SentenceGeneratorProps {
 
 const SentenceGenerator: React.FC<SentenceGeneratorProps> = ({ onBack }) => {
     const { words } = useVocabulary();
-    const { uiLanguage, learningLanguage, recordActivity } = useSettings();
+    const { uiLanguage, learningLanguage, recordActivity, addXp } = useSettings();
     const { addHistoryEntry } = useHistory();
     const [selectedWord, setSelectedWord] = useState<VocabularyWord | null>(null);
     const [generatedSentence, setGeneratedSentence] = useState('');
@@ -46,6 +46,7 @@ const SentenceGenerator: React.FC<SentenceGeneratorProps> = ({ onBack }) => {
             setGeneratedSentence(result.trim());
             setTranslation('');
         }
+        addXp(5); // Grant 5 XP for generating a sentence
         setIsLoading(false);
     };
     

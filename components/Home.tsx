@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useVocabulary } from '../hooks/useVocabulary';
 import { View, VocabularyWord, AiSuggestion } from '../types';
 import { PenSquare, Layers, Dices, ArrowRight, Book, Star, Gamepad2, Sparkles, Flame, RotateCcw, Calendar, BrainCircuit, Loader2 } from 'lucide-react';
-import { useSettings } from '../hooks/useSettings';
+import { useSettings, getXpForLevel } from '../hooks/useSettings';
 import { useInspector } from '../hooks/useInspector';
 import { useI18n } from '../hooks/useI18n';
 import { generateDailySuggestions } from '../services/geminiService';
@@ -52,7 +52,7 @@ const TimeIsWidgetClock: React.FC = () => {
 
 const QuickReview: React.FC = () => {
     const { words, updateWordSrs } = useVocabulary();
-    const { uiLanguage, recordActivity } = useSettings();
+    const { uiLanguage, recordActivity, addXp } = useSettings();
     const { t } = useI18n();
 
     const wordsToReview = useMemo(() => {
@@ -100,6 +100,10 @@ const QuickReview: React.FC = () => {
         
         updateWordSrs(currentWord.id, performance);
         
+        if (performance !== 'hard') {
+            addXp(2); // Grant 2 XP for reviewing a word (if not 'hard')
+        }
+
         if (currentIndex < sessionWords.length - 1) {
             setIsFlipped(false);
             setTimeout(() => setCurrentIndex(prev => prev + 1), 150);
@@ -276,6 +280,26 @@ const DailySuggestions: React.FC<{ setCurrentView: (view: View) => void; }> = ({
     );
 };
 
+const LevelProgress: React.FC<{ level: number; xp: number; }> = ({ level, xp }) => {
+    const xpForNextLevel = getXpForLevel(level);
+    const progress = xpForNextLevel > 0 ? (xp / xpForNextLevel) * 100 : 0;
+
+    return (
+        <div className="bg-white/50 border border-white/30 rounded-2xl p-4 neu-light">
+            <div className="flex justify-between items-center mb-1">
+                <span className="font-bold text-indigo-600">Cấp {level}</span>
+                <span className="text-sm font-medium text-slate-600">{xp} / {xpForNextLevel} XP</span>
+            </div>
+            <div className="w-full bg-slate-200 rounded-full h-4 neu-inset-light overflow-hidden">
+                <div 
+                    className="h-4 rounded-full animated-gradient-bar" 
+                    style={{ width: `${progress}%` }}
+                />
+            </div>
+        </div>
+    );
+};
+
 
 interface HomeProps {
   setCurrentView: (view: View) => void;
@@ -321,6 +345,8 @@ const Home: React.FC<HomeProps> = ({ setCurrentView }) => {
         </p>
         <TimeIsWidgetClock />
       </div>
+
+      <LevelProgress level={stats.level} xp={stats.xp} />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white/50 p-5 rounded-2xl flex items-center gap-4 border border-white/30 neu-light">

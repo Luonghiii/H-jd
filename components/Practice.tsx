@@ -21,7 +21,7 @@ interface PracticeProps {
 
 const Practice: React.FC<PracticeProps> = ({ onBack }) => {
   const { words, getAvailableThemes } = useVocabulary();
-  const { uiLanguage, recordActivity } = useSettings();
+  const { uiLanguage, recordActivity, addXp } = useSettings();
   const { openInspector } = useInspector();
   const { addHistoryEntry } = useHistory();
   const { logActivity } = useActivityTracker();
@@ -116,6 +116,10 @@ const Practice: React.FC<PracticeProps> = ({ onBack }) => {
     const currentWord = practiceWords[currentWordIndex];
     const correctAnswer = currentWord.translation[uiLanguage];
     const isCorrect = userAnswer.trim().toLowerCase() === correctAnswer.toLowerCase();
+    
+    if (isCorrect) {
+        addXp(3); // Grant 3 XP for a correct answer
+    }
 
     logActivity(
         'PRACTICE_SESSION_COMPLETED', // Reusing type, details are what matters
@@ -134,6 +138,7 @@ const Practice: React.FC<PracticeProps> = ({ onBack }) => {
         } else {
             recordActivity();
             addHistoryEntry('PRACTICE_SESSION_COMPLETED', `Hoàn thành phiên luyện tập với ${practiceWords.length} từ.`, { count: practiceWords.length });
+            addXp(15); // Bonus for completing the session
             setView('results');
         }
     }, 1500);

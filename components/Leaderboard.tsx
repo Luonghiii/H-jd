@@ -127,13 +127,16 @@ const Leaderboard: React.FC = () => {
                                             <UserIcon className="w-6 h-6 text-gray-400" />
                                         </div>
                                     )}
-                                    <div className="flex items-center gap-2 min-w-0">
-                                        <p className={`font-semibold truncate ${isCurrentUser ? 'text-white' : 'text-gray-200'}`}>{displayName}</p>
-                                        {achData && entry.selectedAchievement && (
-                                            <div title={`${achData.name} (Cấp ${entry.selectedAchievement.level})`}>
-                                                <achData.icon className={`w-5 h-5 ${achStyle.icon} flex-shrink-0`} />
-                                            </div>
-                                        )}
+                                    <div className="min-w-0">
+                                        <div className="flex items-center gap-2">
+                                            <p className={`font-semibold truncate ${isCurrentUser ? 'text-white' : 'text-gray-200'}`}>{displayName}</p>
+                                            {achData && entry.selectedAchievement && (
+                                                <div title={`${achData.name} (Cấp ${entry.selectedAchievement.level})`}>
+                                                    <achData.icon className={`w-5 h-5 ${achStyle.icon} flex-shrink-0`} />
+                                                </div>
+                                            )}
+                                        </div>
+                                        <p className="text-xs text-indigo-300 font-medium">Cấp {entry.level}</p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2 font-bold text-lg text-cyan-300 flex-shrink-0">

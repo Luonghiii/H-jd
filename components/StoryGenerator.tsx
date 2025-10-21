@@ -15,7 +15,7 @@ interface StoryGeneratorProps {
 
 const StoryGenerator: React.FC<StoryGeneratorProps> = ({ onBack }) => {
   const { words } = useVocabulary();
-  const { uiLanguage, learningLanguage, recordActivity, incrementAchievementCounter } = useSettings();
+  const { uiLanguage, learningLanguage, recordActivity, incrementAchievementCounter, addXp } = useSettings();
   const { addHistoryEntry } = useHistory();
   const { play, isPlaying } = useAudioPlayer();
 
@@ -67,6 +67,7 @@ const StoryGenerator: React.FC<StoryGeneratorProps> = ({ onBack }) => {
     addHistoryEntry('STORY_GENERATED', `Đã tạo truyện với ${selectedWords.length} từ.`, { wordCount: selectedWords.length });
     incrementAchievementCounter('STORY_GENERATED');
     recordActivity();
+    addXp(20); // Grant 20 XP for generating a story
     setIsLoading(false);
   };
 

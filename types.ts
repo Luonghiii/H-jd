@@ -129,7 +129,6 @@ export interface UserStats {
     luckyWheelBestStreak: number;
     currentStreak: number;
     longestStreak: number;
-
     lastActivityDate: string; // YYYY-MM-DD
     wordOfTheDay?: {
         wordId: string;
@@ -137,6 +136,8 @@ export interface UserStats {
     },
     totalWords: number;
     achievementCounters?: { [key in HistoryEntry['type']]?: number };
+    xp: number;
+    level: number;
 }
 
 export interface AiLesson {

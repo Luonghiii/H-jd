@@ -17,7 +17,7 @@ const PAIR_COUNTS = [5, 8, 10];
 
 const WordLink: React.FC<WordLinkProps> = ({ onBack }) => {
     const { words, getAvailableThemes } = useVocabulary();
-    const { uiLanguage, recordActivity } = useSettings();
+    const { uiLanguage, recordActivity, addXp } = useSettings();
     const { addHistoryEntry } = useHistory();
     
     const [gameState, setGameState] = useState<GameState>('setup');
@@ -118,9 +118,10 @@ const WordLink: React.FC<WordLinkProps> = ({ onBack }) => {
         if (gameState === 'playing' && wordItems.length > 0 && correctPairs.length === wordItems.length) {
             addHistoryEntry('WORD_LINK_COMPLETED', `Hoàn thành game Nối từ với ${score} điểm.`);
             recordActivity();
+            addXp(score * 3); // 3 XP per correct pair
             setGameState('results');
         }
-    }, [correctPairs, wordItems.length, gameState, score, addHistoryEntry, recordActivity]);
+    }, [correctPairs, wordItems.length, gameState, score, addHistoryEntry, recordActivity, addXp]);
 
     if (gameState === 'setup') {
         const isStartDisabled = wordsForGame.length < pairCount;

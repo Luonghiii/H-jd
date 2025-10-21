@@ -5,6 +5,7 @@ import { onUserDataSnapshot, updateUserData, updateUserLeaderboardEntry } from '
 import { setApiKeys } from '../services/geminiService';
 import { doc, updateDoc, increment } from 'firebase/firestore';
 import { db } from '../services/firebase';
+import eventBus from '../utils/eventBus';
 
 export type BackgroundSetting = {
   type: 'image' | 'gradient';
@@ -22,6 +23,9 @@ interface UserProfile {
     photoURL: string | null;
     selectedAchievement?: { id: string; level: number; } | null;
 }
+
+export const getXpForLevel = (level: number) => 50 * level * level + 50 * level;
+
 
 interface SettingsContextType {
   uiLanguage: TargetLanguage;
@@ -56,6 +60,7 @@ interface SettingsContextType {
   incrementAchievementCounter: (type: HistoryEntry['type']) => Promise<void>;
   updateSelectedAchievement: (achievement: { id: string; level: number; } | null) => Promise<void>;
   achievements: { [key: string]: AchievementProgress };
+  addXp: (amount: number) => Promise<void>;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -81,6 +86,8 @@ const defaultState = {
       lastActivityDate: '',
       totalWords: 0,
       achievementCounters: {},
+      xp: 0,
+      level: 1,
     } as UserStats,
     aiTutorHistory: [] as ConversationSession[],
     profile: {
@@ -202,6 +209,35 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     
     await updateUserLeaderboardEntry(currentUser.uid);
     
+  }, [currentUser, appState.stats]);
+
+  const addXp = useCallback(async (amount: number) => {
+    if (!currentUser) return;
+    
+    let currentXp = appState.stats.xp || 0;
+    let currentLevel = appState.stats.level || 1;
+    
+    currentXp += amount;
+    
+    let xpForNextLevel = getXpForLevel(currentLevel);
+    let levelUp = false;
+
+    while(currentXp >= xpForNextLevel) {
+        currentXp -= xpForNextLevel;
+        currentLevel++;
+        xpForNextLevel = getXpForLevel(currentLevel);
+        levelUp = true;
+    }
+
+    await updateUserData(currentUser.uid, {
+        'stats.xp': currentXp,
+        'stats.level': currentLevel,
+    });
+
+    if (levelUp) {
+        eventBus.dispatch('notification', { type: 'success', message: `Chúc mừng! Bạn đã lên Cấp ${currentLevel}!` });
+    }
+
   }, [currentUser, appState.stats]);
 
 
@@ -362,6 +398,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     incrementAchievementCounter,
     updateSelectedAchievement,
     achievements: appState.achievements,
+    addXp,
   };
 
   return (
