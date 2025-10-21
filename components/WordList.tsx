@@ -111,7 +111,7 @@ interface WordListProps {
 }
 
 const WordList: React.FC<WordListProps> = ({ onBack }) => {
-  const { words, lastDeletedWord, undoDelete, addMultipleWords } = useVocabulary();
+  const { words, lastDeletion, undoLastDeletion, addMultipleWords, deleteAllWords } = useVocabulary();
   const { uiLanguage } = useSettings();
   const { t } = useI18n();
   const [searchTerm, setSearchTerm] = useState('');
@@ -190,17 +190,17 @@ const WordList: React.FC<WordListProps> = ({ onBack }) => {
     } else { // csv
       const headers = ['word', 'translation_vi', 'translation_en', 'theme', 'isStarred', 'createdAt', 'imageUrl'];
       const rows = words.map(w => [
-        `"${w.word}"`,
-        `"${w.translation.vietnamese}"`,
-        `"${w.translation.english}"`,
-        `"${w.theme || ''}"`,
+        `"${w.word.replace(/"/g, '""')}"`,
+        `"${w.translation.vietnamese.replace(/"/g, '""')}"`,
+        `"${w.translation.english.replace(/"/g, '""')}"`,
+        `"${(w.theme || '').replace(/"/g, '""')}"`,
         w.isStarred,
         new Date(w.createdAt).toISOString(),
-        `"${w.imageUrl || ''}"`
+        `"${(w.imageUrl || '').replace(/"/g, '""')}"`
       ].join(','));
       content = [headers.join(','), ...rows].join('\n');
       filename = 'vocabulary.csv';
-      mimeType = 'text/csv';
+      mimeType = 'text/csv;charset=utf-8;';
     }
 
     const blob = new Blob([content], { type: mimeType });
@@ -233,16 +233,37 @@ const WordList: React.FC<WordListProps> = ({ onBack }) => {
             theme: item.theme || 'Imported',
           }));
         } else if (file.name.endsWith('.csv')) {
-            const lines = content.split('\n').slice(1); // Skip header
-            wordsToImport = lines.map(line => {
-                const values = line.split(',');
+            const lines = content.split(/\r?\n/).filter(line => line.trim() !== '');
+            if (lines.length < 2) throw new Error("CSV file is empty or has no data.");
+            
+            // This regex splits on commas that are not inside quotes.
+            const csvRegex = /,(?=(?:(?:[^"]*"){2})*[^"]*$)/;
+
+            const header = lines[0].split(csvRegex).map(h => h.trim().replace(/^"|"$/g, '').toLowerCase());
+            const dataRows = lines.slice(1);
+
+            const wordIndex = header.indexOf('word');
+            const viIndex = header.indexOf('translation_vi');
+            const enIndex = header.indexOf('translation_en');
+            const themeIndex = header.indexOf('theme');
+
+            if (wordIndex === -1) {
+                throw new Error("CSV file must contain a 'word' column.");
+            }
+
+            wordsToImport = dataRows.map(line => {
+                const values = line.split(csvRegex).map(v => v.trim().replace(/^"|"$/g, '').replace(/""/g, '"'));
+                
+                const word = values[wordIndex];
+                if (!word) return null;
+
                 return {
-                    word: values[0]?.replace(/"/g, ''),
-                    translation_vi: values[1]?.replace(/"/g, ''),
-                    translation_en: values[2]?.replace(/"/g, ''),
-                    theme: values[3]?.replace(/"/g, '') || 'Imported',
+                    word: word,
+                    translation_vi: viIndex > -1 ? (values[viIndex] || '') : '',
+                    translation_en: enIndex > -1 ? (values[enIndex] || '') : '',
+                    theme: themeIndex > -1 ? (values[themeIndex] || 'Imported') : 'Imported',
                 };
-            }).filter(w => w.word); // Filter out empty lines
+            }).filter((w): w is GeneratedWord => w !== null);
         } else {
             throw new Error("Unsupported file format.");
         }
@@ -250,11 +271,10 @@ const WordList: React.FC<WordListProps> = ({ onBack }) => {
         const addedCount = await addMultipleWords(wordsToImport);
         eventBus.dispatch('notification', { type: 'success', message: `Đã nhập thành công ${addedCount} từ mới!` });
 
-      } catch (error) {
+      } catch (error: any) {
         console.error("Import failed:", error);
-        eventBus.dispatch('notification', { type: 'error', message: `Nhập file thất bại. Vui lòng kiểm tra định dạng file.` });
+        eventBus.dispatch('notification', { type: 'error', message: `Nhập file thất bại: ${error.message}` });
       } finally {
-        // Reset file input
         if (importFileRef.current) {
             importFileRef.current.value = '';
         }
@@ -359,17 +379,32 @@ const WordList: React.FC<WordListProps> = ({ onBack }) => {
         )}
       </div>
 
-      {lastDeletedWord && (
+      {lastDeletion && (
         <div className="bg-slate-700 text-white rounded-xl shadow-lg flex items-center justify-between p-3 animate-fade-in-up">
-            <span>{t('word_list.deleted_word', { word: lastDeletedWord.word })}</span>
+            <span>
+                {Array.isArray(lastDeletion)
+                    ? `Đã xóa ${lastDeletion.length} từ.`
+                    : t('word_list.deleted_word', { word: (lastDeletion as VocabularyWord).word })
+                }
+            </span>
             <button
-                onClick={undoDelete}
+                onClick={undoLastDeletion}
                 className="font-semibold text-indigo-300 hover:underline px-3 py-1 rounded-md hover:bg-slate-600/50"
             >
                 {t('word_list.undo')}
             </button>
         </div>
       )}
+      
+      <div className="pt-4 mt-4 border-t border-slate-700/50">
+        <button 
+            onClick={deleteAllWords} 
+            disabled={words.length === 0}
+            className="w-full flex items-center justify-center gap-2 text-sm px-4 py-2 bg-red-900/70 hover:bg-red-800/80 border border-red-700/50 rounded-lg text-red-200 disabled:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"> 
+            <Trash2 className="w-4 h-4" /> Xóa toàn bộ từ vựng ({words.length})
+        </button>
+        <p className="text-xs text-center text-gray-500 mt-2">Hành động này có thể hoàn tác trong vài giây.</p>
+      </div>
     </div>
   );
 };

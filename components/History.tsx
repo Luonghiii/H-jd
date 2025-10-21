@@ -9,6 +9,7 @@ const ICONS: { [key in HistoryEntry['type']]: React.ElementType } = {
     LOGIN: LogIn,
     LOGOUT: LogOut,
     WORDS_ADDED: PlusSquare,
+    WORDS_DELETED: Trash2,
     STORY_GENERATED: BookOpen,
     SENTENCE_GENERATED: Wand2,
     IMAGE_OBJECT_IDENTIFIED: ImageIcon,
@@ -145,8 +146,8 @@ const History: React.FC = () => {
         if (entry.type === 'QUIZ_COMPLETED' && entry.payload.score) {
             return <span className="text-sm text-indigo-400">({entry.payload.score.correct}/{entry.payload.score.total})</span>
         }
-        if ((entry.type === 'WORDS_ADDED' || entry.type === 'PRACTICE_SESSION_COMPLETED' || entry.type === 'FLASHCARDS_SESSION_STARTED') && entry.payload.count) {
-             return <span className="text-sm text-gray-400">({entry.payload.count} từ)</span>
+        if ((entry.type === 'WORDS_ADDED' || entry.type === 'PRACTICE_SESSION_COMPLETED' || entry.type === 'FLASHCARDS_SESSION_STARTED' || entry.type === 'WORDS_DELETED') && entry.payload.wordCount) {
+             return <span className="text-sm text-gray-400">({entry.payload.wordCount} từ)</span>
         }
         if (entry.type === 'MEMORY_MATCH_WON' && entry.payload.moves) {
             return <span className="text-sm text-gray-400">({entry.payload.moves} lượt)</span>

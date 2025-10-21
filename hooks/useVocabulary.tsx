@@ -91,12 +91,13 @@ interface VocabularyContextType {
   addWord: (word: string, translation: string, language: TargetLanguage, theme?: string, imageUrl?: string) => Promise<boolean>;
   addMultipleWords: (newWords: GeneratedWord[]) => Promise<number>;
   deleteWord: (id: string) => Promise<void>;
+  deleteAllWords: () => Promise<void>;
   updateWord: (id: string, updates: Partial<VocabularyWord>) => Promise<void>;
   updateWordImage: (wordId: string, imageUrl: string | null) => Promise<void>;
   getAvailableThemes: () => string[];
   toggleWordStar: (id: string) => Promise<void>;
-  lastDeletedWord: VocabularyWord | null;
-  undoDelete: () => Promise<void>;
+  lastDeletion: VocabularyWord | VocabularyWord[] | null;
+  undoLastDeletion: () => Promise<void>;
   updateWordSpeechAudio: (wordId: string, audioB64: string) => Promise<void>;
   updateWordSrs: (wordId: string, performance: 'hard' | 'good' | 'easy') => Promise<void>;
 }
@@ -109,7 +110,7 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
     const { addHistoryEntry } = useHistory();
     const [words, setWords] = useState<VocabularyWord[]>([]);
     const [isWordsLoading, setIsWordsLoading] = useState(true);
-    const [lastDeletedWord, setLastDeletedWord] = useState<VocabularyWord | null>(null);
+    const [lastDeletion, setLastDeletion] = useState<VocabularyWord | VocabularyWord[] | null>(null);
     const undoTimeoutRef = useRef<number | null>(null);
 
     useEffect(() => {
@@ -209,27 +210,52 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
 
         const wordToDelete = words.find(w => w.id === id);
         if (wordToDelete) {
-            setLastDeletedWord(wordToDelete);
+            setLastDeletion(wordToDelete);
             addHistoryEntry('WORD_DELETED', `Đã xóa từ: "${wordToDelete.word}".`, { word: wordToDelete.word });
             if (undoTimeoutRef.current) {
                 clearTimeout(undoTimeoutRef.current);
             }
-            undoTimeoutRef.current = window.setTimeout(() => setLastDeletedWord(null), 5000);
+            undoTimeoutRef.current = window.setTimeout(() => setLastDeletion(null), 7000);
         }
 
         const newWords = words.filter(w => w.id !== id);
         await updateUserData(currentUser.uid, { [`words.${learningLanguage}`]: newWords });
     }, [currentUser, words, learningLanguage, addHistoryEntry]);
+    
+    const deleteAllWords = useCallback(async (): Promise<void> => {
+        if (!currentUser || words.length === 0) return;
 
-    const undoDelete = useCallback(async () => {
-        if (!currentUser || !lastDeletedWord) return;
-        const newWords = [...words, lastDeletedWord].sort((a,b) => b.createdAt - a.createdAt);
-        await updateUserData(currentUser.uid, { [`words.${learningLanguage}`]: newWords });
-        setLastDeletedWord(null);
+        const wordsToDelete = [...words];
+        setLastDeletion(wordsToDelete);
+        
+        addHistoryEntry('WORDS_DELETED', `Đã xóa toàn bộ ${wordsToDelete.length} từ.`, { wordCount: wordsToDelete.length });
+        
         if (undoTimeoutRef.current) {
             clearTimeout(undoTimeoutRef.current);
         }
-    }, [currentUser, words, learningLanguage, lastDeletedWord]);
+        undoTimeoutRef.current = window.setTimeout(() => setLastDeletion(null), 7000);
+
+        await updateUserData(currentUser.uid, { [`words.${learningLanguage}`]: [] });
+    }, [currentUser, words, learningLanguage, addHistoryEntry]);
+
+    const undoLastDeletion = useCallback(async () => {
+        if (!currentUser || !lastDeletion) return;
+        
+        let newWords;
+        if (Array.isArray(lastDeletion)) {
+            // Batch undo from deleteAllWords. The `lastDeletion` is the full original list.
+            newWords = lastDeletion;
+        } else {
+            // Single word undo. Add the single word back to the current list.
+            newWords = [...words, lastDeletion].sort((a,b) => b.createdAt - a.createdAt);
+        }
+        
+        await updateUserData(currentUser.uid, { [`words.${learningLanguage}`]: newWords });
+        setLastDeletion(null);
+        if (undoTimeoutRef.current) {
+            clearTimeout(undoTimeoutRef.current);
+        }
+    }, [currentUser, words, learningLanguage, lastDeletion]);
 
 
     const updateWord = useCallback(async (id: string, updates: Partial<VocabularyWord>): Promise<void> => {
@@ -290,12 +316,13 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
         addWord,
         addMultipleWords,
         deleteWord,
+        deleteAllWords,
         updateWord,
         updateWordImage,
         getAvailableThemes,
         toggleWordStar,
-        lastDeletedWord,
-        undoDelete,
+        lastDeletion,
+        undoLastDeletion,
         updateWordSpeechAudio,
         updateWordSrs
     };
