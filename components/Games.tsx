@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-// FIX: Changed import for Quiz component from default to named.
 import { Quiz } from './Quiz';
 import LuckyWheel from './LuckyWheel';
 import MemoryMatch from './Minigames';

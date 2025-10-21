@@ -3,7 +3,6 @@ import { useHistory } from '../hooks/useHistory';
 import { HistoryEntry } from '../types';
 import { useInspector } from '../hooks/useInspector';
 import { useVocabulary } from '../hooks/useVocabulary';
-// FIX: Import 'Newspaper' icon for SMART_READING_COMPLETED
 import { LogIn, LogOut, PlusSquare, BookOpen, CheckSquare, Award, XCircle, Trash2, Link, Puzzle, Shuffle, BrainCircuit, Volume2, Wand2, Image as ImageIcon, Search, PenSquare, Layers, ChevronDown, Dices, RefreshCw, Library, MessageCircle, Share2, Swords, Bookmark, Newspaper } from 'lucide-react';
 
 const ICONS: { [key in HistoryEntry['type']]: React.ElementType } = {
@@ -34,7 +33,6 @@ const ICONS: { [key in HistoryEntry['type']]: React.ElementType } = {
     WORD_DELETED: Trash2,
     COMMUNITY_DECK_ADDED: PlusSquare,
     VOCABULARY_DUEL_COMPLETED: Swords,
-    // FIX: Add missing property for SMART_READING_COMPLETED
     SMART_READING_COMPLETED: Newspaper,
 };
 

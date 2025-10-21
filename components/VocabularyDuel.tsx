@@ -52,7 +52,6 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
     const [aiGameOverReason, setAiGameOverReason] = useState('');
     const gameOverReasonRef = useRef(aiGameOverReason);
 
-    // FIX: Define handleStartAiGame to correctly initiate the single-player game.
     const handleStartAiGame = useCallback(() => {
         setAiGameHistory([]);
         setPlayerInput('');

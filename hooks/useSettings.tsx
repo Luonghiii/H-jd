@@ -3,7 +3,6 @@ import { TargetLanguage, LearningLanguage, ConversationSession, UserStats, Histo
 import { useAuth } from './useAuth';
 import { onUserDataSnapshot, updateUserData, updateUserLeaderboardEntry } from '../services/firestoreService';
 import { setApiKeys } from '../services/geminiService';
-// FIX: Import 'DocumentData' from 'firebase/firestore' to fix type error.
 import { doc, updateDoc, increment, DocumentData } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import eventBus from '../utils/eventBus';

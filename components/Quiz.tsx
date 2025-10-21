@@ -28,7 +28,6 @@ interface QuizProps {
   onBack: () => void;
 }
 
-// FIX: Changed to a named export to resolve module resolution error.
 export const Quiz: React.FC<QuizProps> = ({ onBack }) => {
   const { words, getAvailableThemes } = useVocabulary();
   const { uiLanguage, learningLanguage, addXp } = useSettings();
@@ -65,7 +64,7 @@ export const Quiz: React.FC<QuizProps> = ({ onBack }) => {
   const handleThemeToggle = (theme: string) => {
     setSelectedThemes(prev => {
         const newSet = new Set(prev);
-        if (theme === 'all')) return new Set(['all']);
+        if (theme === 'all') return new Set(['all']);
         newSet.delete('all');
         if (newSet.has(theme)) newSet.delete(theme);
         else newSet.add(theme);
@@ -305,4 +304,86 @@ export const Quiz: React.FC<QuizProps> = ({ onBack }) => {
         <div>
           <h3 className="font-semibold text-white mb-2">3. Chọn số câu hỏi</h3>
           <div className="flex justify-center gap-2">
-            {[5, 1...
+            {[5, 10, 15, 20].map(n => (
+              <button key={n} onClick={() => setNumQuestions(n)} className={`px-4 py-2 text-sm rounded-xl transition-colors ${numQuestions === n ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-gray-200 hover:bg-slate-600'}`}>{n} câu</button>
+            ))}
+          </div>
+        </div>
+        
+        <button onClick={handleStartQuiz} disabled={wordsForQuiz.length === 0} className="w-full flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98] disabled:bg-indigo-400 disabled:cursor-not-allowed">
+          Bắt đầu
+        </button>
+        {wordsForQuiz.length < 1 && <p className="text-center text-sm text-amber-400">Vui lòng chọn ít nhất 1 từ để tạo bài trắc nghiệm.</p>}
+      </div>
+      <AiWordSelectorModal 
+        isOpen={isAiModalOpen}
+        onClose={() => setIsAiModalOpen(false)}
+        availableWords={themeFilteredWords}
+        onConfirm={handleAiSelect}
+      />
+    </>
+  );
+
+  if (view === 'loading') {
+    return (
+      <div className="text-center p-10">
+        <Loader2 className="w-10 h-10 animate-spin mx-auto text-indigo-400" />
+        <p className="mt-4 text-white">AI đang tạo câu hỏi...</p>
+      </div>
+    );
+  }
+
+  if (view === 'results') {
+    return <ResultsScreen />;
+  }
+
+  if (view === 'playing' && quizQuestions.length > 0) {
+    const currentQuestion = quizQuestions[currentQuestionIndex];
+    
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <div>
+          <div className="flex justify-between items-center mb-2">
+            <h2 className="text-lg font-bold text-white">Câu hỏi {currentQuestionIndex + 1} / {quizQuestions.length}</h2>
+            <button onClick={onBack} className="text-sm text-indigo-400 hover:underline">Thoát</button>
+          </div>
+          <div className="w-full bg-slate-700 rounded-full h-2.5">
+            <div className="bg-indigo-500 h-2.5 rounded-full" style={{ width: `${((currentQuestionIndex + 1) / quizQuestions.length) * 100}%` }}></div>
+          </div>
+        </div>
+        <div className="text-center p-6 bg-slate-800/50 rounded-2xl">
+          <p className="text-3xl font-bold text-white">{currentQuestion.question}</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {currentQuestion.options.map((option, i) => {
+            const isCorrect = option === currentQuestion.correctAnswer;
+            const isSelected = option === selectedAnswer;
+            let buttonClass = 'bg-slate-700/80 hover:bg-slate-700 text-white';
+
+            if (selectedAnswer) {
+              if (isCorrect) {
+                buttonClass = 'bg-green-500 ring-2 ring-green-400 text-white scale-105';
+              } else if (isSelected && !isCorrect) {
+                buttonClass = 'bg-red-500 ring-2 ring-red-400 text-white';
+              } else {
+                buttonClass = 'bg-slate-700/50 opacity-60';
+              }
+            }
+            return (
+              <button key={i} onClick={() => handleAnswerSelect(option)} disabled={!!selectedAnswer} className={`w-full text-center py-3 px-4 rounded-2xl font-semibold text-lg transition-all duration-300 ${buttonClass}`}>
+                {option}
+              </button>
+            );
+          })}
+        </div>
+        {selectedAnswer && (
+          <button onClick={handleNextQuestion} className="w-full mt-4 flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98]">
+            {currentQuestionIndex >= quizQuestions.length - 1 ? 'Xem kết quả' : 'Câu tiếp theo'}
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  return null;
+};
