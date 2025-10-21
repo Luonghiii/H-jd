@@ -26,6 +26,7 @@ import eventBus from '../utils/eventBus';
 import { defaultGermanWords } from '../data/german_words';
 import { defaultEnglishWords } from '../data/english_words';
 import { defaultChineseWords } from '../data/chinese_words';
+import { defaultCommunityDecks } from '../data/community_decks';
 
 // =====================
 // Types
@@ -205,10 +206,31 @@ export const getApprovedCommunityDecks = async (language: LearningLanguage): Pro
         querySnapshot.forEach((doc) => {
             decks.push({ id: doc.id, ...doc.data() } as CommunityDeck);
         });
-        return decks;
+        
+        // FALLBACK & MERGE: Due to Firestore security rules potentially blocking cross-user reads,
+        // we ensure the default system decks are always available.
+        const systemDecks = defaultCommunityDecks
+            .filter(deck => deck.language === language && deck.status === 'approved')
+            .map(deck => ({ ...deck, id: `system-${deck.createdAt}` })); // Add a stable pseudo-id
+
+        // Merge and remove duplicates, giving preference to live Firestore data
+        const deckMap = new Map<string, CommunityDeck>();
+        [...systemDecks, ...decks].forEach(deck => {
+            // A simple way to dedupe based on title, assuming system decks have unique titles
+            if (!deckMap.has(deck.title)) {
+                deckMap.set(deck.title, deck);
+            }
+        });
+
+        return Array.from(deckMap.values()).sort((a, b) => b.createdAt - a.createdAt);
+
     } catch (error) {
-        console.error("Error fetching community decks:", error);
-        throw new Error("Could not fetch community decks.");
+        console.error("Error fetching community decks, falling back to defaults:", error);
+        // If the query fails (e.g., due to security rules), return only the default system decks.
+        return defaultCommunityDecks
+            .filter(deck => deck.language === language && deck.status === 'approved')
+            .map(deck => ({ ...deck, id: `system-${deck.createdAt}` }))
+            .sort((a, b) => b.createdAt - a.createdAt);
     }
 };
 
