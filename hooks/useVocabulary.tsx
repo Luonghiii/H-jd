@@ -3,7 +3,15 @@ import { VocabularyWord, TargetLanguage, LearningLanguage, GeneratedWord } from 
 import { translateWord } from '../services/geminiService';
 import { useSettings } from './useSettings';
 import { useAuth } from './useAuth';
-import { onUserDataSnapshot, updateUserData } from '../services/firestoreService';
+import { 
+  onWordsSnapshot,
+  addWordDoc,
+  batchAddWordDocs,
+  deleteWordDoc,
+  deleteAllWordsForLanguage,
+  updateWordDoc,
+  updateUserData,
+} from '../services/firestoreService';
 import eventBus from '../utils/eventBus';
 import { useHistory } from './useHistory';
 
@@ -121,12 +129,8 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
         }
 
         setIsWordsLoading(true);
-        const unsubscribe = onUserDataSnapshot(currentUser.uid, (data) => {
-            if (data && data.words && data.words[learningLanguage]) {
-                setWords(data.words[learningLanguage]);
-            } else {
-                setWords([]);
-            }
+        const unsubscribe = onWordsSnapshot(currentUser.uid, learningLanguage, (fetchedWords) => {
+            setWords(fetchedWords);
             setIsWordsLoading(false);
         });
 
@@ -162,6 +166,7 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
             imageUrl,
             srsLevel: 0,
             nextReview: Date.now(),
+            language: learningLanguage,
         };
 
         if (language === 'vietnamese' && !newWord.translation.english) {
@@ -170,8 +175,7 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
             newWord.translation.vietnamese = await translateWord(trimmedWord, 'Vietnamese', learningLanguage);
         }
         
-        const newWords = [...words, newWord];
-        await updateUserData(currentUser.uid, { [`words.${learningLanguage}`]: newWords });
+        await addWordDoc(currentUser.uid, newWord);
         await addXp(10); // Grant 10 XP for adding a word
         return true;
     }, [currentUser, words, learningLanguage, addXp]);
@@ -197,10 +201,10 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
             isStarred: false,
             srsLevel: 0,
             nextReview: Date.now(),
+            language: learningLanguage,
         }));
 
-        const updatedWords = [...words, ...vocabularyToAdd];
-        await updateUserData(currentUser.uid, { [`words.${learningLanguage}`]: updatedWords });
+        await batchAddWordDocs(currentUser.uid, vocabularyToAdd);
         await addXp(wordsToAdd.length * 10); // Grant 10 XP per word
         return wordsToAdd.length;
     }, [currentUser, words, learningLanguage, addXp]);
@@ -218,9 +222,8 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
             undoTimeoutRef.current = window.setTimeout(() => setLastDeletion(null), 7000);
         }
 
-        const newWords = words.filter(w => w.id !== id);
-        await updateUserData(currentUser.uid, { [`words.${learningLanguage}`]: newWords });
-    }, [currentUser, words, learningLanguage, addHistoryEntry]);
+        await deleteWordDoc(currentUser.uid, id);
+    }, [currentUser, words, addHistoryEntry]);
     
     const deleteAllWords = useCallback(async (): Promise<void> => {
         if (!currentUser || words.length === 0) return;
@@ -235,34 +238,29 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
         }
         undoTimeoutRef.current = window.setTimeout(() => setLastDeletion(null), 7000);
 
-        await updateUserData(currentUser.uid, { [`words.${learningLanguage}`]: [] });
+        await deleteAllWordsForLanguage(currentUser.uid, learningLanguage);
     }, [currentUser, words, learningLanguage, addHistoryEntry]);
 
     const undoLastDeletion = useCallback(async () => {
         if (!currentUser || !lastDeletion) return;
         
-        let newWords;
         if (Array.isArray(lastDeletion)) {
-            // Batch undo from deleteAllWords. The `lastDeletion` is the full original list.
-            newWords = lastDeletion;
+            await batchAddWordDocs(currentUser.uid, lastDeletion);
         } else {
-            // Single word undo. Add the single word back to the current list.
-            newWords = [...words, lastDeletion].sort((a,b) => b.createdAt - a.createdAt);
+            await addWordDoc(currentUser.uid, lastDeletion);
         }
         
-        await updateUserData(currentUser.uid, { [`words.${learningLanguage}`]: newWords });
         setLastDeletion(null);
         if (undoTimeoutRef.current) {
             clearTimeout(undoTimeoutRef.current);
         }
-    }, [currentUser, words, learningLanguage, lastDeletion]);
+    }, [currentUser, lastDeletion]);
 
 
     const updateWord = useCallback(async (id: string, updates: Partial<VocabularyWord>): Promise<void> => {
         if (!currentUser) return;
-        const newWords = words.map(w => (w.id === id ? { ...w, ...updates } : w));
-        await updateUserData(currentUser.uid, { [`words.${learningLanguage}`]: newWords });
-    }, [currentUser, words, learningLanguage]);
+        await updateWordDoc(currentUser.uid, id, updates);
+    }, [currentUser]);
 
     const updateWordImage = (wordId: string, imageUrl: string | null) => updateWord(wordId, { imageUrl: imageUrl ?? undefined });
     const updateWordSpeechAudio = (wordId: string, audioB64: string) => updateWord(wordId, { speechAudio: audioB64 });
@@ -301,14 +299,8 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
         
         const { newSrsLevel, nextReviewDate } = calculateSrs(wordToUpdate.srsLevel, performanceMap[performance]);
 
-        const newWords = words.map(w => 
-            w.id === wordId 
-            ? { ...w, srsLevel: newSrsLevel, nextReview: nextReviewDate } 
-            : w
-        );
-
-        await updateUserData(currentUser.uid, { [`words.${learningLanguage}`]: newWords });
-    }, [currentUser, words, learningLanguage]);
+        await updateWordDoc(currentUser.uid, wordId, { srsLevel: newSrsLevel, nextReview: nextReviewDate });
+    }, [currentUser, words]);
 
     const value: VocabularyContextType = {
         words,

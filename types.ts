@@ -22,6 +22,7 @@ export interface VocabularyWord {
   // Spaced Repetition System fields
   srsLevel: number; // 0 for new, increases with correct reviews
   nextReview: number; // Timestamp for the next review
+  language: LearningLanguage; // To query words by language in the subcollection
 }
 
 export interface GeneratedWord {
@@ -57,7 +58,7 @@ export interface UserDoc {
     username?: string;
     dob?: string; // Date of Birth YYYY-MM-DD
     createdAt: any;
-    words: Record<string, VocabularyWord[]>;
+    // words: Record<string, VocabularyWord[]>; // This is removed
     settings: any;
     stats: UserStats;
     aiTutorHistory: ConversationSession[];

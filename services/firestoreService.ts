@@ -18,7 +18,9 @@ import {
   where,
   addDoc,
   startAfter,
-  QueryDocumentSnapshot
+  QueryDocumentSnapshot,
+  deleteDoc,
+  writeBatch
 } from 'firebase/firestore';
 import { User } from 'firebase/auth';
 import { AiAssistantMessage, CommunityDeck, ConversationSession, GeneratedWord, HistoryEntry, LearningLanguage, UserStats, VocabularyWord, UserDoc } from '../types';
@@ -63,7 +65,7 @@ export interface LeaderboardEntry {
     selectedAchievement?: { id: string; level: number; } | null;
 }
 
-const generatedWordsToVocabulary = (words: GeneratedWord[]): VocabularyWord[] => {
+const generatedWordsToVocabulary = (words: GeneratedWord[], language: LearningLanguage): VocabularyWord[] => {
     return words.map(w => ({
         id: crypto.randomUUID(),
         word: w.word,
@@ -73,114 +75,112 @@ const generatedWordsToVocabulary = (words: GeneratedWord[]): VocabularyWord[] =>
         isStarred: false,
         srsLevel: 0,
         nextReview: Date.now(),
+        language: language,
     }));
 };
 
 // =====================
-// Create user (first-time only) via transaction
+// Create user (first-time only)
 // =====================
-/**
- * Creates a user document if it doesn't exist, only setting createdAt on the first creation.
- * Called after a user signs up for the first time.
- */
 export const createUserDocument = async (user: User): Promise<void> => {
   if (!user) return;
 
   const userRef = doc(db, 'users', user.uid);
   const leaderboardRef = doc(db, 'leaderboard', user.uid);
+  
+  const docSnap = await getDoc(userRef);
 
-  try {
-    await runTransaction(db, async (tx) => {
-        const snap = await tx.get(userRef);
-        if (!snap.exists()) {
-        const { email, displayName, photoURL } = user;
-        const initialGermanWords = generatedWordsToVocabulary(defaultGermanWords);
-        
-        const newDisplayName = displayName || '';
+  if (!docSnap.exists()) {
+      try {
+          const { email, displayName, photoURL } = user;
+          const newDisplayName = displayName || '';
+          const initialGermanWords = generatedWordsToVocabulary(defaultGermanWords, 'german');
 
-        const initialData: UserDoc = {
-            uid: user.uid,
-            email: email ?? null,
-            displayName: newDisplayName,
-            photoURL: photoURL ?? null,
-            dob: '',
-            createdAt: serverTimestamp() as any,
-            words: {
-                german: initialGermanWords,
-                english: generatedWordsToVocabulary(defaultEnglishWords),
-                chinese: generatedWordsToVocabulary(defaultChineseWords),
-            },
-            settings: {
-            targetLanguage: 'vietnamese',
-            learningLanguage: 'german',
-            backgroundSetting: null,
-            customGradients: [],
-            userApiKeys: [],
-            },
-            stats: {
-                luckyWheelBestStreak: 0,
-                currentStreak: 0,
-                longestStreak: 0,
-                lastActivityDate: '',
-                totalWords: initialGermanWords.length,
-                achievementCounters: {},
-                xp: 0,
-                level: 1,
-                duelWins: 0,
-                streakFreeses: 0,
-            },
-            aiTutorHistory: [],
-            aiAssistantSessions: [],
-            achievements: {},
-            selectedAchievement: null,
-        };
-        tx.set(userRef, initialData);
+          // 1. Create main user document
+          const initialData: UserDoc = {
+              uid: user.uid,
+              email: email ?? null,
+              displayName: newDisplayName,
+              photoURL: photoURL ?? null,
+              dob: '',
+              createdAt: serverTimestamp() as any,
+              settings: {
+                  targetLanguage: 'vietnamese',
+                  learningLanguage: 'german',
+                  backgroundSetting: null,
+                  customGradients: [],
+                  userApiKeys: [],
+              },
+              stats: {
+                  luckyWheelBestStreak: 0,
+                  currentStreak: 0,
+                  longestStreak: 0,
+                  lastActivityDate: '',
+                  totalWords: initialGermanWords.length,
+                  achievementCounters: {},
+                  xp: 0,
+                  level: 1,
+                  duelWins: 0,
+                  streakFreeses: 0,
+              },
+              aiTutorHistory: [],
+              aiAssistantSessions: [],
+              achievements: {},
+              selectedAchievement: null,
+          };
+          await setDoc(userRef, initialData);
 
-        // Create initial public leaderboard entry
-        const initialPublicData: PublicLeaderboardEntry = {
-            uid: user.uid,
-            name: newDisplayName,
-            longestStreak: 0,
-            totalWords: initialGermanWords.length,
-            level: 1,
-            photoURL: photoURL ?? null,
-            selectedAchievement: null,
-            xp: 0,
-            currentStreak: 0,
-            luckyWheelBestStreak: 0,
-            duelWins: 0,
-            deckSubmissions: 0,
-        };
-        tx.set(leaderboardRef, initialPublicData);
-        }
-    });
-  } catch (error) {
-      console.error("User creation transaction failed:", error);
-      // Re-throw the error to be caught by the caller in the UI
-      throw new Error("Failed to create user document in database.");
+          // 2. Create leaderboard entry
+          const initialPublicData: PublicLeaderboardEntry = {
+              uid: user.uid,
+              name: newDisplayName,
+              longestStreak: 0,
+              totalWords: initialGermanWords.length,
+              level: 1,
+              photoURL: photoURL ?? null,
+              selectedAchievement: null,
+              xp: 0,
+              currentStreak: 0,
+              luckyWheelBestStreak: 0,
+              duelWins: 0,
+              deckSubmissions: 0,
+          };
+          await setDoc(leaderboardRef, initialPublicData);
+
+          // 3. Batch write default words to subcollection
+          const batch = writeBatch(db);
+          const addWordsToBatch = (words: GeneratedWord[], lang: LearningLanguage) => {
+              generatedWordsToVocabulary(words, lang).forEach(word => {
+                  const wordRef = doc(db, 'users', user.uid, 'words', word.id);
+                  batch.set(wordRef, word);
+              });
+          };
+
+          addWordsToBatch(defaultGermanWords, 'german');
+          addWordsToBatch(defaultEnglishWords, 'english');
+          addWordsToBatch(defaultChineseWords, 'chinese');
+          
+          await batch.commit();
+
+      } catch (error) {
+          console.error("User creation process failed:", error);
+          throw new Error("Failed to create user document and initial data.");
+      }
   }
 };
 
 // =====================
-// Update (supports deep merge)
+// Update User Doc (non-word data)
 // =====================
-/**
- * Cập nhật document user. Sử dụng updateDoc để hỗ trợ cú pháp dấu chấm,
- * cho phép cập nhật các trường lồng nhau mà không ghi đè lên toàn bộ đối tượng cha.
- * Ví dụ: updateUserData(uid, { 'settings.learningLanguage': 'english' })
- */
 export const updateUserData = async (uid: string, data: DocumentData): Promise<void> => {
   if (!uid) return;
   const userRef = doc(db, 'users', uid);
 
   try {
-    // Note: setDoc with merge is problematic for nested objects.
-    // updateDoc is the correct way to update specific fields, including nested ones.
     await updateDoc(userRef, data);
   } catch (err: any) {
     console.error('Error updating user data:', err);
     let errorMessage = 'Không thể lưu dữ liệu.';
-    // Handle specific errors if needed, e.g., permission denied
     if (err.code === 'permission-denied') {
         errorMessage = 'Lỗi quyền truy cập. Vui lòng kiểm tra Security Rules của Firestore.';
     }
@@ -188,9 +188,48 @@ export const updateUserData = async (uid: string, data: DocumentData): Promise<v
   }
 };
 
-/**
- * Appends a new entry to the user's history subcollection.
- */
+// =====================
+// Word Subcollection Operations
+// =====================
+export const addWordDoc = async (uid: string, word: VocabularyWord): Promise<void> => {
+    const wordRef = doc(db, 'users', uid, 'words', word.id);
+    await setDoc(wordRef, word);
+};
+
+export const batchAddWordDocs = async (uid: string, words: VocabularyWord[]): Promise<void> => {
+    const batch = writeBatch(db);
+    words.forEach(word => {
+        const wordRef = doc(db, 'users', uid, 'words', word.id);
+        batch.set(wordRef, word);
+    });
+    await batch.commit();
+};
+
+export const updateWordDoc = async (uid: string, wordId: string, updates: Partial<VocabularyWord>): Promise<void> => {
+    const wordRef = doc(db, 'users', uid, 'words', wordId);
+    await updateDoc(wordRef, updates);
+};
+
+export const deleteWordDoc = async (uid: string, wordId: string): Promise<void> => {
+    const wordRef = doc(db, 'users', uid, 'words', wordId);
+    await deleteDoc(wordRef);
+};
+
+export const deleteAllWordsForLanguage = async (uid: string, language: LearningLanguage): Promise<void> => {
+    const wordsRef = collection(db, 'users', uid, 'words');
+    const q = query(wordsRef, where('language', '==', language));
+    const snapshot = await getDocs(q);
+    const batch = writeBatch(db);
+    snapshot.forEach(doc => {
+        batch.delete(doc.ref);
+    });
+    await batch.commit();
+};
+
+
+// =====================
+// History Subcollection
+// =====================
 export const appendHistoryEntry = async (uid: string, newEntry: HistoryEntry): Promise<void> => {
   if (!uid) return;
   const historyCollectionRef = collection(db, 'users', uid, 'history');
@@ -206,7 +245,6 @@ export const appendHistoryEntry = async (uid: string, newEntry: HistoryEntry): P
 // =====================
 // Community Decks
 // =====================
-
 export const getApprovedCommunityDecks = async (language: LearningLanguage): Promise<CommunityDeck[]> => {
     const decksRef = collection(db, 'communityDecks');
     const q = query(
@@ -224,7 +262,6 @@ export const getApprovedCommunityDecks = async (language: LearningLanguage): Pro
             decks.push({ id: doc.id, ...doc.data() } as CommunityDeck);
         });
 
-        // Always include the default system decks, and de-duplicate by title
         const systemDecks = defaultCommunityDecks
             .filter(deck => deck.language === language && deck.status === 'approved')
             .map(deck => ({ ...deck, id: `system-${deck.createdAt}` }));
@@ -274,7 +311,7 @@ export const submitCommunityDeckForReview = async (deckData: Omit<CommunityDeck,
     try {
         await addDoc(decksRef, {
             ...deckData,
-            status: 'pending' // Always submit as pending for review
+            status: 'pending'
         });
     } catch (error) {
         console.error("Error submitting deck:", error);
@@ -286,10 +323,6 @@ export const submitCommunityDeckForReview = async (deckData: Omit<CommunityDeck,
 // =====================
 // Leaderboard Sync & Query
 // =====================
-
-/**
- * Creates or updates the public leaderboard document for a user by reading their private data.
- */
 export const updateUserLeaderboardEntry = async (uid: string): Promise<void> => {
   if (!uid) return;
 
@@ -324,16 +357,12 @@ export const updateUserLeaderboardEntry = async (uid: string): Promise<void> => 
     });
   } catch (e) {
     console.error("Leaderboard update transaction failed: ", e);
-    // Silent fail for user, as it's a background sync process.
   }
 };
 
 
 export const getLeaderboardData = async (statField: 'longestStreak' | 'totalWords' | 'xp' | 'currentStreak' | 'luckyWheelBestStreak' | 'duelWins' | 'deckSubmissions'): Promise<LeaderboardEntry[]> => {
     const leaderboardRef = collection(db, 'leaderboard');
-    
-    // Query for all users who have set a name (not an empty string).
-    // This assumes the 'leaderboard' collection is world-readable.
     const q = query(
         leaderboardRef,
         where('name', '!=', '')
@@ -346,10 +375,8 @@ export const getLeaderboardData = async (statField: 'longestStreak' | 'totalWord
             allEntries.push(doc.data() as PublicLeaderboardEntry);
         });
 
-        // Sort client-side to avoid complex Firestore indexes and limitations
         allEntries.sort((a, b) => (b[statField] || 0) - (a[statField] || 0));
         
-        // Map to the final format and take the top 10
         const leaderboard = allEntries.slice(0, 10).map(data => ({
             uid: data.uid,
             name: data.name,
@@ -370,10 +397,6 @@ export const getLeaderboardData = async (statField: 'longestStreak' | 'totalWord
 // =====================
 // Realtime listeners
 // =====================
-
-/**
- * Lắng nghe realtime thay đổi của document user (không bao gồm subcollections).
- */
 export const onUserDataSnapshot = (
   uid: string,
   callback: (data: UserDoc | null) => void
@@ -401,11 +424,31 @@ export const onUserDataSnapshot = (
   return unsubscribe;
 };
 
+export const onWordsSnapshot = (
+    uid: string,
+    language: LearningLanguage,
+    callback: (words: VocabularyWord[]) => void
+): Unsubscribe => {
+    if (!uid) return () => {};
+    const wordsCollectionRef = collection(db, 'users', uid, 'words');
+    const q = query(wordsCollectionRef, where('language', '==', language));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+        const words: VocabularyWord[] = [];
+        snapshot.forEach(doc => {
+            words.push(doc.data() as VocabularyWord);
+        });
+        callback(words);
+    }, (error) => {
+        console.error('Error listening to words snapshot:', error);
+        callback([]);
+    });
+
+    return unsubscribe;
+};
+
 
 const HISTORY_PAGE_SIZE = 50;
-/**
- * Gets the initial batch of history entries and listens for new ones.
- */
 export const onHistorySnapshot = (
   uid: string,
   callback: (entries: HistoryEntry[], lastVisible: QueryDocumentSnapshot | null) => void
@@ -428,9 +471,6 @@ export const onHistorySnapshot = (
   return unsubscribe;
 };
 
-/**
- * Fetches the next page of history entries.
- */
 export const getMoreHistory = async (
   uid: string,
   startAfterDoc: QueryDocumentSnapshot | null
