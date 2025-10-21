@@ -107,6 +107,57 @@ export const getWordInfo = async (word: string, uiLanguage: TargetLanguage, lear
     });
 };
 
+export const gradePracticeAnswer = async (word: string, correctAnswer: string, userAnswer: string, learningLanguage: LearningLanguage): Promise<{ evaluation: 'correct' | 'close' | 'incorrect', feedback: string }> => {
+    return executeWithKeyRotation(async (ai) => {
+        const prompt = `You are a strict but fair language teacher grading a single-word translation quiz.
+The user is learning ${learningLanguage}.
+The word to translate was: "${word}"
+The expected correct answer is: "${correctAnswer}"
+The user's answer was: "${userAnswer}"
+
+Evaluate the user's answer based on these rules:
+1.  'correct': The answer is a valid translation. This includes synonyms, different but correct grammatical forms (e.g., singular/plural), or correct but missing an article (e.g., 'Apfel' for 'der Apfel' in German).
+2.  'close': The answer has a minor typo but the meaning is clear and it's an obvious mistake (e.g., 'aple' instead of 'apple').
+3.  'incorrect': The answer is wrong.
+
+Your response MUST be a JSON object with two keys:
+- "evaluation": A string, either "correct", "close", or "incorrect".
+- "feedback": A short, helpful explanation in Vietnamese for your evaluation. For 'correct' or 'close', be encouraging. For 'incorrect', be gentle.`;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        evaluation: { type: Type.STRING },
+                        feedback: { type: Type.STRING },
+                    },
+                },
+            },
+        });
+
+        try {
+            const jsonString = response.text.trim().replace(/^```json\n/, '').replace(/\n```$/, '');
+            const result = JSON.parse(jsonString);
+            if (['correct', 'close', 'incorrect'].includes(result.evaluation) && typeof result.feedback === 'string') {
+                return result;
+            }
+            throw new Error('Invalid JSON structure from AI.');
+        } catch (e) {
+            console.error("Failed to parse grading JSON:", response.text, e);
+            // Fallback to a simple incorrect evaluation
+            return {
+                evaluation: 'incorrect',
+                feedback: 'Không thể phân tích phản hồi từ AI, câu trả lời được tính là sai.'
+            };
+        }
+    });
+};
+
+
 export const checkSentence = async (sentence: string, wordInSentence: string, uiLanguage: TargetLanguage, learningLanguage: LearningLanguage): Promise<string> => {
     return executeWithKeyRotation(async (ai) => {
         const response = await ai.models.generateContent({
@@ -288,17 +339,6 @@ export const getAiSuggestedWords = async (prompt: string, availableWords: Vocabu
 };
 
 export const getAiAssistantResponse = async (message: string, history: AiAssistantMessage[], context: any): Promise<{ responseText: string, functionCalls?: any[] }> => {
-     const navigateToGame = {
-        name: 'navigateToGame',
-        parameters: { type: Type.OBJECT, properties: { gameName: { type: Type.STRING, description: 'The name of the game to navigate to.' } } },
-    };
-    return executeWithKeyRotation(async (ai) => {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-pro',
-            contents: `... (implementation with function calling) ...`,
-            config: { tools: [{ functionDeclarations: [navigateToGame] }] }
-        });
-        // This is a simplified placeholder. A real implementation would parse response.functionCalls
-        return { responseText: 'Đây là câu trả lời mẫu từ Trợ lý AI.' };
-    });
+    // This is a placeholder. The full implementation will be added in a future step.
+    return Promise.resolve({ responseText: 'Đây là câu trả lời mẫu từ Trợ lý AI.' });
 };

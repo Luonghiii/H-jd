@@ -31,12 +31,12 @@ const Review: React.FC<ReviewProps> = ({ onBack }) => {
         setIsFlipped(false);
         setSessionStats({ hard: 0, good: 0, easy: 0 });
         setIsSessionActive(true);
+        recordActivity(); // Record activity as soon as the session starts
     };
     
     const endSession = () => {
         if(sessionWords.length > 0) {
             addHistoryEntry('REVIEW_SESSION_COMPLETED', `Hoàn thành phiên ôn tập với ${sessionWords.length} từ.`);
-            recordActivity();
         }
         setIsSessionActive(false);
     };

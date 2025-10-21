@@ -50,6 +50,7 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
     const [isPlayerTurn, setIsPlayerTurn] = useState(true);
     const [isAiThinking, setIsAiThinking] = useState(false);
     const [aiGameOverReason, setAiGameOverReason] = useState('');
+    const gameOverReasonRef = useRef(aiGameOverReason);
 
     // FIX: Define handleStartAiGame to correctly initiate the single-player game.
     const handleStartAiGame = useCallback(() => {
@@ -289,6 +290,17 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
         setIsSubmitting(false);
     };
 
+    useEffect(() => {
+        if (aiGameOverReason && aiGameOverReason !== gameOverReasonRef.current) {
+            if (aiGameOverReason.includes('Bạn thắng!')) {
+                incrementDuelWins();
+                addXp(25); // Lower XP for AI game
+                recordActivity();
+            }
+            gameOverReasonRef.current = aiGameOverReason;
+        }
+    }, [aiGameOverReason, incrementDuelWins, addXp, recordActivity]);
+
     if (isJoining) {
         return (
             <div className="text-center py-10 space-y-4 flex flex-col items-center animate-fade-in text-white">
@@ -364,7 +376,7 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
                 <h2 className="text-xl font-bold text-center">Đấu với AI ({difficultySettings[aiDifficulty].name})</h2>
                 {aiGameOverReason ? (
                     <div className="text-center py-10 space-y-4 flex flex-col items-center">
-                        <h2 className="text-2xl font-bold">{aiGameOverReason.includes('thắng') ? 'Bạn đã thắng!' : 'Bạn đã thua!'}</h2>
+                        <h2 className="text-2xl font-bold">{aiGameOverReason.includes('Bạn thắng!') ? 'Bạn đã thắng!' : 'Bạn đã thua!'}</h2>
                         <p className="text-gray-400">{aiGameOverReason}</p>
                         <div className="flex gap-4">
                            <button onClick={() => setView('setup')} className="px-6 py-3 bg-slate-600 hover:bg-slate-700 font-semibold rounded-xl">Quay lại</button>
@@ -432,6 +444,7 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
                 if(playerWon) {
                     incrementDuelWins();
                     addXp(50);
+                    recordActivity();
                 }
              }, [playerWon]);
 

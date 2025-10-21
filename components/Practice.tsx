@@ -2,17 +2,19 @@ import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useVocabulary, themeTranslationMap } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
 import { VocabularyWord } from '../types';
-import { RefreshCw, ArrowLeft, Check, X, ChevronDown, Sparkles } from 'lucide-react';
+import { RefreshCw, ArrowLeft, Check, X, ChevronDown, Sparkles, Loader2 } from 'lucide-react';
 import { useInspector } from '../hooks/useInspector';
 import { useHistory } from '../hooks/useHistory';
 import AiWordSelectorModal from './AiWordSelectorModal';
 import { useActivityTracker } from '../hooks/useActivityTracker';
+import { gradePracticeAnswer } from '../services/geminiService';
 
 type PracticeView = 'setup' | 'playing' | 'results';
 type Answer = {
   word: VocabularyWord;
   userAnswer: string;
   isCorrect: boolean;
+  aiFeedback?: string;
 };
 
 interface PracticeProps {
@@ -21,7 +23,7 @@ interface PracticeProps {
 
 const Practice: React.FC<PracticeProps> = ({ onBack }) => {
   const { words, getAvailableThemes } = useVocabulary();
-  const { uiLanguage, recordActivity, addXp } = useSettings();
+  const { uiLanguage, learningLanguage, recordActivity, addXp } = useSettings();
   const { openInspector } = useInspector();
   const { addHistoryEntry } = useHistory();
   const { logActivity } = useActivityTracker();
@@ -37,6 +39,7 @@ const Practice: React.FC<PracticeProps> = ({ onBack }) => {
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [answerStatus, setAnswerStatus] = useState<'idle' | 'correct' | 'incorrect'>('idle');
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [isGrading, setIsGrading] = useState(false);
   
   const availableThemes = getAvailableThemes();
   
@@ -93,41 +96,60 @@ const Practice: React.FC<PracticeProps> = ({ onBack }) => {
     let wordsToPractice: VocabularyWord[];
 
     if (options?.replay && initialPracticeWords.length > 0) {
-        // Shuffle the same set of words again for a different order
         wordsToPractice = [...initialPracticeWords].sort(() => 0.5 - Math.random());
     } else {
         const shuffledWords = [...wordsForPractice].sort(() => 0.5 - Math.random());
         const wordCount = Math.min(numWords, shuffledWords.length);
         wordsToPractice = shuffledWords.slice(0, wordCount);
-        setInitialPracticeWords(wordsToPractice); // Save this set for potential replay
+        setInitialPracticeWords(wordsToPractice);
     }
 
     setPracticeWords(wordsToPractice);
     setCurrentWordIndex(0);
     setAnswers([]);
     setUserAnswer('');
+    recordActivity(); // Record activity as soon as the session starts
     setView('playing');
-  }, [wordsForPractice, numWords, initialPracticeWords]);
+  }, [wordsForPractice, numWords, initialPracticeWords, recordActivity]);
 
-  const handleSubmitAnswer = (e: React.FormEvent) => {
+  const handleSubmitAnswer = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userAnswer.trim() || answerStatus !== 'idle') return;
+    if (!userAnswer.trim() || answerStatus !== 'idle' || isGrading) return;
 
     const currentWord = practiceWords[currentWordIndex];
     const correctAnswer = currentWord.translation[uiLanguage];
-    const isCorrect = userAnswer.trim().toLowerCase() === correctAnswer.toLowerCase();
+    const userAnswerTrimmed = userAnswer.trim().toLowerCase();
+    const correctAnswerTrimmed = correctAnswer.toLowerCase();
+    
+    let isCorrect = false;
+    let aiFeedback: string | undefined = undefined;
+
+    // 1. Fast, local check
+    if (userAnswerTrimmed === correctAnswerTrimmed || (learningLanguage === 'german' && correctAnswerTrimmed.includes(userAnswerTrimmed))) {
+        isCorrect = true;
+    } else {
+        // 2. Slower, smarter AI check
+        setIsGrading(true);
+        try {
+            const result = await gradePracticeAnswer(currentWord.word, correctAnswer, userAnswer.trim(), learningLanguage);
+            isCorrect = result.evaluation === 'correct' || result.evaluation === 'close';
+            aiFeedback = result.feedback;
+        } catch (error) {
+            console.error("AI grading failed", error);
+            isCorrect = false; // Fallback to incorrect on error
+            aiFeedback = "Lỗi khi chấm điểm bằng AI.";
+        } finally {
+            setIsGrading(false);
+        }
+    }
     
     if (isCorrect) {
-        addXp(3); // Grant 3 XP for a correct answer
+        addXp(3);
     }
 
-    logActivity(
-        'PRACTICE_SESSION_COMPLETED', // Reusing type, details are what matters
-        `Answered for word "${currentWord.word}". Correct: ${isCorrect}.`,
-        { word: currentWord.word, correct: isCorrect }
-    );
+    logActivity('PRACTICE_SESSION_COMPLETED', `Answered for word "${currentWord.word}". Correct: ${isCorrect}.`, { word: currentWord.word, correct: isCorrect });
     
-    setAnswers(prev => [...prev, { word: currentWord, userAnswer: userAnswer.trim(), isCorrect }]);
+    setAnswers(prev => [...prev, { word: currentWord, userAnswer: userAnswer.trim(), isCorrect, aiFeedback }]);
     setAnswerStatus(isCorrect ? 'correct' : 'incorrect');
     
     setTimeout(() => {
@@ -136,21 +158,16 @@ const Practice: React.FC<PracticeProps> = ({ onBack }) => {
             setUserAnswer('');
             setAnswerStatus('idle');
         } else {
-            recordActivity();
             addHistoryEntry('PRACTICE_SESSION_COMPLETED', `Hoàn thành phiên luyện tập với ${practiceWords.length} từ.`, { count: practiceWords.length });
-            addXp(15); // Bonus for completing the session
+            addXp(15);
             setView('results');
         }
-    }, 1500);
+    }, aiFeedback ? 2500 : 1500); // Longer delay if showing AI feedback
   };
   
   const getStatusClasses = () => {
-      if (answerStatus === 'correct') {
-          return 'ring-2 ring-green-500 border-green-500';
-      }
-      if (answerStatus === 'incorrect') {
-          return 'ring-2 ring-red-500 border-red-500';
-      }
+      if (answerStatus === 'correct') return 'ring-2 ring-green-500 border-green-500';
+      if (answerStatus === 'incorrect') return 'ring-2 ring-red-500 border-red-500';
       return 'border-slate-600 focus:ring-2 focus:ring-indigo-500';
   }
 
@@ -274,7 +291,7 @@ const Practice: React.FC<PracticeProps> = ({ onBack }) => {
         <div className="text-left space-y-3 pt-4">
             <h3 className="font-semibold text-white">Xem lại các câu trả lời:</h3>
             <div className="max-h-60 overflow-y-auto space-y-2 pr-2">
-                {answers.map(({ word, userAnswer, isCorrect }, index) => (
+                {answers.map(({ word, userAnswer, isCorrect, aiFeedback }, index) => (
                     <div key={index} className={`p-3 rounded-xl ${isCorrect ? 'bg-green-500/10' : 'bg-red-500/10'}`}>
                         <p className="font-semibold text-white cursor-pointer hover:underline" onClick={() => openInspector(word)}>{word.word}</p>
                         <p className="text-sm">{isCorrect ? 
@@ -284,6 +301,7 @@ const Practice: React.FC<PracticeProps> = ({ onBack }) => {
                                 <span className="text-green-400">Đáp án đúng: {word.translation[uiLanguage]}</span>
                             </>
                         }</p>
+                        {aiFeedback && <p className="text-xs text-cyan-400 mt-1">💡 AI: {aiFeedback}</p>}
                     </div>
                 ))}
             </div>
@@ -298,6 +316,8 @@ const Practice: React.FC<PracticeProps> = ({ onBack }) => {
       </div>
     );
   }
+
+  const lastAnswerFeedback = answers[answers.length - 1]?.aiFeedback;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -329,13 +349,16 @@ const Practice: React.FC<PracticeProps> = ({ onBack }) => {
               className={`w-full px-4 py-3 bg-slate-800 border rounded-xl text-white placeholder-gray-500 focus:outline-none text-lg transition-all ${getStatusClasses()}`}
               placeholder="Nhập câu trả lời của bạn..."
               autoFocus
-              disabled={answerStatus !== 'idle'}
+              disabled={answerStatus !== 'idle' || isGrading}
             />
              {answerStatus === 'correct' && <Check className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 text-green-500" />}
              {answerStatus === 'incorrect' && <X className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 text-red-500" />}
         </div>
-        <button type="submit" className="w-full mt-4 flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98]" disabled={answerStatus !== 'idle'}>
-          Kiểm tra
+        {lastAnswerFeedback && answerStatus !== 'idle' && (
+            <p className="text-xs text-cyan-400 mt-2 text-center animate-fade-in">💡 AI: {lastAnswerFeedback}</p>
+        )}
+        <button type="submit" className="w-full mt-4 flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98]" disabled={answerStatus !== 'idle' || isGrading}>
+          {isGrading ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> AI đang chấm điểm...</> : 'Kiểm tra'}
         </button>
       </form>
     </div>

@@ -1,12 +1,12 @@
 import React, { createContext, useContext, useState, ReactNode, useCallback, useEffect, useRef } from 'react';
-import { AiAssistantMessage, View, AiAssistantSession } from '../types';
+import { AiAssistantMessage, View, AiAssistantSession, HistoryEntry } from '../types';
 import { useAuth } from './useAuth';
 import { useVocabulary } from './useVocabulary';
 import { useSettings } from './useSettings';
 import { getAiAssistantResponse } from '../services/geminiService';
 import { updateUserData } from '../services/firestoreService';
 import { useActivityTracker } from './useActivityTracker';
-import { GoogleGenAI, LiveSession, LiveServerMessage, Modality, Blob } from '@google/genai';
+import { GoogleGenAI, LiveSession, LiveServerMessage, Modality, Blob, FunctionDeclaration, Type } from '@google/genai';
 import eventBus from '../utils/eventBus';
 import { onSnapshot, doc } from 'firebase/firestore';
 import { db } from '../services/firebase';
@@ -95,7 +95,7 @@ const initialMessage: AiAssistantMessage = { role: 'model', text: 'Xin chào! T�
 export const AiAssistantProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const { currentUser } = useAuth();
     const { words } = useVocabulary();
-    const { stats, userApiKeys } = useSettings();
+    const { stats, userApiKeys, learningLanguage } = useSettings();
     const { activityLog } = useActivityTracker();
 
     const [isOpen, setIsOpen] = useState(false);
@@ -273,6 +273,21 @@ export const AiAssistantProvider: React.FC<{ children: ReactNode }> = ({ childre
         setVoiceConnectionState('connecting');
         setVoiceError('');
 
+        const navigateToGame: FunctionDeclaration = {
+            name: 'navigateToGame',
+            description: 'Navigates the user to a specific game screen within the app.',
+            parameters: {
+                type: Type.OBJECT,
+                properties: {
+                    gameName: {
+                        type: Type.STRING,
+                        description: 'The name of the game to navigate to. Valid options are: "quiz", "luckywheel", "memorymatch", "wordlink", "wordguess", "sentencescramble", "listening", "duel".'
+                    }
+                },
+                required: ['gameName']
+            },
+        };
+
         const systemApiKey = process.env.API_KEY;
         const keysToTry = userApiKeys.length > 0 ? [...userApiKeys] : (systemApiKey ? [systemApiKey] : []);
         
@@ -287,7 +302,19 @@ export const AiAssistantProvider: React.FC<{ children: ReactNode }> = ({ childre
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 const context = { detailedActivityLog: activityLog, vocabularyList: words.map(w => ({ word: w.word, srsLevel: w.srsLevel, theme: w.theme })), userStats: stats };
-                const systemInstruction = `You are Lingo...`; // Same as sendMessage
+                const contextText = `
+### User Context
+- Vocabulary Size: ${context.vocabularyList?.length || 0} words
+- Current Streak: ${context.userStats?.currentStreak || 0} days
+- Recent Activities: ${context.detailedActivityLog?.slice(0, 3).map((a: HistoryEntry) => a.details).join('; ') || 'None'}
+`;
+
+                const systemInstruction = `You are Lingo, a friendly and insightful AI language learning assistant having a voice conversation. Your purpose is to help the user practice and learn their target language, which is ${learningLanguage}.
+You can suggest activities, explain concepts, or just chat. You can use tools to help the user, like navigating them to a game.
+The user's native language is Vietnamese. Respond primarily in ${learningLanguage} to encourage practice, but you can use Vietnamese for clarification if needed. Keep responses helpful but concise for a voice conversation.
+
+${contextText}
+`;
 
                 const ai = new GoogleGenAI({ apiKey: key });
                 const inputCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
@@ -295,7 +322,13 @@ export const AiAssistantProvider: React.FC<{ children: ReactNode }> = ({ childre
 
                 sessionPromiseRef.current = ai.live.connect({
                     model: 'gemini-2.5-flash-native-audio-preview-09-2025',
-                    config: { responseModalities: [Modality.AUDIO], inputAudioTranscription: {}, outputAudioTranscription: {}, systemInstruction },
+                    config: { 
+                        responseModalities: [Modality.AUDIO], 
+                        inputAudioTranscription: {}, 
+                        outputAudioTranscription: {}, 
+                        systemInstruction,
+                        tools: [{ functionDeclarations: [navigateToGame] }]
+                    },
                     callbacks: {
                         onopen: () => {
                             setVoiceConnectionState('connected');
@@ -361,7 +394,7 @@ export const AiAssistantProvider: React.FC<{ children: ReactNode }> = ({ childre
             setVoiceError("Tất cả API đều lỗi hoặc không thể truy cập micro.");
             setVoiceConnectionState('error');
         }
-    }, [cleanup, userApiKeys, isMuted, stopVoiceSession, voiceConnectionState, activityLog, words, stats, saveCurrentSession, toggle]);
+    }, [cleanup, userApiKeys, isMuted, stopVoiceSession, voiceConnectionState, activityLog, words, stats, saveCurrentSession, toggle, learningLanguage]);
 
     return (
         <AiAssistantContext.Provider value={{ isOpen, toggle, history, sessions, clearAssistantHistory, sendMessage, isLoading, newInsight, markInsightAsRead, position, setPosition, isDragging, setIsDragging, voiceConnectionState, startVoiceSession, stopVoiceSession, liveInput, liveOutput, isMuted, toggleMute, voiceError, startNewChat }}>
