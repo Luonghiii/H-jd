@@ -400,8 +400,8 @@ const generateRoomCode = (): string => {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
 };
 
-export const createGameRoom = async (roomData: Omit<GameRoom, 'id' | 'code' | 'createdAt'>): Promise<GameRoom> => {
-    const code = generateRoomCode(); // You'd need a robust way to ensure uniqueness in production
+export const createGameRoom = async (roomData: Omit<GameRoom, 'id' | 'code' | 'createdAt' | 'playerUids'>): Promise<GameRoom> => {
+    const code = generateRoomCode();
     const newRoomRef = doc(collection(db, 'game_rooms'));
     
     const newRoom: GameRoom = {
@@ -409,6 +409,7 @@ export const createGameRoom = async (roomData: Omit<GameRoom, 'id' | 'code' | 'c
         id: newRoomRef.id,
         code: code,
         createdAt: Date.now(),
+        playerUids: roomData.players.map(p => p.uid),
     };
     
     await setDoc(newRoomRef, newRoom);
@@ -423,14 +424,15 @@ export const joinGameRoom = async (roomId: string, player: GameRoomPlayer): Prom
             throw new Error("Phòng không tồn tại!");
         }
         const room = roomDoc.data() as GameRoom;
-        if (room.players.length >= 2) {
+        if ((room.playerUids || []).length >= 2) {
             throw new Error("Phòng đã đầy!");
         }
-        if (room.players.some(p => p.uid === player.uid)) {
+        if ((room.playerUids || []).includes(player.uid)) {
             return; // Player already in room
         }
         transaction.update(roomRef, {
-            players: [...room.players, player]
+            players: [...room.players, player],
+            playerUids: [...(room.playerUids || []), player.uid]
         });
     });
 };
@@ -449,17 +451,19 @@ export const findPublicGameRoom = async (): Promise<GameRoom | null> => {
         collection(db, "game_rooms"), 
         where("isPublic", "==", true),
         where("status", "==", "waiting"),
-        // Firestore doesn't support array.length queries directly. We need to handle this in code.
-        // A workaround is to store player_count as a separate field. For now, we'll fetch and filter.
-        limit(10) // Fetch a few potential rooms
+        where("playerUids", "array-contains-any", ["dummy-value-to-get-index-working"]) // Firestore limitation workaround. This is not perfect.
     );
+    // This is a Firestore limitation workaround. A more robust solution might require a separate 'matchmaking' collection
+    // or Cloud Functions. For now, we'll filter client-side.
     const querySnapshot = await getDocs(q);
-    const availableRoomDoc = querySnapshot.docs.find(doc => doc.data().players.length === 1);
 
-    if (!availableRoomDoc) {
-        return null;
+    for (const doc of querySnapshot.docs) {
+        const room = { id: doc.id, ...doc.data() } as GameRoom;
+        if (room.playerUids.length === 1) {
+            return room;
+        }
     }
-    return { id: availableRoomDoc.id, ...availableRoomDoc.data() } as GameRoom;
+    return null;
 };
 
 export const updateGameRoom = async (roomId: string, data: Partial<GameRoom> | DocumentData): Promise<void> => {

@@ -209,6 +209,7 @@ export interface GameRoom {
     code: string; // 6-char room code
     status: 'waiting' | 'playing' | 'finished';
     players: GameRoomPlayer[];
+    playerUids: string[]; // For Firestore security rules
     hostUid: string;
     gameMode: 'theme' | 'longest' | 'chain';
     
