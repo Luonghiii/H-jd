@@ -1,10 +1,9 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useVocabulary } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
-import { Trash2, Search, ImageIcon, Sparkles, Star, ChevronDown, Filter, ArrowUpDown, Download, Upload, ArrowLeft, Loader2 } from 'lucide-react';
+import { Trash2, Search, ImageIcon, Star, ChevronDown, Filter, ArrowUpDown, Download, Upload, ArrowLeft, Loader2 } from 'lucide-react';
 import { VocabularyWord, GeneratedWord } from '../types';
 import ImageEditModal from './ImageEditModal';
-import { generateImageForWord } from '../services/geminiService';
 import { useInspector } from '../hooks/useInspector';
 import eventBus from '../utils/eventBus';
 import { useI18n } from '../hooks/useI18n';
@@ -112,14 +111,12 @@ interface WordListProps {
 }
 
 const WordList: React.FC<WordListProps> = ({ onBack }) => {
-  const { words, lastDeletedWord, undoDelete, updateWordImage, addMultipleWords } = useVocabulary();
+  const { words, lastDeletedWord, undoDelete, addMultipleWords } = useVocabulary();
   const { uiLanguage } = useSettings();
   const { t } = useI18n();
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState<'all' | 'starred'>('all');
   const [sort, setSort] = useState<'newest' | 'oldest' | 'az' | 'za' | 'review'>('newest');
-  const [isBatchGenerating, setIsBatchGenerating] = useState(false);
-  const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
   const importFileRef = useRef<HTMLInputElement>(null);
 
   const processedWords = useMemo(() => {
@@ -179,30 +176,6 @@ const WordList: React.FC<WordListProps> = ({ onBack }) => {
     
     return Object.entries(groups);
   }, [processedWords, searchTerm, t]);
-  
-  const wordsWithoutImages = useMemo(() => words.filter(w => !w.imageUrl), [words]);
-
-  const handleGenerateAllImages = async () => {
-    if (wordsWithoutImages.length === 0 || isBatchGenerating) return;
-
-    setIsBatchGenerating(true);
-    setBatchProgress({ current: 0, total: wordsWithoutImages.length });
-
-    let current = 0;
-    for (const word of wordsWithoutImages) {
-        try {
-            await new Promise(resolve => setTimeout(resolve, 500)); 
-            const imageUrl = await generateImageForWord(word.word);
-            updateWordImage(word.id, imageUrl);
-        } catch (error) {
-            console.error(`Failed to generate image for "${word.word}":`, error);
-        }
-        current++;
-        setBatchProgress(prev => ({ ...prev, current }));
-    }
-
-    setIsBatchGenerating(false);
-  };
 
   const handleExport = (format: 'csv' | 'json') => {
     let content = '';
@@ -355,28 +328,6 @@ const WordList: React.FC<WordListProps> = ({ onBack }) => {
               <option value="review">{t('word_list.sort_review')}</option>
           </>)}
       </div>
-
-      <button
-          onClick={handleGenerateAllImages}
-          disabled={isBatchGenerating || wordsWithoutImages.length === 0}
-          className="w-full flex items-center justify-center px-4 py-2 bg-indigo-600/50 hover:bg-indigo-600 text-indigo-200 hover:text-white font-semibold rounded-xl transition-all duration-200 disabled:bg-slate-700 disabled:text-gray-400 disabled:cursor-not-allowed"
-          title={isBatchGenerating ? 'Đang trong tiến trình...' : 'Tạo ảnh cho tất cả các từ còn thiếu'}
-      >
-          <Sparkles className={`w-4 h-4 mr-2 ${isBatchGenerating ? 'animate-spin' : ''}`} />
-          <span>{t('word_list.generate_missing_images', { count: wordsWithoutImages.length })}</span>
-      </button>
-
-      {isBatchGenerating && (
-        <div className="text-center text-gray-300">
-            <p>{t('word_list.generating_images')} ({batchProgress.current} / {batchProgress.total})</p>
-            <div className="w-full bg-slate-700 rounded-full h-2.5 mt-2 overflow-hidden">
-                <div 
-                    className="bg-indigo-500 h-2.5 rounded-full transition-all duration-500" 
-                    style={{ width: `${batchProgress.total > 0 ? (batchProgress.current / batchProgress.total) * 100 : 0}%` }}
-                ></div>
-            </div>
-        </div>
-      )}
 
       <div className="max-h-[50vh] overflow-y-auto pr-2">
         {processedWords.length > 0 ? (
