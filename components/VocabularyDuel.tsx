@@ -1,5 +1,4 @@
 
-
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useVocabulary } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
@@ -138,7 +137,7 @@ const GameModeSelector: React.FC<{
 const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
     const { currentUser } = useAuth();
     const { profile, learningLanguage, recordActivity, addXp, incrementDuelWins } = useSettings();
-    const { addHistoryEntry } = useHistory();
+    const { addHistoryEntry, history } = useHistory();
 
     const [view, setView] = useState<View>('setup');
     
@@ -702,17 +701,100 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
             addHistoryEntry('VOCABULARY_DUEL_COMPLETED', `Hoàn thành trận đấu với AI. ${aiGameOverReason}`);
         }
     }, [aiGameOverReason, incrementDuelWins, addXp, recordActivity, addHistoryEntry]);
+    
+    useEffect(() => {
+        if (gameRoom?.status === 'finished' && gameRoom.gameState.winnerUid === currentUser?.uid) {
+            // Check if this win has been processed to avoid multiple increments
+            const lastHistoryEntry = history.find(h => h.type === 'VOCABULARY_DUEL_COMPLETED');
+            if (!lastHistoryEntry || (Date.now() - lastHistoryEntry.timestamp > 5000)) { // 5s debounce
+                incrementDuelWins();
+                addXp(50); // 50 XP for a win
+                recordActivity();
+                addHistoryEntry('VOCABULARY_DUEL_COMPLETED', `Thắng trận đấu từ vựng. ${gameRoom.gameState.gameOverReason}`);
+            }
+        } else if (gameRoom?.status === 'finished' && gameRoom.gameState.winnerUid !== currentUser?.uid) {
+            const lastHistoryEntry = history.find(h => h.type === 'VOCABULARY_DUEL_COMPLETED');
+            if (!lastHistoryEntry || (Date.now() - lastHistoryEntry.timestamp > 5000)) { // 5s debounce
+                addXp(10); // 10 XP for completing a game (loss)
+                recordActivity();
+                addHistoryEntry('VOCABULARY_DUEL_COMPLETED', `Hoàn thành trận đấu từ vựng. ${gameRoom.gameState.gameOverReason}`);
+            }
+        }
+    }, [gameRoom?.status, gameRoom?.gameState.winnerUid, currentUser?.uid, incrementDuelWins, addXp, recordActivity, addHistoryEntry, history]);
 
     if (isJoining) {
         return <div className="text-center py-10"><Loader2 className="w-10 h-10 animate-spin" /> <p>Đang vào phòng...</p></div>;
     }
-
+    
     if (view === 'setup') {
-        // Unchanged
+        return (
+            <div className="space-y-6 text-center animate-fade-in text-white">
+                <div className="flex items-center justify-between w-full">
+                    <h2 className="text-2xl font-bold">Đấu Từ vựng</h2>
+                     <button onClick={onBack} className="flex-shrink-0 flex items-center gap-2 px-3 py-2 text-sm bg-slate-700/50 hover:bg-slate-700 rounded-xl">
+                        <ArrowLeft className="w-4 h-4" /> <span>Quay lại</span>
+                    </button>
+                </div>
+                <div className="space-y-4">
+                    <div className="p-4 bg-slate-800/50 rounded-xl space-y-3">
+                         <h3 className="font-semibold text-lg">Chơi một mình</h3>
+                         <button onClick={() => setView('ai_game_setup')} className="w-full py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-semibold flex items-center justify-center gap-2"><Bot className="w-5 h-5"/> Chơi với AI</button>
+                    </div>
+                    <div className="p-4 bg-slate-800/50 rounded-xl space-y-3">
+                         <h3 className="font-semibold text-lg text-left">Chơi nhiều người</h3>
+                         <GameModeSelector 
+                            selectedGameMode={selectedGameMode}
+                            onGameModeChange={setSelectedGameMode}
+                            selectedTheme={selectedTheme}
+                            onThemeChange={setSelectedTheme}
+                            targetScore={targetScore}
+                            onTargetScoreChange={setTargetScore}
+                         />
+                         <button onClick={handleFindMatch} disabled={isFindingMatch} className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-semibold flex items-center justify-center gap-2 disabled:bg-indigo-400">
+                            {isFindingMatch ? <Loader2 className="w-5 h-5 animate-spin"/> : <Users className="w-5 h-5"/>}
+                            {isFindingMatch ? 'Đang tìm...' : 'Tìm trận nhanh'}
+                        </button>
+                        <div className="relative flex py-2 items-center"><div className="flex-grow border-t border-slate-600"></div><span className="flex-shrink mx-4 text-xs text-slate-400 uppercase">Hoặc</span><div className="flex-grow border-t border-slate-600"></div></div>
+                        <button onClick={() => handleCreateRoom(false)} className="w-full py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-semibold flex items-center justify-center gap-2"><Plus className="w-5 h-5"/> Tạo phòng riêng</button>
+                         <form onSubmit={handleJoinRoom} className="flex items-stretch gap-2 pt-2">
+                            <input value={joinCodeInput} onChange={e => setJoinCodeInput(e.target.value.toUpperCase())} placeholder="NHẬP MÃ" maxLength={6} className="flex-grow min-w-0 px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-center font-bold tracking-widest placeholder:font-normal placeholder:tracking-normal placeholder:text-gray-500"/>
+                             <button type="submit" className="flex-shrink-0 px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg font-semibold text-white flex items-center justify-center gap-2">
+                                <Key className="w-5 h-5" />
+                                <span className="hidden sm:inline">Vào phòng</span>
+                            </button>
+                         </form>
+                    </div>
+                </div>
+            </div>
+        )
     }
 
     if (view === 'ai_game_setup') {
-        // Unchanged
+        return (
+            <div className="space-y-6 text-center animate-fade-in text-white">
+                <h2 className="text-2xl font-bold">Cài đặt trận đấu AI</h2>
+                <div className="p-4 bg-slate-800/50 rounded-xl space-y-4">
+                     <GameModeSelector 
+                        selectedGameMode={selectedGameMode}
+                        onGameModeChange={setSelectedGameMode}
+                        selectedTheme={selectedTheme}
+                        onThemeChange={setSelectedTheme}
+                        targetScore={targetScore}
+                        onTargetScoreChange={setTargetScore}
+                     />
+                     <div>
+                        <h3 className="font-semibold text-lg text-white mb-2 text-left">Độ khó</h3>
+                        <div className="grid grid-cols-4 gap-2">
+                            {Object.entries(difficultySettings).map(([key, { name }]) => (
+                                <button key={key} onClick={() => setAiDifficulty(key as Difficulty)} className={`p-3 rounded-xl border-2 transition-colors text-sm ${aiDifficulty === key ? 'bg-indigo-500/20 border-indigo-500' : 'bg-slate-700 border-slate-600'}`}>{name}</button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+                <button onClick={handleStartAiGame} className="w-full py-3 bg-indigo-600 rounded-lg font-semibold">Bắt đầu</button>
+                <button onClick={() => setView('setup')} className="text-sm text-indigo-400">Quay lại</button>
+            </div>
+        );
     }
     
     if (view === 'ai_game') {
@@ -773,87 +855,116 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
         );
     }
     
-    if (view === 'lobby' && gameRoom) { /* Lobby view unchanged */ }
-    
-    if (gameRoom && (gameRoom.status === 'playing' || gameRoom.status === 'finished')) {
-        // Unchanged, but kept for context.
-    }
-
-    // Render other views as before
-    const OtherViews = () => {
-        if (view === 'setup') {
-            return (
-                <div className="space-y-6 text-center animate-fade-in text-white">
-                    <div className="flex items-center justify-between w-full">
-                        <h2 className="text-2xl font-bold">Đấu Từ vựng</h2>
-                         <button onClick={onBack} className="flex-shrink-0 flex items-center gap-2 px-3 py-2 text-sm bg-slate-700/50 hover:bg-slate-700 rounded-xl">
-                            <ArrowLeft className="w-4 h-4" /> <span>Quay lại</span>
-                        </button>
-                    </div>
-                    <div className="space-y-4">
-                        <div className="p-4 bg-slate-800/50 rounded-xl space-y-3">
-                             <h3 className="font-semibold text-lg">Chơi một mình</h3>
-                             <button onClick={() => setView('ai_game_setup')} className="w-full py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-semibold flex items-center justify-center gap-2"><Bot className="w-5 h-5"/> Chơi với AI</button>
-                        </div>
-                        <div className="p-4 bg-slate-800/50 rounded-xl space-y-3">
-                             <h3 className="font-semibold text-lg text-left">Chơi nhiều người</h3>
-                             <GameModeSelector 
-                                selectedGameMode={selectedGameMode}
-                                onGameModeChange={setSelectedGameMode}
-                                selectedTheme={selectedTheme}
-                                onThemeChange={setSelectedTheme}
-                                targetScore={targetScore}
-                                onTargetScoreChange={setTargetScore}
-                             />
-                             <button onClick={handleFindMatch} disabled={isFindingMatch} className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-semibold flex items-center justify-center gap-2 disabled:bg-indigo-400">
-                                {isFindingMatch ? <Loader2 className="w-5 h-5 animate-spin"/> : <Users className="w-5 h-5"/>}
-                                {isFindingMatch ? 'Đang tìm...' : 'Tìm trận nhanh'}
-                            </button>
-                            <div className="relative flex py-2 items-center"><div className="flex-grow border-t border-slate-600"></div><span className="flex-shrink mx-4 text-xs text-slate-400 uppercase">Hoặc</span><div className="flex-grow border-t border-slate-600"></div></div>
-                            <button onClick={() => handleCreateRoom(false)} className="w-full py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-semibold flex items-center justify-center gap-2"><Plus className="w-5 h-5"/> Tạo phòng riêng</button>
-                             <form onSubmit={handleJoinRoom} className="flex items-stretch gap-2 pt-2">
-                                <input value={joinCodeInput} onChange={e => setJoinCodeInput(e.target.value.toUpperCase())} placeholder="NHẬP MÃ" maxLength={6} className="flex-grow min-w-0 px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-center font-bold tracking-widest placeholder:font-normal placeholder:tracking-normal placeholder:text-gray-500"/>
-                                 <button type="submit" className="flex-shrink-0 px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg font-semibold text-white flex items-center justify-center gap-2">
-                                    <Key className="w-5 h-5" />
-                                    <span className="hidden sm:inline">Vào phòng</span>
-                                </button>
-                             </form>
-                        </div>
-                    </div>
+    if (view === 'lobby' && gameRoom) {
+        const isHost = currentUser?.uid === gameRoom.hostUid;
+        const canStart = gameRoom.players.length === 2;
+        return (
+            <div className="space-y-6 text-center animate-fade-in text-white">
+                <h2 className="text-2xl font-bold">Phòng chờ</h2>
+                <p className="text-gray-400">Chia sẻ mã phòng để mời bạn bè!</p>
+                <div className="p-4 bg-slate-900/50 border-2 border-dashed border-slate-600 rounded-xl">
+                    <p className="text-sm text-gray-400">MÃ PHÒNG</p>
+                    <p className="text-4xl font-bold tracking-widest">{gameRoom.code}</p>
                 </div>
-            )
-        }
-        if (view === 'ai_game_setup') {
-            return (
-                <div className="space-y-6 text-center animate-fade-in text-white">
-                    <h2 className="text-2xl font-bold">Cài đặt trận đấu AI</h2>
-                    <div className="p-4 bg-slate-800/50 rounded-xl space-y-4">
-                         <GameModeSelector 
-                            selectedGameMode={selectedGameMode}
-                            onGameModeChange={setSelectedGameMode}
-                            selectedTheme={selectedTheme}
-                            onThemeChange={setSelectedTheme}
-                            targetScore={targetScore}
-                            onTargetScoreChange={setTargetScore}
-                         />
-                         <div>
-                            <h3 className="font-semibold text-lg text-white mb-2 text-left">Độ khó</h3>
-                            <div className="grid grid-cols-4 gap-2">
-                                {Object.entries(difficultySettings).map(([key, { name }]) => (
-                                    <button key={key} onClick={() => setAiDifficulty(key as Difficulty)} className={`p-3 rounded-xl border-2 transition-colors text-sm ${aiDifficulty === key ? 'bg-indigo-500/20 border-indigo-500' : 'bg-slate-700 border-slate-600'}`}>{name}</button>
-                                ))}
+                <div className="grid grid-cols-2 gap-4 text-left">
+                    {gameRoom.players.map(player => (
+                        <div key={player.uid} className="p-3 bg-slate-800/50 rounded-lg flex items-center gap-3">
+                            {player.photoURL ? <img src={player.photoURL} className="w-10 h-10 rounded-full" /> : <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center"><User className="w-6 h-6"/></div>}
+                            <div>
+                                <p className="font-semibold truncate">{player.displayName}</p>
+                                {player.uid === gameRoom.hostUid && <p className="text-xs text-indigo-400">Chủ phòng</p>}
                             </div>
                         </div>
+                    ))}
+                    {gameRoom.players.length < 2 && (
+                        <div className="p-3 bg-slate-800/50 rounded-lg flex items-center gap-3 animate-pulse">
+                             <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin"/></div>
+                            <p className="text-gray-400">Đang chờ...</p>
+                        </div>
+                    )}
+                </div>
+                {isHost ? (
+                    <button onClick={handleStartGame} disabled={!canStart} className="w-full py-3 bg-indigo-600 rounded-lg font-semibold disabled:bg-indigo-400">
+                        {!canStart ? 'Chờ người chơi thứ hai' : 'Bắt đầu!'}
+                    </button>
+                ) : (
+                    <p className="text-gray-400">Chờ chủ phòng bắt đầu trận đấu...</p>
+                )}
+                 <button onClick={handleLeaveRoom} className="w-full py-2 bg-red-800/50 hover:bg-red-800 text-red-200 font-semibold rounded-lg">Rời phòng</button>
+            </div>
+        );
+    }
+    
+    if (gameRoom && (gameRoom.status === 'playing' || gameRoom.status === 'finished')) {
+        if (gameRoom.status === 'finished') {
+            const winner = gameRoom.players.find(p => p.uid === gameRoom.gameState.winnerUid);
+            const isWinner = winner?.uid === currentUser?.uid;
+            return (
+                 <div className="text-center py-10 space-y-4 flex flex-col items-center flex-grow justify-center animate-fade-in text-white">
+                    <h2 className="text-2xl font-bold">{isWinner ? 'Bạn đã thắng!' : winner ? `${winner.displayName} đã thắng!` : 'Trận đấu kết thúc!'}</h2>
+                    <p className="text-gray-400">{gameRoom.gameState.gameOverReason}</p>
+                    <div className="flex gap-4">
+                        <button onClick={handleLeaveRoom} className="px-6 py-3 bg-slate-600 hover:bg-slate-700 font-semibold rounded-xl">Quay lại Sảnh</button>
+                        {gameRoom.hostUid === currentUser?.uid && <button onClick={handleStartGame} className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 font-semibold rounded-xl">Chơi lại</button>}
                     </div>
-                    <button onClick={handleStartAiGame} className="w-full py-3 bg-indigo-600 rounded-lg font-semibold">Bắt đầu</button>
-                    <button onClick={() => setView('setup')} className="text-sm text-indigo-400">Quay lại</button>
                 </div>
             );
         }
-        return null;
-    };
+        
+        const isMyTurn = gameRoom.gameState.currentPlayerUid === currentUser?.uid;
+        const opponent = gameRoom.players.find(p => p.uid !== currentUser?.uid);
+        const me = gameRoom.players.find(p => p.uid === currentUser?.uid);
+
+        return (
+            <div className="flex flex-col h-full max-h-[75vh] space-y-4 animate-fade-in text-white">
+                <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                        {opponent?.photoURL ? <img src={opponent.photoURL} className="w-8 h-8 rounded-full" /> : <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center"><User className="w-5 h-5"/></div>}
+                        <span className="font-semibold">{opponent?.displayName}</span>
+                    </div>
+                    <TurnTimer timeLeft={timeLeft} duration={TURN_DURATION} />
+                    <div className="flex items-center gap-2">
+                         <span className="font-semibold">{me?.displayName}</span>
+                        {me?.photoURL ? <img src={me.photoURL} className="w-8 h-8 rounded-full" /> : <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center"><User className="w-5 h-5"/></div>}
+                    </div>
+                </div>
+
+                {gameRoom.gameMode === 'longest' && (
+                    <div className="text-center space-y-1">
+                        <p className="text-sm text-gray-400">Vòng {gameRoom.gameState.currentRound}, chữ cái</p>
+                        <p className="text-5xl font-bold text-cyan-300">{gameRoom.gameState.roundLetter}</p>
+                    </div>
+                )}
+                
+                <div className="flex-grow p-4 bg-slate-800/50 rounded-xl overflow-y-auto space-y-4">
+                    {gameRoom.gameState.history.map((item, index) => {
+                        if (item.by === 'turn') {
+                            return null;
+                        }
+                        const player = gameRoom.players.find(p => p.uid === item.by);
+                        const isMe = item.by === currentUser?.uid;
+                        return (
+                             <div key={index} className={`flex items-start gap-3 ${isMe ? 'justify-end' : ''}`}>
+                                {!isMe && (player?.photoURL ? <img src={player.photoURL} className="w-7 h-7 rounded-full"/> : <div className="w-7 h-7 bg-slate-700 rounded-full"/>)}
+                                <div className={`px-4 py-2 rounded-2xl max-w-xs break-words ${isMe ? 'bg-indigo-600 rounded-br-none' : 'bg-slate-700 rounded-bl-none'}`}>
+                                    {item.word}
+                                </div>
+                            </div>
+                        )
+                    })}
+                </div>
+                
+                 <form onSubmit={handleMultiplayerSubmit} className="flex items-center gap-2">
+                    <input value={playerInput} onChange={e => setPlayerInput(e.target.value)} placeholder={isMyTurn || gameRoom.gameMode === 'longest' ? "Nhập từ của bạn..." : "Đợi đối thủ..."} disabled={gameRoom.gameMode !== 'longest' && !isMyTurn} className="flex-grow w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500" autoFocus/>
+                    <button type="submit" disabled={isSubmitting || (gameRoom.gameMode !== 'longest' && !isMyTurn)} className="p-3 bg-indigo-600 rounded-full disabled:bg-indigo-400">
+                        {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin"/> : <Send className="w-6 h-6"/>}
+                    </button>
+                </form>
+            </div>
+        );
+    }
     
-    return <OtherViews />;
+    return null;
 };
 
 export default VocabularyDuel;
