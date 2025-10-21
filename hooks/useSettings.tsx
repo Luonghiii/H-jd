@@ -61,6 +61,7 @@ interface SettingsContextType {
   updateSelectedAchievement: (achievement: { id: string; level: number; } | null) => Promise<void>;
   achievements: { [key: string]: AchievementProgress };
   addXp: (amount: number) => Promise<void>;
+  incrementDuelWins: () => Promise<void>;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -88,6 +89,7 @@ const defaultState = {
       achievementCounters: {},
       xp: 0,
       level: 1,
+      duelWins: 0,
     } as UserStats,
     aiTutorHistory: [] as ConversationSession[],
     profile: {
@@ -127,7 +129,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
             backgroundSetting: data.settings?.backgroundSetting !== undefined ? data.settings.backgroundSetting : defaultState.backgroundSetting,
             customGradients: data.settings?.customGradients || defaultState.customGradients,
             userApiKeys: data.settings?.userApiKeys || defaultState.userApiKeys,
-            stats: { ...defaultState.stats, ...data.stats },
+            stats: { ...defaultState.stats, ...data.stats, duelWins: data.stats?.duelWins || 0 },
             aiTutorHistory: data.aiTutorHistory || defaultState.aiTutorHistory,
             profile: {
                 displayName: data.displayName || currentUser.displayName || '',
@@ -363,6 +365,15 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
   }, [currentUser]);
 
+  const incrementDuelWins = useCallback(async () => {
+    if (!currentUser) return;
+    const userRef = doc(db, 'users', currentUser.uid);
+    await updateDoc(userRef, {
+        'stats.duelWins': increment(1)
+    });
+    await updateUserLeaderboardEntry(currentUser.uid);
+  }, [currentUser]);
+
   const hasApiKey = !!process.env.API_KEY || appState.userApiKeys.length > 0;
 
   const contextValue = {
@@ -399,6 +410,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     updateSelectedAchievement,
     achievements: appState.achievements,
     addXp,
+    incrementDuelWins,
   };
 
   return (

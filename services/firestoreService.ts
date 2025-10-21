@@ -47,6 +47,11 @@ export interface PublicLeaderboardEntry {
     level: number;
     photoURL: string | null;
     selectedAchievement?: { id: string; level: number; } | null;
+    xp: number;
+    currentStreak: number;
+    luckyWheelBestStreak: number;
+    duelWins: number;
+    deckSubmissions: number;
 }
 
 export interface LeaderboardEntry {
@@ -121,6 +126,7 @@ export const createUserDocument = async (user: User): Promise<void> => {
                 achievementCounters: {},
                 xp: 0,
                 level: 1,
+                duelWins: 0,
             },
             aiTutorHistory: [],
             aiAssistantSessions: [],
@@ -138,6 +144,11 @@ export const createUserDocument = async (user: User): Promise<void> => {
             level: 1,
             photoURL: photoURL ?? null,
             selectedAchievement: null,
+            xp: 0,
+            currentStreak: 0,
+            luckyWheelBestStreak: 0,
+            duelWins: 0,
+            deckSubmissions: 0,
         };
         tx.set(leaderboardRef, initialPublicData);
         }
@@ -301,6 +312,11 @@ export const updateUserLeaderboardEntry = async (uid: string): Promise<void> => 
         level: userData.stats?.level || 1,
         photoURL: userData.photoURL || null,
         selectedAchievement: userData.selectedAchievement || null,
+        xp: userData.stats?.xp || 0,
+        currentStreak: userData.stats?.currentStreak || 0,
+        luckyWheelBestStreak: userData.stats?.luckyWheelBestStreak || 0,
+        duelWins: userData.stats?.duelWins || 0,
+        deckSubmissions: userData.stats?.achievementCounters?.COMMUNITY_DECK_SUBMITTED || 0,
       };
 
       transaction.set(leaderboardRef, publicData, { merge: true });
@@ -312,7 +328,7 @@ export const updateUserLeaderboardEntry = async (uid: string): Promise<void> => 
 };
 
 
-export const getLeaderboardData = async (statField: 'longestStreak' | 'totalWords'): Promise<LeaderboardEntry[]> => {
+export const getLeaderboardData = async (statField: 'longestStreak' | 'totalWords' | 'xp' | 'currentStreak' | 'luckyWheelBestStreak' | 'duelWins' | 'deckSubmissions'): Promise<LeaderboardEntry[]> => {
     const leaderboardRef = collection(db, 'leaderboard');
     
     // Query for all users who have set a name (not an empty string).

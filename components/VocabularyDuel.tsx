@@ -50,7 +50,7 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
     const [lastWord, setLastWord] = useState('');
 
     const { getAvailableThemes } = useVocabulary();
-    const { learningLanguage, recordActivity, addXp } = useSettings();
+    const { learningLanguage, recordActivity, addXp, incrementDuelWins } = useSettings();
     const { addHistoryEntry } = useHistory();
     const timerRef = useRef<number | null>(null);
     const gameHistoryRef = useRef<HTMLDivElement>(null);
@@ -62,7 +62,7 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
         if (timerRef.current) clearInterval(timerRef.current);
     };
 
-    const handleGameOver = (reason: string, playerWon: boolean) => {
+    const handleGameOver = async (reason: string, playerWon: boolean) => {
         setGameOverReason(reason);
         addHistoryEntry('VOCABULARY_DUEL_COMPLETED', reason);
         
@@ -71,6 +71,7 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
             addXp(15); // Grant 15 XP for a tie
         } else if (playerWon) {
             addXp(50); // Grant 50 XP for a win
+            await incrementDuelWins();
             recordActivity();
         }
         
@@ -169,10 +170,13 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
         } else {
             if (gameMode === 'longest') {
                 setAiScore(s => s + 1);
-                if (currentRound >= rounds) handleGameOver(reason || "Từ không hợp lệ.", false);
-                else handleNextRound();
+                if (currentRound >= rounds) {
+                    await handleGameOver(reason || "Từ không hợp lệ.", false);
+                } else {
+                    handleNextRound();
+                }
             } else {
-                handleGameOver(reason || "Từ không hợp lệ.", false);
+                await handleGameOver(reason || "Từ không hợp lệ.", false);
             }
         }
     };
@@ -202,7 +206,7 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
                         if (currentRound >= rounds) {
                            const finalPlayerScore = playerScore + (playerWord.length > aiWord.length ? 1 : 0);
                            const finalAiScore = aiScore + (aiWord.length > playerWord.length ? 1 : 0);
-                           handleGameOver(`Kết thúc ${rounds} vòng.`, finalPlayerScore > finalAiScore);
+                           await handleGameOver(`Kết thúc ${rounds} vòng.`, finalPlayerScore > finalAiScore);
                         } else {
                             handleNextRound();
                         }
@@ -215,10 +219,13 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
                 } else {
                     if (gameMode === 'longest') {
                         setPlayerScore(s => s + 1); // AI failed, player gets point
-                        if (currentRound >= rounds) handleGameOver("AI không tìm được từ.", true);
-                        else handleNextRound();
+                        if (currentRound >= rounds) {
+                            await handleGameOver("AI không tìm được từ.", true);
+                        } else {
+                            handleNextRound();
+                        }
                     } else {
-                        handleGameOver(aiWord ? "AI đã dùng từ bị lặp! Bạn thắng!" : "AI không thể nghĩ ra từ nào! Bạn thắng!", true);
+                        await handleGameOver(aiWord ? "AI đã dùng từ bị lặp! Bạn thắng!" : "AI không thể nghĩ ra từ nào! Bạn thắng!", true);
                     }
                 }
             }, thinkingTime);

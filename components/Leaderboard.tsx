@@ -2,10 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { useSettings } from '../hooks/useSettings';
 import { useAuth } from '../hooks/useAuth';
 import { getLeaderboardData, LeaderboardEntry } from '../services/firestoreService';
-import { Trophy, Flame, BookOpen, UserCheck, Loader2, User as UserIcon, AlertTriangle } from 'lucide-react';
+import { Trophy, Flame, BookOpen, UserCheck, Loader2, User as UserIcon, AlertTriangle, Zap, Star, Swords, Share2 } from 'lucide-react';
 import { achievementsList, levelStyles } from '../data/achievements';
 
-type LeaderboardTab = 'streak' | 'words';
+type LeaderboardTab = 'longestStreak' | 'currentStreak' | 'totalWords' | 'xp' | 'luckyWheelBestStreak' | 'duelWins' | 'deckSubmissions';
+
+const TABS: { id: LeaderboardTab; label: string; icon: React.ElementType }[] = [
+    { id: 'longestStreak', label: 'Kỷ lục Chuỗi', icon: Trophy },
+    { id: 'currentStreak', label: 'Chuỗi Hiện Tại', icon: Flame },
+    { id: 'totalWords', label: 'Nhiều Từ Nhất', icon: BookOpen },
+    { id: 'xp', label: 'Kinh Nghiệm', icon: Zap },
+    { id: 'luckyWheelBestStreak', label: 'Kỷ Lục Vòng Quay', icon: Star },
+    { id: 'duelWins', label: 'Chiến Thần Đấu Từ', icon: Swords },
+    { id: 'deckSubmissions', label: 'Nhà Xây Dựng', icon: Share2 },
+];
 
 const PodiumIcon: React.FC<{ rank: number }> = ({ rank }) => {
     const colors = {
@@ -33,9 +43,8 @@ const DisplayNamePrompt: React.FC = () => {
 const Leaderboard: React.FC = () => {
     const { profile, isSettingsLoading } = useSettings();
     const { currentUser } = useAuth();
-    const [activeTab, setActiveTab] = useState<LeaderboardTab>('streak');
-    const [streakData, setStreakData] = useState<LeaderboardEntry[]>([]);
-    const [wordData, setWordData] = useState<LeaderboardEntry[]>([]);
+    const [activeTab, setActiveTab] = useState<LeaderboardTab>('longestStreak');
+    const [leaderboardData, setLeaderboardData] = useState<LeaderboardEntry[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -45,14 +54,9 @@ const Leaderboard: React.FC = () => {
             setIsLoading(true);
             setError(null);
             try {
-                // Only fetch data if the user has opted-in to the leaderboard by setting a display name
                 if (profile.displayName) {
-                    const [streaks, words] = await Promise.all([
-                        getLeaderboardData('longestStreak'),
-                        getLeaderboardData('totalWords'),
-                    ]);
-                    setStreakData(streaks);
-                    setWordData(words);
+                    const data = await getLeaderboardData(activeTab);
+                    setLeaderboardData(data);
                 }
             } catch (error) {
                 console.error("Failed to fetch leaderboard data", error);
@@ -62,19 +66,17 @@ const Leaderboard: React.FC = () => {
             }
         };
         fetchData();
-    }, [profile.displayName, isSettingsLoading]);
+    }, [activeTab, profile.displayName, isSettingsLoading]);
 
     if (isSettingsLoading) {
         return <div className="text-center"><Loader2 className="w-8 h-8 animate-spin" /></div>;
     }
     
-    // The user's profile is on a dark background in this context.
-    // Forcing light text for better readability.
     if (!profile.displayName) {
         return <DisplayNamePrompt />;
     }
 
-    const data = activeTab === 'streak' ? streakData : wordData;
+    const ActiveIcon = TABS.find(t => t.id === activeTab)?.icon || Trophy;
 
     return (
         <div className="space-y-6 animate-fade-in text-white">
@@ -84,13 +86,16 @@ const Leaderboard: React.FC = () => {
                 <p className="text-gray-400 mt-1">Xem ai đang dẫn đầu cuộc đua học tập!</p>
             </div>
             
-            <div className="flex justify-center p-1 bg-slate-800/60 rounded-full">
-                <button onClick={() => setActiveTab('streak')} className={`px-4 py-1.5 text-sm rounded-full font-medium flex items-center gap-2 ${activeTab === 'streak' ? 'bg-indigo-600 text-white' : 'text-gray-300'}`}>
-                    <Flame className="w-4 h-4" /> Chuỗi dài nhất
-                </button>
-                 <button onClick={() => setActiveTab('words')} className={`px-4 py-1.5 text-sm rounded-full font-medium flex items-center gap-2 ${activeTab === 'words' ? 'bg-indigo-600 text-white' : 'text-gray-300'}`}>
-                    <BookOpen className="w-4 h-4" /> Nhiều từ nhất
-                </button>
+            <div className="flex justify-center p-1 bg-slate-800/60 rounded-full overflow-x-auto">
+                {TABS.map(tab => (
+                    <button 
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)} 
+                        className={`flex-shrink-0 px-3 py-1.5 text-xs sm:text-sm rounded-full font-medium flex items-center gap-2 transition-colors ${activeTab === tab.id ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-slate-700'}`}
+                    >
+                        <tab.icon className="w-4 h-4" /> <span>{tab.label}</span>
+                    </button>
+                ))}
             </div>
 
             {isLoading ? (
@@ -103,7 +108,7 @@ const Leaderboard: React.FC = () => {
                 </div>
             ) : (
                 <div className="space-y-3">
-                    {data.map((entry, index) => {
+                    {leaderboardData.map((entry, index) => {
                         const rank = index + 1;
                         const isCurrentUser = entry.uid === currentUser?.uid;
                         const displayName = isCurrentUser ? `${entry.name} (Bạn)` : entry.name;
@@ -141,7 +146,7 @@ const Leaderboard: React.FC = () => {
                                 </div>
                                 <div className="flex items-center gap-2 font-bold text-lg text-cyan-300 flex-shrink-0">
                                     <span>{entry.value}</span>
-                                    {activeTab === 'streak' ? <Flame className="w-5 h-5"/> : <BookOpen className="w-5 h-5"/>}
+                                    <ActiveIcon className="w-5 h-5"/>
                                 </div>
                             </div>
                         )

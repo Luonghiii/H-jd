@@ -138,6 +138,7 @@ export interface UserStats {
     achievementCounters?: { [key in HistoryEntry['type']]?: number };
     xp: number;
     level: number;
+    duelWins?: number;
 }
 
 export interface AiLesson {
