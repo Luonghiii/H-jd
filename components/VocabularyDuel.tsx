@@ -1,5 +1,4 @@
 
-
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useVocabulary } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
@@ -381,7 +380,7 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
 
         } catch (err) {
             eventBus.dispatch('notification', { type: 'error', message: 'Lỗi khi kiểm tra từ.' });
-            setIsPlayerTurn(true); // Give turn back to player on error
+            setAiGameOverReason('AI gặp lỗi. Bạn thắng!'); // End game on error
         } finally {
             setIsSubmitting(false);
         }
@@ -404,7 +403,9 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
                 }
 
                 if (room.playerUids.includes(currentUser.uid)) {
-                     if (view !== 'playing' && room.status !== 'finished') {
+                     if (view !== 'playing' && room.status === 'playing') {
+                        setView('playing');
+                    } else if (view !== 'lobby' && room.status === 'waiting') {
                         setView('lobby');
                     }
                     setIsJoining(false);
@@ -536,7 +537,6 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
             }
         }
     
-        // FIX: Add 'language' property to the room data object.
         const newRoomData: Omit<GameRoom, 'id'|'code'|'createdAt'|'playerUids'> = {
             status: 'waiting', 
             players: [player], 
@@ -553,7 +553,6 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
         };
         
         try {
-            // FIX: Pass 'learningLanguage' as the second argument.
             const room = await createGameRoom(newRoomData, learningLanguage);
             setGameRoom(room);
             setView('lobby');
@@ -593,7 +592,6 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
         setIsFindingMatch(true);
 
         try {
-            // FIX: Pass 'learningLanguage' as an argument.
             const publicRoom = await findPublicGameRoom(learningLanguage);
             if (publicRoom) {
                 const player: GameRoomPlayer = { uid: currentUser.uid, displayName: profile.displayName || 'Player 2', photoURL: profile.photoURL };
@@ -808,11 +806,12 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
     }
     
     if (view === 'ai_game') {
+        const themeModeDisplay = aiGameMode === 'theme' && aiGameSettings.theme !== 'any' ? ` (Chủ đề: ${aiGameSettings.theme})` : '';
         const longestModeDisplay = aiGameMode === 'longest' ? ` (Mục tiêu: ${aiGameSettings.targetScore})` : '';
         return (
             <div className="flex flex-col h-full max-h-[75vh] space-y-4 animate-fade-in text-white">
                  <div className="flex justify-between items-center">
-                    <h2 className="text-xl font-bold text-center">Đấu với AI{longestModeDisplay}</h2>
+                    <h2 className="text-xl font-bold text-center">Đấu với AI{themeModeDisplay}{longestModeDisplay}</h2>
                     <button onClick={() => setAiGameOverReason('Bạn đã bỏ cuộc.')} className="flex-shrink-0 flex items-center gap-2 px-3 py-2 text-sm bg-red-800/50 hover:bg-red-800 text-red-200 font-semibold rounded-xl transition-colors">
                         <XCircle className="w-4 h-4" />
                         <span>Bỏ cuộc</span>
@@ -853,11 +852,9 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
                            {isAiThinking && <div className="flex items-start gap-3"><div className="p-1.5 bg-indigo-500 rounded-full"><Bot className="w-5 h-5"/></div><div className="px-4 py-2 rounded-2xl bg-indigo-900/80 rounded-bl-none"><Loader2 className="w-5 h-5 animate-spin"/></div></div>}
                         </div>
                         <form onSubmit={handlePlayerSubmit_AI} className="flex items-center gap-2">
-                            {aiGameMode === 'longest' ? (
-                                <TurnTimer timeLeft={timeLeft} duration={TURN_DURATION} />
-                            ) : null}
+                            {aiGameMode !== 'longest' && <TurnTimer timeLeft={timeLeft} duration={TURN_DURATION} />}
                             <input value={playerInput} onChange={e => { setPlayerInput(e.target.value); playerInputRef.current = e.target.value; }} placeholder={isPlayerTurn || aiGameMode === 'longest' ? "Nhập từ của bạn..." : "Chờ AI..."} disabled={aiGameMode !== 'longest' && !isPlayerTurn} className="flex-grow w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500" autoFocus/>
-                            <button type="submit" disabled={aiGameMode !== 'longest' && (!isPlayerTurn || !playerInput)} className="p-3 bg-indigo-600 rounded-full disabled:bg-indigo-400">{isSubmitting ? <Loader2 className="w-6 h-6 animate-spin"/> : <Send className="w-6 h-6"/>}</button>
+                            <button type="submit" disabled={isSubmitting || (aiGameMode !== 'longest' && (!isPlayerTurn || !playerInput))} className="p-3 bg-indigo-600 rounded-full disabled:bg-indigo-400">{isSubmitting ? <Loader2 className="w-6 h-6 animate-spin"/> : <Send className="w-6 h-6"/>}</button>
                         </form>
                     </>
                 )}
@@ -899,11 +896,11 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
                             onClick={handleStartGame}
                             disabled={!canStart || isSubmitting}
                             className="w-full py-3 bg-indigo-600 rounded-lg font-semibold disabled:bg-indigo-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                            title={!canStart ? 'Cần 2 người chơi để bắt đầu' : ''}
                         >
-                            {isSubmitting && <Loader2 className="w-5 h-5 animate-spin" />}
+                            {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
                             {isSubmitting ? 'Đang bắt đầu...' : !canStart ? 'Chờ người chơi thứ hai' : 'Bắt đầu!'}
                         </button>
+                        {!canStart && <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-xs bg-slate-900 px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">Cần 2 người chơi để bắt đầu</div>}
                     </div>
                 ) : (
                     <p className="text-gray-400">Chờ chủ phòng bắt đầu trận đấu...</p>
@@ -986,3 +983,4 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
 };
 
 export default VocabularyDuel;
+
