@@ -3,17 +3,17 @@ import StoryGenerator from './StoryGenerator';
 import SentenceGenerator from './SentenceGenerator';
 import GrammarChecker from './GrammarChecker';
 import AiTutor from './AiTutor';
-import InteractiveImage from './InteractiveImage';
+import RealWorldExplorer from './InteractiveImage';
 import AiLessonGenerator from './AiLessonGenerator';
-import { Sparkles, BookText, FileText, CheckSquare, ArrowRight, MessageCircle, ImageIcon, Library } from 'lucide-react';
+import { Sparkles, BookText, FileText, CheckSquare, ArrowRight, MessageCircle, Video, Library } from 'lucide-react';
 import { useVocabulary } from '../hooks/useVocabulary';
 
 type AiTool = 'menu' | 'story' | 'sentence' | 'grammar' | 'tutor' | 'imageExplorer' | 'lesson';
 
 const toolOptions = [
     { id: 'tutor', component: AiTutor, title: 'Gia sư Đối thoại AI', description: 'Trò chuyện trực tiếp với AI bằng giọng nói để luyện kỹ năng giao tiếp.', icon: MessageCircle },
+    { id: 'imageExplorer', component: RealWorldExplorer, title: 'Khám phá Thế giới thực', description: 'Bắt đầu cuộc gọi video với AI để nhận diện và học từ vựng từ các vật thể xung quanh bạn.', icon: Video },
     { id: 'lesson', component: AiLessonGenerator, title: 'Bài học AI', description: 'Nhập một chủ đề và nhận ngay một bài học đầy đủ do AI tạo ra.', icon: Library },
-    { id: 'imageExplorer', component: InteractiveImage, title: 'Khám phá qua Ảnh', description: 'Tải lên một bức ảnh và nhấp vào các vật thể để học từ vựng.', icon: ImageIcon },
     { id: 'story', component: StoryGenerator, title: 'Tạo truyện', description: 'Chọn từ vựng và để AI viết một câu chuyện ngắn độc đáo.', icon: BookText },
     { id: 'sentence', component: SentenceGenerator, title: 'Tạo câu ví dụ', description: 'Chọn một từ và xem cách nó được sử dụng trong một câu hoàn chỉnh.', icon: FileText },
     { id: 'grammar', component: GrammarChecker, title: 'Kiểm tra ngữ pháp', description: 'Viết một câu hoặc đoạn văn và để AI kiểm tra, sửa lỗi ngữ pháp.', icon: CheckSquare },

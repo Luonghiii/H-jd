@@ -1,253 +1,318 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useVocabulary } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
 import { useHistory } from '../hooks/useHistory';
-import { identifyObjectInImage } from '../services/geminiService';
 import { GeneratedWord } from '../types';
-import { Upload, Sparkles, PlusCircle, X, RefreshCw, Camera, ArrowLeft } from 'lucide-react';
+import { GoogleGenAI, LiveSession, LiveServerMessage, Modality, Blob, FunctionDeclaration, Type } from '@google/genai';
+import { ArrowLeft, Video, PhoneOff, Check, X, Loader2, PlusCircle, Trash2, Camera, Circle } from 'lucide-react';
+import eventBus from '../utils/eventBus';
 
-const fileToBase64 = (file: File): Promise<{base64: string, mimeType: string}> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve({
-        base64: (reader.result as string).split(',')[1],
-        mimeType: file.type
-    });
-    reader.onerror = error => reject(error);
-  });
-};
-
-const InteractiveImage: React.FC<{onBack: () => void;}> = ({onBack}) => {
-    const [imageFile, setImageFile] = useState<{base64: string, mimeType: string, url: string} | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
-    const [lastResult, setLastResult] = useState<GeneratedWord | null>(null);
-    const [feedback, setFeedback] = useState<string | null>(null);
-    const [clickMarker, setClickMarker] = useState<{x: number, y: number} | null>(null);
-    const [cameraActive, setCameraActive] = useState(false);
-    
-    const { addMultipleWords } = useVocabulary();
-    const { addHistoryEntry } = useHistory();
-    const { learningLanguage, recordActivity, addXp } = useSettings();
-    
-    const canvasRef = useRef<HTMLCanvasElement>(null);
-    const imageRef = useRef<HTMLImageElement>(new Image());
-    const videoRef = useRef<HTMLVideoElement>(null);
-    const streamRef = useRef<MediaStream | null>(null);
-
-    useEffect(() => {
-        const canvas = canvasRef.current;
-        if (!canvas || !imageFile) return;
-
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-
-        const img = imageRef.current;
-        img.onload = () => {
-            canvas.width = img.width;
-            canvas.height = img.height;
-            ctx.drawImage(img, 0, 0);
-        };
-        img.src = imageFile.url;
-    }, [imageFile]);
-
-    const cleanupCamera = () => {
-        if (streamRef.current) {
-            streamRef.current.getTracks().forEach(track => track.stop());
-            streamRef.current = null;
-        }
-        if (videoRef.current) {
-            videoRef.current.srcObject = null;
-        }
-        setCameraActive(false);
+// Audio/Blob utility functions
+function decode(base64: string): Uint8Array {
+    const binaryString = atob(base64);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
     }
+    return bytes;
+}
 
-    useEffect(() => {
-        return () => cleanupCamera();
+async function decodeAudioData(data: Uint8Array, ctx: AudioContext, sampleRate: number, numChannels: number): Promise<AudioBuffer> {
+    if (ctx.state === 'suspended') await ctx.resume();
+    const dataInt16 = new Int16Array(data.buffer);
+    const frameCount = dataInt16.length / numChannels;
+    const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
+    for (let channel = 0; channel < numChannels; channel++) {
+        const channelData = buffer.getChannelData(channel);
+        for (let i = 0; i < frameCount; i++) {
+            channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
+        }
+    }
+    return buffer;
+}
+
+function encode(bytes: Uint8Array): string {
+    let binary = '';
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+}
+
+function createBlob(data: Float32Array): Blob {
+    const l = data.length;
+    const int16 = new Int16Array(l);
+    for (let i = 0; i < l; i++) {
+        int16[i] = data[i] * 32768;
+    }
+    return { data: encode(new Uint8Array(int16.buffer)), mimeType: 'audio/pcm;rate=16000' };
+}
+
+const RealWorldExplorer: React.FC<{onBack: () => void;}> = ({ onBack }) => {
+    const [gameState, setGameState] = useState<'setup' | 'calling' | 'review'>('setup');
+    const [connectionState, setConnectionState] = useState<'idle' | 'connecting' | 'connected' | 'error'>('idle');
+    const [collectedWords, setCollectedWords] = useState<GeneratedWord[]>([]);
+    const [error, setError] = useState('');
+
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const sessionPromiseRef = useRef<Promise<LiveSession> | null>(null);
+    const audioResourcesRef = useRef<{ inputCtx: AudioContext; outputCtx: AudioContext; stream: MediaStream; scriptProcessor: ScriptProcessorNode; sourceNode: MediaStreamAudioSourceNode; } | null>(null);
+    const frameIntervalRef = useRef<number | null>(null);
+    const nextStartTimeRef = useRef(0);
+    const sourcesRef = useRef(new Set<AudioBufferSourceNode>());
+
+    const { addMultipleWords } = useVocabulary();
+    const { addHistoryEntry, history } = useHistory();
+    const { learningLanguage, userApiKeys, recordActivity, addXp } = useSettings();
+
+    const cleanup = useCallback(async () => {
+        if (audioResourcesRef.current?.stream) {
+            audioResourcesRef.current.stream.getTracks().forEach(track => track.stop());
+        }
+        if (frameIntervalRef.current) {
+            clearInterval(frameIntervalRef.current);
+            frameIntervalRef.current = null;
+        }
+        if (sessionPromiseRef.current) {
+            try {
+                const session = await sessionPromiseRef.current;
+                session.close();
+            } catch (e) { /* ignore */ }
+            sessionPromiseRef.current = null;
+        }
+        if (audioResourcesRef.current) {
+            try {
+                audioResourcesRef.current.scriptProcessor.disconnect();
+                audioResourcesRef.current.sourceNode.disconnect();
+                if (audioResourcesRef.current.inputCtx.state !== 'closed') await audioResourcesRef.current.inputCtx.close();
+                if (audioResourcesRef.current.outputCtx.state !== 'closed') await audioResourcesRef.current.outputCtx.close();
+            } catch (e) { console.error("Error during audio context cleanup:", e); }
+        }
+        sourcesRef.current.forEach(source => source.stop());
+        sourcesRef.current.clear();
+        nextStartTimeRef.current = 0;
+        audioResourcesRef.current = null;
+        setConnectionState('idle');
     }, []);
 
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            setLastResult(null);
-            setFeedback(null);
-            setClickMarker(null);
-            const { base64, mimeType } = await fileToBase64(file);
-            setImageFile({ base64, mimeType, url: URL.createObjectURL(file) });
-        }
-    };
+    useEffect(() => { return () => { cleanup(); }; }, [cleanup]);
 
-    const handleCameraOpen = async () => {
-        cleanupCamera();
+    const startCall = async () => {
+        setGameState('calling');
+        setConnectionState('connecting');
+        setError('');
+        setCollectedWords([]);
+
+        const systemApiKey = process.env.API_KEY;
+        const keysToTry: string[] = userApiKeys.length > 0 ? [...userApiKeys] : (systemApiKey ? [systemApiKey] : []);
+        
+        if (keysToTry.length === 0) {
+            setError("Không có khóa API. Vui lòng thêm trong Cài đặt.");
+            setConnectionState('error');
+            return;
+        }
+
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-            streamRef.current = stream;
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: { facingMode: "environment" } });
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;
             }
-            setCameraActive(true);
-            setImageFile(null);
-        } catch (error) {
-            console.error("Camera error:", error);
-            setFeedback("Không thể truy cập camera. Vui lòng cấp quyền trong cài đặt trình duyệt.");
-        }
-    }
 
-    const handleCapture = () => {
-        const video = videoRef.current;
-        if (!video) return;
+            const foundObjectFunc: FunctionDeclaration = {
+                name: 'foundObject',
+                parameters: {
+                    type: Type.OBJECT,
+                    description: 'Called when an object is identified.',
+                    properties: {
+                        word: { type: Type.STRING, description: `The object's name in ${learningLanguage}.` },
+                        translation_vi: { type: Type.STRING, description: 'Vietnamese translation.' },
+                        translation_en: { type: Type.STRING, description: 'English translation.' },
+                        theme: { type: Type.STRING, description: 'A theme in Vietnamese.' },
+                    },
+                    required: ['word', 'translation_vi', 'translation_en', 'theme'],
+                },
+            };
+            const systemInstruction = `You are an object identifier. When the user asks "what is this" or a similar question, analyze video frames, identify the main object, and call the 'foundObject' function with the object's name in ${learningLanguage}, its translations, and theme. Also, speak the object's name out loud in ${learningLanguage}. Example: say "That is a book."`;
 
-        const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const ctx = canvas.getContext('2d');
-        ctx?.drawImage(video, 0, 0, canvas.width, canvas.height);
-        
-        const dataUrl = canvas.toDataURL('image/jpeg');
-        const base64 = dataUrl.split(',')[1];
-        setImageFile({ base64, mimeType: 'image/jpeg', url: dataUrl });
+            let connectionSuccessful = false;
+            for (const key of keysToTry) {
+                try {
+                    const ai = new GoogleGenAI({ apiKey: key });
+                    const inputCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
+                    const outputCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+                    
+                    sessionPromiseRef.current = ai.live.connect({
+                        model: 'gemini-2.5-flash-native-audio-preview-09-2025',
+                        config: { responseModalities: [Modality.AUDIO], tools: [{ functionDeclarations: [foundObjectFunc] }], systemInstruction },
+                        callbacks: {
+                            onopen: () => {
+                                setConnectionState('connected');
+                                const sourceNode = inputCtx.createMediaStreamSource(stream);
+                                const scriptProcessor = inputCtx.createScriptProcessor(4096, 1, 1);
+                                audioResourcesRef.current = { inputCtx, outputCtx, stream, scriptProcessor, sourceNode };
 
-        cleanupCamera();
-    }
-
-
-    const handleCanvasClick = async (e: React.MouseEvent<HTMLCanvasElement>) => {
-        if (isLoading || !imageFile) return;
-
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-        const x = (e.clientX - rect.left) * scaleX;
-        const y = (e.clientY - rect.top) * scaleY;
-        
-        setClickMarker({ x: x / canvas.width * 100, y: y / canvas.height * 100 });
-
-        setIsLoading(true);
-        setFeedback(null);
-        setLastResult(null);
-        
-        try {
-            const result = await identifyObjectInImage(imageFile.base64, imageFile.mimeType, { x: x / canvas.width, y: y / canvas.height }, learningLanguage);
-            setLastResult(result);
-            if (result) {
-                recordActivity();
-                addHistoryEntry('IMAGE_OBJECT_IDENTIFIED', `Xác định đối tượng "${result.word}" từ ảnh.`, { word: result.word });
-                addXp(5); // Grant 5 XP for identifying an object
-            } else {
-                setFeedback("Không thể xác định đối tượng tại vị trí này.");
+                                scriptProcessor.onaudioprocess = (e) => sessionPromiseRef.current?.then((s) => s.sendRealtimeInput({ media: createBlob(e.inputBuffer.getChannelData(0)) }));
+                                sourceNode.connect(scriptProcessor);
+                                scriptProcessor.connect(inputCtx.destination);
+                                
+                                frameIntervalRef.current = window.setInterval(() => {
+                                    const video = videoRef.current;
+                                    const canvas = canvasRef.current;
+                                    if (video && canvas) {
+                                        canvas.width = video.videoWidth;
+                                        canvas.height = video.videoHeight;
+                                        canvas.getContext('2d')?.drawImage(video, 0, 0);
+                                        canvas.toBlob(async (blob) => {
+                                            if (blob) {
+                                                const reader = new FileReader();
+                                                reader.onload = () => {
+                                                    const base64Data = (reader.result as string).split(',')[1];
+                                                    sessionPromiseRef.current?.then((s) => s.sendRealtimeInput({ media: { data: base64Data, mimeType: 'image/jpeg' } }));
+                                                };
+                                                reader.readAsDataURL(blob);
+                                            }
+                                        }, 'image/jpeg', 0.8);
+                                    }
+                                }, 1000); // Send 1 frame per second
+                            },
+                            onmessage: async (msg) => {
+                                if (msg.toolCall) {
+                                    for (const fc of msg.toolCall.functionCalls) {
+                                        if (fc.name === 'foundObject') {
+                                            const newWord: GeneratedWord = fc.args as any;
+                                            setCollectedWords(prev => {
+                                                if (!prev.some(w => w.word.toLowerCase() === newWord.word.toLowerCase())) {
+                                                    addHistoryEntry('IMAGE_OBJECT_IDENTIFIED', `Xác định đối tượng "${newWord.word}" từ camera.`, { word: newWord.word });
+                                                    addXp(5);
+                                                    return [...prev, newWord];
+                                                }
+                                                return prev;
+                                            });
+                                        }
+                                    }
+                                }
+                                const audioData = msg.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
+                                if (audioData && audioResourcesRef.current?.outputCtx) {
+                                    const outCtx = audioResourcesRef.current.outputCtx;
+                                    if (nextStartTimeRef.current < outCtx.currentTime) nextStartTimeRef.current = outCtx.currentTime;
+                                    const buffer = await decodeAudioData(decode(audioData), outCtx, 24000, 1);
+                                    const source = outCtx.createBufferSource();
+                                    source.buffer = buffer;
+                                    source.connect(outCtx.destination);
+                                    source.start(nextStartTimeRef.current);
+                                    nextStartTimeRef.current += buffer.duration;
+                                }
+                            },
+                            onclose: () => { if (connectionState !== 'idle') endCall(); },
+                            onerror: (e) => { console.error("Live session error:", e); setError("Lỗi kết nối."); setConnectionState('error'); },
+                        },
+                    });
+                    await sessionPromiseRef.current;
+                    connectionSuccessful = true;
+                    break;
+                } catch (err) { /* Try next key */ }
             }
-        } catch (error: any) {
-            console.error(error);
-            if (error.message === "All API keys failed.") {
-                setFeedback("Tất cả API key đều không hoạt động. Vui lòng kiểm tra lại trong Cài đặt.");
-            } else {
-                setFeedback("Đã xảy ra lỗi khi phân tích hình ảnh.");
-            }
+            if (!connectionSuccessful) throw new Error("Tất cả API key đều lỗi.");
+        } catch (err: any) {
+            console.error("Failed to start call:", err);
+            setError(err.message || "Không thể truy cập camera/micro. Vui lòng cấp quyền.");
+            setConnectionState('error');
+            await cleanup();
         }
-        setIsLoading(false);
     };
 
-    const handleAddWord = async () => {
-        if (!lastResult) return;
-        const count = await addMultipleWords([lastResult]);
-        if (count > 0) {
-            setFeedback(`Đã thêm "${lastResult.word}" vào danh sách!`);
-            setLastResult(null);
+    const endCall = async () => {
+        await cleanup();
+        if (collectedWords.length > 0) {
+            recordActivity();
+            setGameState('review');
         } else {
-            setFeedback(`"${lastResult.word}" đã có trong danh sách.`);
+            setGameState('setup');
         }
     };
 
-    const resetView = () => {
-        cleanupCamera();
-        setImageFile(null);
-        setLastResult(null);
-        setFeedback(null);
-        setClickMarker(null);
+    const [wordsToConfirm, setWordsToConfirm] = useState<Set<string>>(new Set());
+    useEffect(() => {
+        if (gameState === 'review') setWordsToConfirm(new Set(collectedWords.map(w => w.word)));
+    }, [gameState, collectedWords]);
+    const handleToggleWord = (word: string) => setWordsToConfirm(p => { const n = new Set(p); if (n.has(word)) n.delete(word); else n.add(word); return n; });
+
+    const handleConfirmReview = async () => {
+        const wordsToAdd = collectedWords.filter(w => wordsToConfirm.has(w.word));
+        if (wordsToAdd.length > 0) {
+            const count = await addMultipleWords(wordsToAdd);
+            eventBus.dispatch('notification', { type: 'success', message: `Đã thêm ${count} từ mới!` });
+        }
+        setGameState('setup');
+    };
+
+    if (gameState === 'setup') {
+        return (
+            <div className="space-y-6 text-center">
+                <div className="flex items-center justify-between">
+                    <h2 className="text-2xl font-bold text-white">Khám phá Thế giới thực</h2>
+                    <button onClick={onBack} className="flex-shrink-0 flex items-center gap-2 px-3 py-2 text-sm bg-slate-700/50 rounded-xl"><ArrowLeft className="w-4 h-4" /> <span>Quay lại</span></button>
+                </div>
+                <p className="text-gray-400">Bắt đầu cuộc gọi video với AI để nhận diện vật thể xung quanh bạn và học từ vựng mới trong thời gian thực.</p>
+                <button onClick={startCall} className="w-full max-w-xs mx-auto flex items-center justify-center gap-3 px-4 py-3 bg-indigo-600 rounded-xl font-semibold"><Video className="w-6 h-6"/>Bắt đầu cuộc gọi</button>
+            </div>
+        );
     }
 
-    if (cameraActive) {
+    if (gameState === 'review') {
         return (
-             <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                    <h2 className="text-2xl font-bold text-white">Sử dụng Camera</h2>
-                     <button onClick={cleanupCamera} className="flex-shrink-0 flex items-center gap-2 px-3 py-2 text-sm bg-slate-700/50 hover:bg-slate-700 text-gray-200 font-semibold rounded-xl transition-colors">
-                        <X className="w-4 h-4" />
-                        <span>Hủy</span>
-                    </button>
+            <div className="space-y-4">
+                <h2 className="text-xl font-bold text-white">Xem lại từ đã thu thập</h2>
+                <div className="max-h-80 overflow-y-auto space-y-2 p-2 bg-slate-800/50 rounded-lg">
+                    {collectedWords.map(word => (
+                        <div key={word.word} onClick={() => handleToggleWord(word.word)} className={`flex items-center gap-2 p-2 rounded-md cursor-pointer ${wordsToConfirm.has(word.word) ? 'bg-indigo-900/50' : 'hover:bg-slate-700'}`}>
+                            <div className={`w-5 h-5 flex-shrink-0 rounded-md flex items-center justify-center border-2 ${wordsToConfirm.has(word.word) ? 'bg-indigo-500 border-indigo-500' : 'border-slate-500'}`}>
+                                {wordsToConfirm.has(word.word) && <Check className="w-4 h-4 text-white" />}
+                            </div>
+                            <div>
+                                <p className="font-medium text-white">{word.word}</p>
+                                <p className="text-xs text-gray-400">{word.translation_vi}</p>
+                            </div>
+                        </div>
+                    ))}
                 </div>
-                <div className="relative w-full max-w-full mx-auto aspect-video bg-black rounded-lg overflow-hidden">
-                    <video ref={videoRef} autoPlay playsInline className="w-full h-full object-contain"></video>
-                </div>
-                <div className="flex gap-2">
-                    <button onClick={handleCapture} className="flex-1 px-4 py-3 bg-indigo-600 rounded-lg text-white font-semibold">Chụp ảnh</button>
-                </div>
-             </div>
+                <button onClick={handleConfirmReview} disabled={wordsToConfirm.size === 0} className="w-full py-3 bg-indigo-600 rounded-lg font-semibold disabled:bg-indigo-400">Thêm {wordsToConfirm.size} từ</button>
+            </div>
         );
     }
 
     return (
         <div className="space-y-4">
-            <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-white">Khám phá qua Ảnh</h2>
-                <button onClick={onBack} className="flex-shrink-0 flex items-center gap-2 px-3 py-2 text-sm bg-slate-700/50 hover:bg-slate-700 text-gray-200 font-semibold rounded-xl transition-colors">
-                    <ArrowLeft className="w-4 h-4" />
-                    <span>Quay lại</span>
-                </button>
+             <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold text-white">Cuộc gọi Khám phá</h2>
+                <div className="flex items-center gap-2">
+                    <span className={`flex items-center gap-1.5 text-sm ${connectionState === 'connected' ? 'text-green-400' : 'text-amber-400'}`}>
+                        <Circle className={`w-2 h-2 fill-current ${connectionState === 'connected' ? 'animate-pulse' : ''}`} />
+                        {connectionState === 'connecting' ? 'Đang kết nối...' : connectionState === 'connected' ? 'Đã kết nối' : 'Đã mất kết nối'}
+                    </span>
+                    <button onClick={endCall} className="flex items-center gap-2 px-3 py-2 text-sm bg-red-600 rounded-xl font-semibold"><PhoneOff className="w-4 h-4"/> Kết thúc</button>
+                </div>
             </div>
-            {!imageFile ? (
-                <div className="text-center space-y-4">
-                    <p className="text-gray-400">Tải ảnh lên hoặc dùng camera, sau đó nhấp vào bất kỳ đối tượng nào để xác định.</p>
-                    <div className="flex flex-col sm:flex-row gap-4">
-                        <input type="file" id="image-upload" className="hidden" onChange={handleFileChange} accept="image/*" />
-                        <label htmlFor="image-upload" className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg cursor-pointer text-white">
-                            <Upload className="w-5 h-5"/> Tải ảnh lên
-                        </label>
-                        <button onClick={handleCameraOpen} className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg text-white">
-                            <Camera className="w-5 h-5"/> Dùng Camera
-                        </button>
-                    </div>
-                    {feedback && <p className="text-red-400 text-sm">{feedback}</p>}
-                </div>
-            ) : (
-                <div className="space-y-4">
-                    <div className="relative w-full max-w-full mx-auto aspect-video bg-black rounded-lg overflow-hidden" style={{ cursor: isLoading ? 'wait' : 'crosshair' }}>
-                        <canvas ref={canvasRef} onClick={handleCanvasClick} className="w-full h-full object-contain" />
-                        {clickMarker && (
-                            <div className="absolute w-6 h-6 -translate-x-1/2 -translate-y-1/2 pointer-events-none" style={{ left: `${clickMarker.x}%`, top: `${clickMarker.y}%`}}>
-                                <div className="w-full h-full rounded-full bg-cyan-400/50 animate-ping"></div>
-                                <div className="absolute inset-0.5 rounded-full bg-cyan-400 border-2 border-white"></div>
+            {error && <p className="text-red-400 text-center text-sm">{error}</p>}
+            <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
+                <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-contain" />
+                <canvas ref={canvasRef} className="hidden" />
+                {collectedWords.length > 0 && (
+                    <div className="absolute bottom-2 left-2 max-w-xs max-h-48 overflow-y-auto p-2 bg-black/50 backdrop-blur-sm rounded-lg space-y-1">
+                        {collectedWords.map(w => (
+                            <div key={w.word} className="text-xs p-1 bg-slate-700/80 rounded-md">
+                                <p className="font-bold text-white">{w.word}</p>
+                                <p className="text-gray-300">{w.translation_vi}</p>
                             </div>
-                        )}
+                        ))}
                     </div>
-
-                    <div className="min-h-[6rem] text-center flex flex-col items-center justify-center p-3 bg-slate-800/50 rounded-xl">
-                        {isLoading && <><RefreshCw className="w-6 h-6 animate-spin text-indigo-400" /><p className="mt-2 text-gray-300">AI đang phân tích...</p></>}
-                        {feedback && <p className="text-gray-300">{feedback}</p>}
-                        {lastResult && (
-                             <div className="flex items-center justify-between w-full animate-fade-in">
-                                <div>
-                                    <p className="font-bold text-xl text-white">{lastResult.word}</p>
-                                    <p className="text-gray-400">{lastResult.translation_vi} / {lastResult.translation_en}</p>
-                                </div>
-                                <button onClick={handleAddWord} className="flex items-center gap-2 px-3 py-2 text-sm bg-indigo-600 rounded-lg text-white font-semibold">
-                                    <PlusCircle className="w-4 h-4"/> Thêm
-                                </button>
-                            </div>
-                        )}
-                        {!isLoading && !feedback && !lastResult && <p className="text-gray-400">Nhấp vào một đối tượng trong ảnh.</p>}
-                    </div>
-
-                    <button onClick={resetView} className="w-full text-center py-2 bg-slate-700 hover:bg-slate-600 rounded-lg">
-                        Bắt đầu lại
-                    </button>
-                </div>
-            )}
+                )}
+            </div>
         </div>
     );
-}
+};
 
-export default InteractiveImage;
+export default RealWorldExplorer;
