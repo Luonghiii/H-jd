@@ -515,16 +515,38 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
         if (!currentUser) return;
         
         const player: GameRoomPlayer = { uid: currentUser.uid, displayName: profile.displayName || 'Player 1', photoURL: profile.photoURL };
-
+    
+        const initialGameState: GameRoom['gameState'] = {
+            history: [],
+            usedWords: [],
+            turnStartTime: 0,
+            gameOverReason: '',
+            scores: {},
+            currentRound: 1,
+        };
+    
+        // Conditionally add properties to avoid 'undefined'
+        if (selectedGameMode === 'longest') {
+            initialGameState.roundLetter = getRandomLetter();
+            initialGameState.turnSubmissions = {};
+        } else { // 'theme' or 'chain'
+            initialGameState.currentPlayerUid = currentUser.uid;
+            if (selectedGameMode === 'chain') {
+                initialGameState.lastWord = '';
+            }
+        }
+    
         const newRoomData: Omit<GameRoom, 'id'|'code'|'createdAt'|'playerUids'> = {
-            status: 'waiting', players: [player], hostUid: currentUser.uid, 
+            status: 'waiting', 
+            players: [player], 
+            hostUid: currentUser.uid, 
             gameMode: selectedGameMode,
             settings: { 
                 difficulty: 'medium',
                 ...(selectedGameMode === 'theme' && { theme: selectedTheme.trim() || 'any' }),
                 ...(selectedGameMode === 'longest' && { targetScore: targetScore }),
             },
-            gameState: { history: [], usedWords: [], turnStartTime: 0, gameOverReason: '', scores: {}, currentRound: 1 },
+            gameState: initialGameState,
             isPublic
         };
         
@@ -536,6 +558,7 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
              eventBus.dispatch('notification', { type: 'error', message: e.message || 'Không thể tạo phòng.' });
         }
     };
+    
     
     const handleJoinRoom = async (e: React.FormEvent) => {
         e.preventDefault();
