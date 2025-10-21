@@ -127,10 +127,13 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
         
         const room = await getGameRoomByCode(joinCode);
         if (room) {
-            const player: GameRoomPlayer = { uid: currentUser.uid, displayName: profile.displayName || 'Player 2', photoURL: profile.photoURL };
-            await joinGameRoom(room.id, player);
-            setGameRoom(room);
-            setView('lobby');
+            try {
+                const player: GameRoomPlayer = { uid: currentUser.uid, displayName: profile.displayName || 'Player 2', photoURL: profile.photoURL };
+                await joinGameRoom(room.id, player);
+                // setGameRoom(room) will be handled by the snapshot listener
+            } catch (error: any) {
+                eventBus.dispatch('notification', { type: 'error', message: error.message });
+            }
         } else {
             eventBus.dispatch('notification', { type: 'error', message: 'Không tìm thấy phòng với mã này.' });
         }
@@ -140,16 +143,21 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
         if (!currentUser) return;
         setIsFindingMatch(true);
 
-        const publicRoom = await findPublicGameRoom();
-        if (publicRoom) {
-            const player: GameRoomPlayer = { uid: currentUser.uid, displayName: profile.displayName || 'Player 2', photoURL: profile.photoURL };
-            await joinGameRoom(publicRoom.id, player);
-            // The listener will pick up the new player. The host's client will start the game.
-        } else {
-            // No room found, create a new public one and wait
-            await handleCreateRoom(true);
+        try {
+            const publicRoom = await findPublicGameRoom();
+            if (publicRoom) {
+                const player: GameRoomPlayer = { uid: currentUser.uid, displayName: profile.displayName || 'Player 2', photoURL: profile.photoURL };
+                await joinGameRoom(publicRoom.id, player);
+                // The listener will pick up the new player. The host's client will start the game.
+            } else {
+                // No room found, create a new public one and wait
+                await handleCreateRoom(true);
+            }
+        } catch (error: any) {
+             eventBus.dispatch('notification', { type: 'error', message: error.message || 'Lỗi khi tìm trận.' });
+        } finally {
+            setIsFindingMatch(false);
         }
-        setIsFindingMatch(false);
     };
 
     const handleStartGame = () => {
@@ -214,18 +222,32 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
                     </button>
                 </div>
                 
-                <div className="p-4 bg-slate-800/50 rounded-xl space-y-4">
-                     <button onClick={() => setView('ai_game')} className="w-full py-3 bg-slate-700 rounded-lg font-semibold flex items-center justify-center gap-2"><Bot className="w-5 h-5"/> Chơi với AI</button>
-                     <h3 className="font-semibold text-lg">Chơi nhiều người</h3>
-                     <button onClick={() => handleCreateRoom(false)} className="w-full py-3 bg-slate-700 rounded-lg font-semibold flex items-center justify-center gap-2"><Plus className="w-5 h-5"/> Tạo phòng riêng</button>
-                     <form onSubmit={handleJoinRoom} className="flex gap-2">
-                        <input value={joinCode} onChange={e => setJoinCode(e.target.value)} placeholder="Nhập mã phòng..." maxLength={6} className="flex-grow px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg"/>
-                        <button type="submit" className="px-4 py-2 bg-slate-700 rounded-lg"><Key className="w-5 h-5"/></button>
-                     </form>
-                      <button onClick={handleFindMatch} disabled={isFindingMatch} className="w-full py-3 bg-indigo-600 rounded-lg font-semibold flex items-center justify-center gap-2 disabled:bg-indigo-400">
-                        {isFindingMatch ? <Loader2 className="w-5 h-5 animate-spin"/> : <Users className="w-5 h-5"/>}
-                        {isFindingMatch ? 'Đang tìm...' : 'Tìm trận nhanh'}
-                    </button>
+                <div className="space-y-4">
+                    <div className="p-4 bg-slate-800/50 rounded-xl space-y-3">
+                         <h3 className="font-semibold text-lg">Chơi một mình</h3>
+                         <button onClick={() => setView('ai_game')} className="w-full py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-semibold flex items-center justify-center gap-2"><Bot className="w-5 h-5"/> Chơi với AI</button>
+                    </div>
+                    
+                    <div className="p-4 bg-slate-800/50 rounded-xl space-y-3">
+                         <h3 className="font-semibold text-lg">Chơi nhiều người</h3>
+                         <button onClick={handleFindMatch} disabled={isFindingMatch} className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-semibold flex items-center justify-center gap-2 disabled:bg-indigo-400">
+                            {isFindingMatch ? <Loader2 className="w-5 h-5 animate-spin"/> : <Users className="w-5 h-5"/>}
+                            {isFindingMatch ? 'Đang tìm...' : 'Tìm trận nhanh'}
+                        </button>
+                        
+                        <div className="relative flex py-2 items-center">
+                            <div className="flex-grow border-t border-slate-600"></div>
+                            <span className="flex-shrink mx-4 text-xs text-slate-400 uppercase">Hoặc</span>
+                            <div className="flex-grow border-t border-slate-600"></div>
+                        </div>
+
+                        <button onClick={() => handleCreateRoom(false)} className="w-full py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-semibold flex items-center justify-center gap-2"><Plus className="w-5 h-5"/> Tạo phòng riêng</button>
+
+                         <form onSubmit={handleJoinRoom} className="flex gap-2 pt-2">
+                            <input value={joinCode} onChange={e => setJoinCode(e.target.value.toUpperCase())} placeholder="NHẬP MÃ" maxLength={6} className="flex-grow px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-center font-bold tracking-widest placeholder:font-normal placeholder:tracking-normal placeholder:text-gray-500"/>
+                            <button type="submit" className="px-6 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg font-semibold text-white">Vào</button>
+                         </form>
+                    </div>
                 </div>
             </div>
         )
@@ -263,12 +285,21 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
     
     if (gameRoom && (gameRoom.status === 'playing' || gameRoom.status === 'finished')) {
         const player1 = gameRoom.players[0];
-        const player2 = gameRoom.players[1];
+        const player2 = gameRoom.players.length > 1 ? gameRoom.players[1] : null;
         const isMyTurn = gameRoom.gameState.currentPlayerUid === currentUser?.uid;
 
         if (gameRoom.status === 'finished') {
              const winner = gameRoom.players.find(p => p.uid === gameRoom.gameState.winnerUid);
              const playerWon = winner?.uid === currentUser?.uid;
+             
+             // This effect runs only once when the game finishes
+             useEffect(() => {
+                if(playerWon) {
+                    incrementDuelWins();
+                    addXp(50); // Bonus XP for winning
+                }
+             }, []);
+
              return (
                  <div className="text-center py-10 space-y-4 flex flex-col items-center animate-fade-in text-white">
                     {winner ? (playerWon ? <Trophy className="w-16 h-16 text-yellow-400" /> : <ShieldAlert className="w-16 h-16 text-red-400" />) : <Brain className="w-16 h-16 text-gray-400" />}
@@ -288,8 +319,8 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
                     </div>
                      <span className="font-bold">VS</span>
                     <div className="flex items-center gap-2">
-                         <span>{player2.displayName}</span>
-                         <img src={player2.photoURL || undefined} className={`w-8 h-8 rounded-full border-2 ${gameRoom.gameState.currentPlayerUid === player2.uid ? 'border-cyan-400' : 'border-transparent'}`} />
+                         <span>{player2?.displayName}</span>
+                         <img src={player2?.photoURL || undefined} className={`w-8 h-8 rounded-full border-2 ${gameRoom.gameState.currentPlayerUid === player2?.uid ? 'border-cyan-400' : 'border-transparent'}`} />
                     </div>
                 </div>
                 {isMyTurn && <div className="relative h-2 w-full bg-slate-700 rounded-full overflow-hidden">
