@@ -11,7 +11,6 @@ export const setApiKeys = (keys: string[]) => {
 export const executeWithKeyRotation = async <T>(apiCall: (ai: GoogleGenAI) => Promise<T>): Promise<T> => {
     const systemApiKey = process.env.API_KEY;
     
-    // Create a list of keys to try, prioritizing user-provided keys.
     const keysToTry: string[] = [...userApiKeys];
     if (systemApiKey && !userApiKeys.includes(systemApiKey)) {
         keysToTry.push(systemApiKey);
@@ -39,11 +38,10 @@ export const executeWithKeyRotation = async <T>(apiCall: (ai: GoogleGenAI) => Pr
             const isKeyError = /4..|quota|invalid|permission/i.test(error.message);
 
             if (isKeyError) {
-                // Silently try the next key without spamming notifications.
                 keyIndex = (keyIndex + 1) % totalKeys;
             } else {
                 eventBus.dispatch('notification', { type: 'error', message: 'Lỗi API không xác định. Vui lòng thử lại.' });
-                throw error; // Re-throw non-key related errors
+                throw error;
             }
         }
     }

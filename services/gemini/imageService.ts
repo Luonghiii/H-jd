@@ -26,10 +26,9 @@ export const getWordsFromImage = async (base64: string, mimeType: string, existi
                 responseMimeType: "application/json",
             },
         });
-        const jsonString = response.text.trim();
+        const jsonString = response.text.trim().replace(/^```json\n/, '').replace(/\n```$/, '');
         try {
-            const cleanedJson = jsonString.replace(/^```json\n/, '').replace(/\n```$/, '');
-            return JSON.parse(cleanedJson) as GeneratedWord[];
+            return JSON.parse(jsonString) as GeneratedWord[];
         } catch (e) {
             console.error("Failed to parse JSON from AI image response:", jsonString);
             throw new Error("Invalid response format from AI.");
@@ -54,9 +53,7 @@ export const generateImageFromPrompt = async (prompt: string): Promise<string> =
     });
 };
 
-export const generateImageForWord = async (word: string): Promise<string> => {
-    return generateImageFromPrompt(word);
-};
+export const generateImageForWord = (word: string) => generateImageFromPrompt(word);
 
 export const editImage = async (base64Data: string, mimeType: string, prompt: string): Promise<string> => {
     return executeWithKeyRotation(async (ai) => {
