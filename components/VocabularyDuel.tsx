@@ -6,7 +6,7 @@ import { useSettings } from '../hooks/useSettings';
 import { Swords, ArrowLeft, Bot, User, Send, Loader2, Trophy, ShieldAlert, Users, Plus, Key, Brain, Link as LinkIcon, LogOut, XCircle } from 'lucide-react';
 import { validateDuelWord, getAiDuelWord } from '../services/geminiService';
 import { useHistory } from '../hooks/useHistory';
-import { GameRoom, GameRoomPlayer, GameMode } from '../types';
+import { GameRoom, GameRoomPlayer, GameMode, LearningLanguage } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { createGameRoom, getGameRoomByCode, joinGameRoom, onGameRoomSnapshot, updateGameRoom, findPublicGameRoom, leaveGameRoom } from '../services/firestoreService';
 import eventBus from '../utils/eventBus';
@@ -511,7 +511,7 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
         return () => { window.removeEventListener('beforeunload', handleBeforeUnload); };
     }, [gameRoom, handleLeaveRoom]);
     
-    const handleCreateRoom = async (isPublic: boolean) => {
+    const handleCreateRoom = useCallback(async (isPublic: boolean) => {
         if (!currentUser) return;
         
         const player: GameRoomPlayer = { uid: currentUser.uid, displayName: profile.displayName || 'Player 1', photoURL: profile.photoURL };
@@ -536,11 +536,13 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
             }
         }
     
+        // FIX: Add 'language' property to the room data object.
         const newRoomData: Omit<GameRoom, 'id'|'code'|'createdAt'|'playerUids'> = {
             status: 'waiting', 
             players: [player], 
             hostUid: currentUser.uid, 
             gameMode: selectedGameMode,
+            language: learningLanguage,
             settings: { 
                 difficulty: 'medium',
                 ...(selectedGameMode === 'theme' && { theme: selectedTheme.trim() || 'any' }),
@@ -551,13 +553,14 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
         };
         
         try {
-            const room = await createGameRoom(newRoomData);
+            // FIX: Pass 'learningLanguage' as the second argument.
+            const room = await createGameRoom(newRoomData, learningLanguage);
             setGameRoom(room);
             setView('lobby');
         } catch(e: any) {
              eventBus.dispatch('notification', { type: 'error', message: e.message || 'Không thể tạo phòng.' });
         }
-    };
+    }, [currentUser, learningLanguage, profile.displayName, profile.photoURL, selectedGameMode, selectedTheme, targetScore]);
     
     
     const handleJoinRoom = async (e: React.FormEvent) => {
@@ -590,7 +593,8 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
         setIsFindingMatch(true);
 
         try {
-            const publicRoom = await findPublicGameRoom();
+            // FIX: Pass 'learningLanguage' as an argument.
+            const publicRoom = await findPublicGameRoom(learningLanguage);
             if (publicRoom) {
                 const player: GameRoomPlayer = { uid: currentUser.uid, displayName: profile.displayName || 'Player 2', photoURL: profile.photoURL };
                 await joinGameRoom(publicRoom.id, player);
@@ -604,7 +608,7 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
         } finally {
             setIsFindingMatch(false);
         }
-    }, [currentUser, profile, selectedGameMode, selectedTheme, targetScore]);
+    }, [currentUser, profile, learningLanguage, handleCreateRoom]);
 
     const handleStartGame = useCallback(async () => {
         if (!gameRoom || gameRoom.hostUid !== currentUser?.uid || gameRoom.players.length < 2 || isSubmitting) return;

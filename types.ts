@@ -214,6 +214,7 @@ export interface GameRoom {
     playerUids: string[]; // For Firestore security rules
     hostUid: string;
     gameMode: GameMode;
+    language: LearningLanguage;
     
     // Settings decided by host
     settings: {

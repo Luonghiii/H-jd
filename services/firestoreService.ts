@@ -410,7 +410,7 @@ const generateRoomCode = (): string => {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
 };
 
-export const createGameRoom = async (roomData: Omit<GameRoom, 'id' | 'code' | 'createdAt' | 'playerUids'>): Promise<GameRoom> => {
+export const createGameRoom = async (roomData: Omit<GameRoom, 'id' | 'code' | 'createdAt' | 'playerUids'>, roomLanguage: LearningLanguage): Promise<GameRoom> => {
     const code = generateRoomCode();
     const newRoomRef = doc(collection(db, 'game_rooms'));
     
@@ -418,6 +418,7 @@ export const createGameRoom = async (roomData: Omit<GameRoom, 'id' | 'code' | 'c
         ...roomData,
         id: newRoomRef.id,
         code: code,
+        language: roomLanguage,
         createdAt: Date.now(),
         playerUids: roomData.players.map(p => p.uid),
     };
@@ -489,12 +490,12 @@ export const getGameRoomByCode = async (code: string): Promise<GameRoom | null> 
     return { id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() } as GameRoom;
 };
 
-export const findPublicGameRoom = async (): Promise<GameRoom | null> => {
+export const findPublicGameRoom = async (language: LearningLanguage): Promise<GameRoom | null> => {
     const q = query(
         collection(db, "game_rooms"), 
         where("isPublic", "==", true),
         where("status", "==", "waiting"),
-        where("playerUids", "array-contains-any", ["dummy-value-to-get-index-working"]) // Firestore limitation workaround. This is not perfect.
+        where("language", "==", language)
     );
     // This is a Firestore limitation workaround. A more robust solution might require a separate 'matchmaking' collection
     // or Cloud Functions. For now, we'll filter client-side.
