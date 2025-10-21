@@ -204,6 +204,8 @@ export interface GameRoomPlayer {
     photoURL: string | null;
 }
 
+export type GameMode = 'theme' | 'longest' | 'chain';
+
 export interface GameRoom {
     id: string; // Firestore document ID
     code: string; // 6-char room code
@@ -211,7 +213,7 @@ export interface GameRoom {
     players: GameRoomPlayer[];
     playerUids: string[]; // For Firestore security rules
     hostUid: string;
-    gameMode: 'theme' | 'longest' | 'chain';
+    gameMode: GameMode;
     
     // Settings decided by host
     settings: {
@@ -230,7 +232,7 @@ export interface GameRoom {
         winnerUid?: string;
         
         // Mode-specific state
-        scores?: { [uid: string]: number };
+        scores: { [uid: string]: number };
         currentRound?: number;
         roundLetter?: string;
         lastWord?: string;

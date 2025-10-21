@@ -447,6 +447,39 @@ export const joinGameRoom = async (roomId: string, player: GameRoomPlayer): Prom
     });
 };
 
+export const leaveGameRoom = async (roomId: string, playerUid: string): Promise<void> => {
+    const roomRef = doc(db, 'game_rooms', roomId);
+    try {
+        await runTransaction(db, async (transaction) => {
+            const roomDoc = await transaction.get(roomRef);
+            if (!roomDoc.exists()) {
+                return; // Room already deleted
+            }
+            const room = roomDoc.data() as GameRoom;
+
+            // If the host leaves or only one player is left, delete the room
+            if (room.hostUid === playerUid || room.players.length <= 1) {
+                transaction.delete(roomRef);
+            } else {
+                // Otherwise, just remove the player
+                const updatedPlayers = room.players.filter(p => p.uid !== playerUid);
+                const updatedPlayerUids = room.playerUids.filter(uid => uid !== playerUid);
+                transaction.update(roomRef, {
+                    players: updatedPlayers,
+                    playerUids: updatedPlayerUids
+                });
+            }
+        });
+    } catch (error) {
+        console.error("Transaction to leave room failed: ", error);
+        // If transaction fails, attempt a direct delete as a fallback for hosts
+        const roomDoc = await getDoc(roomRef);
+        if (roomDoc.exists() && roomDoc.data().hostUid === playerUid) {
+            await deleteDoc(roomRef);
+        }
+    }
+};
+
 export const getGameRoomByCode = async (code: string): Promise<GameRoom | null> => {
     const q = query(collection(db, "game_rooms"), where("code", "==", code.toUpperCase()), limit(1));
     const querySnapshot = await getDocs(q);

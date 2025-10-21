@@ -12,7 +12,8 @@ import {
     AiSuggestion,
     ConversationAnalysis,
     AiAssistantMessage,
-    ArticleResult
+    ArticleResult,
+    GameMode
 } from '../../types';
 import { executeWithKeyRotation } from './client';
 
@@ -327,22 +328,43 @@ export const generateAiLesson = async (theme: string, learningLanguage: Learning
     });
 };
 
-export const validateDuelWord = async (word: string, usedWords: string[], learningLanguage: LearningLanguage, context: any): Promise<{ isValid: boolean, reason?: string }> => {
+export const validateDuelWord = async (word: string, usedWords: string[], learningLanguage: LearningLanguage, context: { mode: GameMode; theme?: string; lastWord?: string; }): Promise<{ isValid: boolean, reason?: string }> => {
      return executeWithKeyRotation(async (ai) => {
+        let rules = `1. It must be a real, valid word in ${learningLanguage}. 2. It must not be in the list of used words: [${usedWords.join(', ')}].`;
+        if (context.mode === 'theme' && context.theme !== 'any') {
+            rules += ` 3. It must be related to the theme: "${context.theme}".`;
+        }
+        if (context.mode === 'chain' && context.lastWord) {
+            const lastLetter = context.lastWord.slice(-1);
+            rules += ` 4. It must start with the letter "${lastLetter}".`;
+        }
+        
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-pro',
-            contents: `Game: Vocabulary Duel in ${learningLanguage}. Context: ${JSON.stringify(context)}. Used words: [${usedWords.join(', ')}]. Player submitted: "${word}". Is this word valid according to the rules and context? Is it a real word? Is it a duplicate? Respond in JSON: {"isValid": boolean, "reason": "Explain why in Vietnamese if not valid"}.`,
+            contents: `Game: Vocabulary Duel. Player submitted: "${word}". Evaluate if the word is valid based on these rules: ${rules}. Respond ONLY with a JSON object: {"isValid": boolean, "reason": "Explain in Vietnamese if not valid"}.`,
             config: { responseMimeType: "application/json" }
         });
         return JSON.parse(response.text.trim().replace(/^```json\n/, '').replace(/\n```$/, ''));
     });
 };
 
-export const getAiDuelWord = async (usedWords: string[], learningLanguage: LearningLanguage, difficulty: string, context: any): Promise<{ word: string }> => {
+export const getAiDuelWord = async (usedWords: string[], learningLanguage: LearningLanguage, difficulty: string, context: { mode: GameMode; theme?: string; lastWord?: string; }): Promise<{ word: string }> => {
     return executeWithKeyRotation(async (ai) => {
-        const prompt = `Game: Vocabulary Duel in ${learningLanguage}. It's my (AI's) turn. My difficulty is ${difficulty}. Context: ${JSON.stringify(context)}. Words already used: [${usedWords.join(', ')}]. Give me one valid, new word. If you cannot find a word, respond with an empty string. Return just the word string.`;
+        let task = '';
+        if (context.mode === 'theme' && context.theme !== 'any') {
+            task = `Give me a word related to the theme "${context.theme}".`;
+        } else if (context.mode === 'chain' && context.lastWord) {
+            const lastLetter = context.lastWord.slice(-1);
+            task = `Give me a word that starts with the letter "${lastLetter}".`;
+        } else if (context.mode === 'longest') {
+            task = `Give me the longest, valid, and uncommon word you can think of.`;
+        } else {
+            task = `Give me a valid word.`;
+        }
+
+        const prompt = `Game: Vocabulary Duel in ${learningLanguage}. It's my (AI's) turn. My difficulty is ${difficulty}. Words already used: [${usedWords.join(', ')}]. ${task} The word must NOT be in the used words list. If you cannot find a word, respond with an empty string. Return just the word string.`;
         const response = await ai.models.generateContent({ model: 'gemini-2.5-pro', contents: prompt });
-        return { word: response.text.trim() };
+        return { word: response.text.trim().toLowerCase() };
     });
 };
 
