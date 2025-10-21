@@ -218,7 +218,7 @@ export interface GameRoom {
     // Settings decided by host
     settings: {
         theme?: string;
-        rounds?: number;
+        targetScore?: number;
         difficulty: 'easy' | 'medium' | 'hard' | 'hell';
     };
 

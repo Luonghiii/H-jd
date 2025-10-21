@@ -74,9 +74,9 @@ const GameModeSelector: React.FC<{
     onGameModeChange: (mode: GameMode) => void;
     selectedTheme: string;
     onThemeChange: (theme: string) => void;
-    rounds: number;
-    onRoundsChange: (rounds: number) => void;
-}> = ({ selectedGameMode, onGameModeChange, selectedTheme, onThemeChange, rounds, onRoundsChange }) => {
+    targetScore: number;
+    onTargetScoreChange: (score: number) => void;
+}> = ({ selectedGameMode, onGameModeChange, selectedTheme, onThemeChange, targetScore, onTargetScoreChange }) => {
     const gameModes: { id: GameMode; label: string; icon: React.ElementType }[] = [
         { id: 'theme', label: 'Theo Chủ đề', icon: Brain },
         { id: 'longest', label: 'Từ Dài Nhất', icon: Trophy },
@@ -115,15 +115,15 @@ const GameModeSelector: React.FC<{
             )}
             {selectedGameMode === 'longest' && (
                  <div className="animate-fade-in">
-                    <h3 className="font-semibold text-lg text-white mb-2">Số vòng</h3>
+                    <h3 className="font-semibold text-lg text-white mb-2">Điểm mục tiêu</h3>
                      <div className="grid grid-cols-3 gap-2">
-                         {[5, 10, 15].map(r => (
+                         {[50, 100, 150].map(score => (
                              <button
-                                 key={r}
+                                 key={score}
                                  type="button"
-                                 onClick={() => onRoundsChange(r)}
-                                 className={`p-2 rounded-lg font-semibold ${rounds === r ? 'bg-indigo-600' : 'bg-slate-700'}`}
-                             >{r} vòng</button>
+                                 onClick={() => onTargetScoreChange(score)}
+                                 className={`p-2 rounded-lg font-semibold ${targetScore === score ? 'bg-indigo-600' : 'bg-slate-700'}`}
+                             >{score} điểm</button>
                          ))}
                      </div>
                 </div>
@@ -143,7 +143,7 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
     // Setup State
     const [selectedGameMode, setSelectedGameMode] = useState<GameMode>('theme');
     const [selectedTheme, setSelectedTheme] = useState('');
-    const [rounds, setRounds] = useState(10);
+    const [targetScore, setTargetScore] = useState(100);
     
     // Multiplayer State
     const [gameRoom, setGameRoom] = useState<GameRoom | null>(null);
@@ -160,20 +160,20 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
     const [isAiThinking, setIsAiThinking] = useState(false);
     const [aiGameOverReason, setAiGameOverReason] = useState('');
     const [aiGameMode, setAiGameMode] = useState<GameMode>('theme');
-    const [aiGameSettings, setAiGameSettings] = useState<{ theme?: string; rounds?: number }>({ theme: 'any', rounds: 10 });
+    const [aiGameSettings, setAiGameSettings] = useState<{ theme?: string; targetScore?: number }>({ theme: 'any', targetScore: 100 });
     const [aiScores, setAiScores] = useState({ player: 0, ai: 0 });
-    const [aiCurrentRound, setAiCurrentRound] = useState(1);
+    const [aiIsStarting, setAiIsStarting] = useState(false);
     const gameOverReasonRef = useRef(aiGameOverReason);
 
     // Universal Timer State
     const [timeLeft, setTimeLeft] = useState(TURN_DURATION);
     const timerRef = useRef<number | null>(null);
 
-    const handleStartAiGame = useCallback(() => {
+    const handleStartAiGame = useCallback(async () => {
         setAiGameMode(selectedGameMode);
         setAiGameSettings({ 
             theme: selectedGameMode === 'theme' ? (selectedTheme.trim() || 'any') : undefined,
-            rounds: selectedGameMode === 'longest' ? rounds : undefined,
+            targetScore: selectedGameMode === 'longest' ? targetScore : undefined,
         });
         
         setAiGameHistory([]);
@@ -182,9 +182,23 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
         setIsAiThinking(false);
         setAiGameOverReason('');
         setAiScores({ player: 0, ai: 0 });
-        setAiCurrentRound(1);
         setView('ai_game');
-    }, [selectedGameMode, selectedTheme, rounds]);
+        
+        if (selectedGameMode === 'longest') {
+            setAiIsStarting(true);
+            try {
+                const { word: startWord } = await getAiDuelWord([], learningLanguage, aiDifficulty, { mode: 'longest' });
+                if (startWord) {
+                    setAiGameHistory([{ by: 'ai', word: startWord }]);
+                }
+            } catch (e) {
+                setAiGameOverReason('AI không thể bắt đầu. Vui lòng thử lại.');
+            } finally {
+                setAiIsStarting(false);
+            }
+        }
+
+    }, [selectedGameMode, selectedTheme, targetScore, learningLanguage, aiDifficulty]);
 
     const stopTimer = useCallback(() => {
         if (timerRef.current) clearInterval(timerRef.current);
@@ -317,7 +331,7 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
             settings: { 
                 difficulty: 'medium',
                 theme: selectedGameMode === 'theme' ? (selectedTheme.trim() || 'any') : undefined,
-                rounds: selectedGameMode === 'longest' ? rounds : undefined,
+                targetScore: selectedGameMode === 'longest' ? targetScore : undefined,
             },
             gameState: { history: [], usedWords: [], currentPlayerUid: '', turnStartTime: 0, gameOverReason: '', scores: {}, currentRound: 1, lastWord: '' },
             isPublic
@@ -376,17 +390,28 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
         } finally {
             setIsFindingMatch(false);
         }
-    }, [currentUser, profile, selectedGameMode, selectedTheme, rounds]);
+    }, [currentUser, profile, selectedGameMode, selectedTheme, targetScore]);
 
-    const handleStartGame = useCallback(() => {
+    const handleStartGame = useCallback(async () => {
         if (!gameRoom || gameRoom.hostUid !== currentUser?.uid || gameRoom.players.length < 2) return;
         
-        updateGameRoom(gameRoom.id, {
+        const updates: any = {
             status: 'playing',
             'gameState.currentPlayerUid': gameRoom.players[0].uid,
             'gameState.turnStartTime': Date.now(),
-        });
-    }, [gameRoom, currentUser]);
+        };
+
+        if (gameRoom.gameMode === 'longest') {
+            const { word: startWord } = await getAiDuelWord([], learningLanguage, 'medium', { mode: 'longest' });
+            if (startWord) {
+                updates['gameState.lastWord'] = startWord;
+                updates['gameState.usedWords'] = [startWord];
+                updates['gameState.history'] = [{ by: 'ai', word: startWord }];
+            }
+        }
+
+        updateGameRoom(gameRoom.id, updates);
+    }, [gameRoom, currentUser, learningLanguage]);
 
     useEffect(() => {
         if (gameRoom?.status === 'waiting' && gameRoom.isPublic && gameRoom.players.length === 2 && gameRoom.hostUid === currentUser?.uid) {
@@ -411,35 +436,25 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
                 const nextPlayer = gameRoom.players.find(p => p.uid !== currentUser.uid)!;
                 const newHistory = [...gameRoom.gameState.history, { by: currentUser.uid, word }];
                 const newUsedWords = [...gameRoom.gameState.usedWords, word];
-                const newCurrentRound = Math.floor(newHistory.length / 2) + 1;
-
+                
                 const updates: any = {
                     "gameState.history": newHistory,
                     "gameState.usedWords": newUsedWords,
                     "gameState.currentPlayerUid": nextPlayer.uid,
                     "gameState.turnStartTime": Date.now(),
-                    "gameState.currentRound": newCurrentRound,
                 };
 
-                if(gameRoom.gameMode === 'chain') updates["gameState.lastWord"] = word;
+                if(gameRoom.gameMode === 'chain' || gameRoom.gameMode === 'longest') updates["gameState.lastWord"] = word;
+                
+                const myNewScore = (gameRoom.gameState.scores[currentUser.uid] || 0) + word.length;
                 if(gameRoom.gameMode === 'longest') {
-                    updates[`gameState.scores.${currentUser.uid}`] = (gameRoom.gameState.scores[currentUser.uid] || 0) + word.length;
+                    updates[`gameState.scores.${currentUser.uid}`] = myNewScore;
                 }
                 
-                if (gameRoom.gameMode === 'longest' && newCurrentRound > (gameRoom.settings.rounds || 10) && newHistory.length % 2 === 0) {
-                     const myScore = (updates[`gameState.scores.${currentUser.uid}`] || 0);
-                     const opponentScore = gameRoom.gameState.scores[nextPlayer.uid] || 0;
-                     
-                     if (myScore > opponentScore) {
-                        updates['gameState.winnerUid'] = currentUser.uid;
-                        updates['gameState.gameOverReason'] = `${profile.displayName} thắng với ${myScore} điểm!`;
-                     } else if (opponentScore > myScore) {
-                        updates['gameState.winnerUid'] = nextPlayer.uid;
-                        updates['gameState.gameOverReason'] = `${nextPlayer.displayName} thắng với ${opponentScore} điểm!`;
-                     } else {
-                         updates['gameState.gameOverReason'] = `Hòa với ${myScore} điểm!`;
-                     }
-                     updates['status'] = 'finished';
+                if (gameRoom.gameMode === 'longest' && myNewScore >= (gameRoom.settings.targetScore || 100)) {
+                    updates['gameState.winnerUid'] = currentUser.uid;
+                    updates['gameState.gameOverReason'] = `${profile.displayName} thắng khi đạt ${myNewScore} điểm!`;
+                    updates['status'] = 'finished';
                 }
 
                 await updateGameRoom(gameRoom.id, updates);
@@ -461,11 +476,12 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
         }
     };
     
-    const triggerAiTurn = async (currentHistory: typeof aiGameHistory, currentRound: number) => {
+    const triggerAiTurn = async (currentHistory: typeof aiGameHistory) => {
         setIsAiThinking(true);
         const usedWords = currentHistory.map(h => h.word);
         try {
-            const context = { mode: aiGameMode, theme: aiGameSettings.theme, lastWord: currentHistory.length > 0 ? currentHistory[currentHistory.length - 1].word : undefined };
+            const lastWord = currentHistory.length > 0 ? currentHistory[currentHistory.length - 1].word : undefined;
+            const context = { mode: aiGameMode, theme: aiGameSettings.theme, lastWord, targetScore: aiGameSettings.targetScore };
             const { word: aiWord } = await getAiDuelWord(usedWords, learningLanguage, aiDifficulty, context);
             
             if (!aiWord) {
@@ -481,18 +497,12 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
                     newScores.ai += aiWord.length;
                     setAiScores(newScores);
                 }
+                
+                const newHistory = [...currentHistory, { by: 'ai', word: aiWord }];
+                setAiGameHistory(newHistory);
 
-                if (aiGameMode === 'longest' && currentRound >= (aiGameSettings.rounds || 10)) {
-                    if (newScores.player > newScores.ai) {
-                        setAiGameOverReason(`Bạn thắng với ${newScores.player} điểm!`);
-                    } else if (newScores.ai > newScores.player) {
-                        setAiGameOverReason(`AI thắng với ${newScores.ai} điểm!`);
-                    } else {
-                        setAiGameOverReason(`Hòa với ${newScores.player} điểm!`);
-                    }
-                } else {
-                     setAiGameHistory(prev => [...prev, { by: 'ai', word: aiWord }]);
-                     setAiCurrentRound(prev => prev + 1);
+                if (aiGameMode === 'longest' && newScores.ai >= (aiGameSettings.targetScore || 100)) {
+                    setAiGameOverReason(`AI thắng với ${newScores.ai} điểm!`);
                 }
             } else {
                 setAiGameOverReason(`AI đã dùng từ không hợp lệ: "${reason}". Bạn thắng!`);
@@ -513,18 +523,25 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
         stopTimer();
         setIsSubmitting(true);
         const usedWords = aiGameHistory.map(h => h.word);
-        const context = { mode: aiGameMode, theme: aiGameSettings.theme, lastWord: aiGameHistory.length > 0 ? aiGameHistory[aiGameHistory.length - 1].word : undefined };
+        const lastWord = aiGameHistory.length > 0 ? aiGameHistory[aiGameHistory.length - 1].word : undefined;
+        const context = { mode: aiGameMode, theme: aiGameSettings.theme, lastWord };
         const { isValid, reason } = await validateDuelWord(word, usedWords, learningLanguage, context);
         
         if (isValid) {
+            const newPlayerScore = aiScores.player + word.length;
             if (aiGameMode === 'longest') {
-                setAiScores(prev => ({ ...prev, player: prev.player + word.length }));
+                setAiScores(prev => ({ ...prev, player: newPlayerScore }));
             }
             const newHistory = [...aiGameHistory, { by: 'player', word }];
             setAiGameHistory(newHistory);
-            setIsPlayerTurn(false);
-            setPlayerInput('');
-            triggerAiTurn(newHistory, aiCurrentRound);
+            
+            if (aiGameMode === 'longest' && newPlayerScore >= (aiGameSettings.targetScore || 100)) {
+                setAiGameOverReason(`Bạn thắng với ${newPlayerScore} điểm!`);
+            } else {
+                setIsPlayerTurn(false);
+                setPlayerInput('');
+                triggerAiTurn(newHistory);
+            }
         } else {
             setAiGameOverReason(reason || 'Từ không hợp lệ. Bạn đã thua!');
         }
@@ -548,82 +565,19 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
     }
 
     if (view === 'setup') {
-        return (
-            <div className="space-y-6 text-center animate-fade-in text-white">
-                <div className="flex items-center justify-between w-full">
-                    <h2 className="text-2xl font-bold">Đấu Từ vựng</h2>
-                     <button onClick={onBack} className="flex-shrink-0 flex items-center gap-2 px-3 py-2 text-sm bg-slate-700/50 hover:bg-slate-700 rounded-xl">
-                        <ArrowLeft className="w-4 h-4" /> <span>Quay lại</span>
-                    </button>
-                </div>
-                <div className="space-y-4">
-                    <div className="p-4 bg-slate-800/50 rounded-xl space-y-3">
-                         <h3 className="font-semibold text-lg">Chơi một mình</h3>
-                         <button onClick={() => setView('ai_game_setup')} className="w-full py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-semibold flex items-center justify-center gap-2"><Bot className="w-5 h-5"/> Chơi với AI</button>
-                    </div>
-                    <div className="p-4 bg-slate-800/50 rounded-xl space-y-3">
-                         <h3 className="font-semibold text-lg text-left">Chơi nhiều người</h3>
-                         <GameModeSelector 
-                            selectedGameMode={selectedGameMode}
-                            onGameModeChange={setSelectedGameMode}
-                            selectedTheme={selectedTheme}
-                            onThemeChange={setSelectedTheme}
-                            rounds={rounds}
-                            onRoundsChange={setRounds}
-                         />
-                         <button onClick={handleFindMatch} disabled={isFindingMatch} className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-semibold flex items-center justify-center gap-2 disabled:bg-indigo-400">
-                            {isFindingMatch ? <Loader2 className="w-5 h-5 animate-spin"/> : <Users className="w-5 h-5"/>}
-                            {isFindingMatch ? 'Đang tìm...' : 'Tìm trận nhanh'}
-                        </button>
-                        <div className="relative flex py-2 items-center"><div className="flex-grow border-t border-slate-600"></div><span className="flex-shrink mx-4 text-xs text-slate-400 uppercase">Hoặc</span><div className="flex-grow border-t border-slate-600"></div></div>
-                        <button onClick={() => handleCreateRoom(false)} className="w-full py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-semibold flex items-center justify-center gap-2"><Plus className="w-5 h-5"/> Tạo phòng riêng</button>
-                         <form onSubmit={handleJoinRoom} className="flex items-stretch gap-2 pt-2">
-                            <input value={joinCodeInput} onChange={e => setJoinCodeInput(e.target.value.toUpperCase())} placeholder="NHẬP MÃ" maxLength={6} className="flex-grow min-w-0 px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-center font-bold tracking-widest placeholder:font-normal placeholder:tracking-normal placeholder:text-gray-500"/>
-                             <button type="submit" className="flex-shrink-0 px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg font-semibold text-white flex items-center justify-center gap-2">
-                                <Key className="w-5 h-5" />
-                                <span className="hidden sm:inline">Vào phòng</span>
-                            </button>
-                         </form>
-                    </div>
-                </div>
-            </div>
-        )
+        // Unchanged
     }
 
     if (view === 'ai_game_setup') {
-        return (
-            <div className="space-y-6 text-center animate-fade-in text-white">
-                <h2 className="text-2xl font-bold">Cài đặt trận đấu AI</h2>
-                <div className="p-4 bg-slate-800/50 rounded-xl space-y-4">
-                     <GameModeSelector 
-                        selectedGameMode={selectedGameMode}
-                        onGameModeChange={setSelectedGameMode}
-                        selectedTheme={selectedTheme}
-                        onThemeChange={setSelectedTheme}
-                        rounds={rounds}
-                        onRoundsChange={setRounds}
-                     />
-                     <div>
-                        <h3 className="font-semibold text-lg text-white mb-2 text-left">Độ khó</h3>
-                        <div className="grid grid-cols-4 gap-2">
-                            {Object.entries(difficultySettings).map(([key, { name }]) => (
-                                <button key={key} onClick={() => setAiDifficulty(key as Difficulty)} className={`p-3 rounded-xl border-2 transition-colors text-sm ${aiDifficulty === key ? 'bg-indigo-500/20 border-indigo-500' : 'bg-slate-700 border-slate-600'}`}>{name}</button>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-                <button onClick={handleStartAiGame} className="w-full py-3 bg-indigo-600 rounded-lg font-semibold">Bắt đầu</button>
-                <button onClick={() => setView('setup')} className="text-sm text-indigo-400">Quay lại</button>
-            </div>
-        );
+        // Unchanged
     }
     
     if (view === 'ai_game') {
-        const roundDisplay = aiGameMode === 'longest' ? ` (Vòng ${aiCurrentRound}/${aiGameSettings.rounds})` : '';
+        const longestModeDisplay = aiGameMode === 'longest' ? ` (Mục tiêu: ${aiGameSettings.targetScore})` : '';
         return (
             <div className="flex flex-col h-full max-h-[75vh] space-y-4 animate-fade-in text-white">
                  <div className="flex justify-between items-center">
-                    <h2 className="text-xl font-bold text-center">Đấu với AI ({difficultySettings[aiDifficulty].name}){roundDisplay}</h2>
+                    <h2 className="text-xl font-bold text-center">Đấu với AI{longestModeDisplay}</h2>
                     <button onClick={() => setAiGameOverReason('Bạn đã bỏ cuộc.')} className="flex-shrink-0 flex items-center gap-2 px-3 py-2 text-sm bg-red-800/50 hover:bg-red-800 text-red-200 font-semibold rounded-xl transition-colors">
                         <XCircle className="w-4 h-4" />
                         <span>Bỏ cuộc</span>
@@ -642,6 +596,7 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
                     <>
                         {aiGameMode === 'longest' && <div className="flex justify-around text-center"><p>Bạn: <strong className="text-cyan-400">{aiScores.player}</strong></p><p>AI: <strong className="text-indigo-400">{aiScores.ai}</strong></p></div>}
                         <div className="flex-grow p-4 bg-slate-800/50 rounded-xl overflow-y-auto space-y-4">
+                           {aiIsStarting && <div className="text-center text-gray-400">AI đang chọn từ bắt đầu...</div>}
                            {aiGameHistory.map((item, index) => (
                                 <div key={index} className={`flex items-start gap-3 ${item.by === 'player' ? 'justify-end' : ''}`}>
                                     {item.by === 'ai' && <div className="p-1.5 bg-indigo-500 rounded-full flex-shrink-0"><Bot className="w-5 h-5"/></div>}
@@ -667,7 +622,81 @@ const VocabularyDuel: React.FC<VocabularyDuelProps> = ({ onBack }) => {
         // Unchanged, but kept for context.
     }
 
-    return <div><button onClick={onBack}>Back</button>...Loading</div>;
+    // Render other views as before
+    const OtherViews = () => {
+        if (view === 'setup') {
+            return (
+                <div className="space-y-6 text-center animate-fade-in text-white">
+                    <div className="flex items-center justify-between w-full">
+                        <h2 className="text-2xl font-bold">Đấu Từ vựng</h2>
+                         <button onClick={onBack} className="flex-shrink-0 flex items-center gap-2 px-3 py-2 text-sm bg-slate-700/50 hover:bg-slate-700 rounded-xl">
+                            <ArrowLeft className="w-4 h-4" /> <span>Quay lại</span>
+                        </button>
+                    </div>
+                    <div className="space-y-4">
+                        <div className="p-4 bg-slate-800/50 rounded-xl space-y-3">
+                             <h3 className="font-semibold text-lg">Chơi một mình</h3>
+                             <button onClick={() => setView('ai_game_setup')} className="w-full py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-semibold flex items-center justify-center gap-2"><Bot className="w-5 h-5"/> Chơi với AI</button>
+                        </div>
+                        <div className="p-4 bg-slate-800/50 rounded-xl space-y-3">
+                             <h3 className="font-semibold text-lg text-left">Chơi nhiều người</h3>
+                             <GameModeSelector 
+                                selectedGameMode={selectedGameMode}
+                                onGameModeChange={setSelectedGameMode}
+                                selectedTheme={selectedTheme}
+                                onThemeChange={setSelectedTheme}
+                                targetScore={targetScore}
+                                onTargetScoreChange={setTargetScore}
+                             />
+                             <button onClick={handleFindMatch} disabled={isFindingMatch} className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-semibold flex items-center justify-center gap-2 disabled:bg-indigo-400">
+                                {isFindingMatch ? <Loader2 className="w-5 h-5 animate-spin"/> : <Users className="w-5 h-5"/>}
+                                {isFindingMatch ? 'Đang tìm...' : 'Tìm trận nhanh'}
+                            </button>
+                            <div className="relative flex py-2 items-center"><div className="flex-grow border-t border-slate-600"></div><span className="flex-shrink mx-4 text-xs text-slate-400 uppercase">Hoặc</span><div className="flex-grow border-t border-slate-600"></div></div>
+                            <button onClick={() => handleCreateRoom(false)} className="w-full py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-semibold flex items-center justify-center gap-2"><Plus className="w-5 h-5"/> Tạo phòng riêng</button>
+                             <form onSubmit={handleJoinRoom} className="flex items-stretch gap-2 pt-2">
+                                <input value={joinCodeInput} onChange={e => setJoinCodeInput(e.target.value.toUpperCase())} placeholder="NHẬP MÃ" maxLength={6} className="flex-grow min-w-0 px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-center font-bold tracking-widest placeholder:font-normal placeholder:tracking-normal placeholder:text-gray-500"/>
+                                 <button type="submit" className="flex-shrink-0 px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg font-semibold text-white flex items-center justify-center gap-2">
+                                    <Key className="w-5 h-5" />
+                                    <span className="hidden sm:inline">Vào phòng</span>
+                                </button>
+                             </form>
+                        </div>
+                    </div>
+                </div>
+            )
+        }
+        if (view === 'ai_game_setup') {
+            return (
+                <div className="space-y-6 text-center animate-fade-in text-white">
+                    <h2 className="text-2xl font-bold">Cài đặt trận đấu AI</h2>
+                    <div className="p-4 bg-slate-800/50 rounded-xl space-y-4">
+                         <GameModeSelector 
+                            selectedGameMode={selectedGameMode}
+                            onGameModeChange={setSelectedGameMode}
+                            selectedTheme={selectedTheme}
+                            onThemeChange={setSelectedTheme}
+                            targetScore={targetScore}
+                            onTargetScoreChange={setTargetScore}
+                         />
+                         <div>
+                            <h3 className="font-semibold text-lg text-white mb-2 text-left">Độ khó</h3>
+                            <div className="grid grid-cols-4 gap-2">
+                                {Object.entries(difficultySettings).map(([key, { name }]) => (
+                                    <button key={key} onClick={() => setAiDifficulty(key as Difficulty)} className={`p-3 rounded-xl border-2 transition-colors text-sm ${aiDifficulty === key ? 'bg-indigo-500/20 border-indigo-500' : 'bg-slate-700 border-slate-600'}`}>{name}</button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                    <button onClick={handleStartAiGame} className="w-full py-3 bg-indigo-600 rounded-lg font-semibold">Bắt đầu</button>
+                    <button onClick={() => setView('setup')} className="text-sm text-indigo-400">Quay lại</button>
+                </div>
+            );
+        }
+        return null;
+    };
+    
+    return <OtherViews />;
 };
 
 export default VocabularyDuel;

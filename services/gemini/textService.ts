@@ -348,7 +348,7 @@ export const validateDuelWord = async (word: string, usedWords: string[], learni
     });
 };
 
-export const getAiDuelWord = async (usedWords: string[], learningLanguage: LearningLanguage, difficulty: string, context: { mode: GameMode; theme?: string; lastWord?: string; }): Promise<{ word: string }> => {
+export const getAiDuelWord = async (usedWords: string[], learningLanguage: LearningLanguage, difficulty: string, context: { mode: GameMode; theme?: string; lastWord?: string; targetScore?: number; }): Promise<{ word: string }> => {
     return executeWithKeyRotation(async (ai) => {
         let task = '';
         if (context.mode === 'theme' && context.theme !== 'any') {
@@ -357,7 +357,12 @@ export const getAiDuelWord = async (usedWords: string[], learningLanguage: Learn
             const lastLetter = context.lastWord.slice(-1);
             task = `Give me a word that starts with the letter "${lastLetter}".`;
         } else if (context.mode === 'longest') {
-            task = `Give me the longest, valid, and uncommon word you can think of.`;
+            if (context.lastWord) {
+                // AI should still try to play a long word to win, but it's not a strict requirement to be longer.
+                task = `Give me the longest, valid, and uncommon word you can think of.`;
+            } else { // First turn of the game
+                task = 'Give me a short, simple, common starting word with 3 to 5 letters.';
+            }
         } else {
             task = `Give me a valid word.`;
         }
