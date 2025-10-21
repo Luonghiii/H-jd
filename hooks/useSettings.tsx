@@ -197,10 +197,19 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
     
     const payload: DocumentData = {};
-    let newCurrentStreak = currentStreak;
+    payload['stats.lastActivityDate'] = today;
+    let streakUpdated = false;
 
-    if (lastActivityDate === yesterday) {
-        newCurrentStreak = currentStreak + 1;
+    // Case 1: Starting a brand new streak (current is 0 or no last activity date)
+    if (currentStreak === 0 || !lastActivityDate) {
+        payload['stats.currentStreak'] = 1;
+        payload['stats.longestStreak'] = Math.max(longestStreak, 1);
+        eventBus.dispatch('notification', { type: 'success', message: 'Chuỗi ngày học mới của bạn đã bắt đầu! Cố lên nào!' });
+        streakUpdated = true;
+    }
+    // Case 2: Continuing an existing streak
+    else if (lastActivityDate === yesterday) {
+        const newCurrentStreak = currentStreak + 1;
         payload['stats.currentStreak'] = newCurrentStreak;
         payload['stats.longestStreak'] = Math.max(longestStreak, newCurrentStreak);
 
@@ -208,29 +217,30 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
             payload['stats.streakFreeses'] = increment(1);
             eventBus.dispatch('notification', { type: 'success', message: 'Chúc mừng! Bạn đạt chuỗi 7 ngày và nhận được 1 Đóng Băng Chuỗi.' });
         }
-    } else { // Streak is broken or just starting
+        streakUpdated = true;
+    }
+    // Case 3: Streak is broken
+    else {
         if (streakFreeses > 0) {
+            // Use a freeze, streak is preserved and continues from where it was
             payload['stats.streakFreeses'] = increment(-1);
-            // The streak is preserved, not reset. We "fill in" the missed day.
-            payload['stats.lastActivityDate'] = yesterday; 
             eventBus.dispatch('notification', { type: 'info', message: 'Chuỗi của bạn đã được bảo vệ bởi Đóng Băng Chuỗi!' });
-        } else { // No freezes left, streak is broken or starting from 0
-            if (currentStreak > 0) {
-                 eventBus.dispatch('notification', { type: 'warning', message: 'Bạn đã mất chuỗi ngày học! Hãy cố gắng luyện tập mỗi ngày nhé.' });
-            } else {
-                 eventBus.dispatch('notification', { type: 'success', message: 'Chuỗi ngày học mới của bạn đã bắt đầu! Cố lên nào!' });
-            }
-            newCurrentStreak = 1;
+            // We don't reset the streak, it continues as if they didn't miss a day.
+            // The lastActivityDate will be updated to today, "bridging" the gap.
+        } else {
+            // No freezes left, streak is broken and resets to 1
             payload['stats.currentStreak'] = 1;
+            eventBus.dispatch('notification', { type: 'warning', message: 'Bạn đã mất chuỗi ngày học! Hãy cố gắng luyện tập mỗi ngày nhé.' });
         }
+        streakUpdated = true;
     }
     
-    payload['stats.lastActivityDate'] = today;
-
     const userRef = doc(db, 'users', currentUser.uid);
     await updateDoc(userRef, payload);
     
-    await updateUserLeaderboardEntry(currentUser.uid);
+    if (streakUpdated) {
+        await updateUserLeaderboardEntry(currentUser.uid);
+    }
     
   }, [currentUser, appState.stats]);
 
