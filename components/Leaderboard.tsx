@@ -11,7 +11,7 @@ const TABS: { id: LeaderboardTab; label: string; icon: React.ElementType }[] = [
     { id: 'longestStreak', label: 'Kỷ lục Chuỗi', icon: Trophy },
     { id: 'currentStreak', label: 'Chuỗi Hiện Tại', icon: Flame },
     { id: 'totalWords', label: 'Nhiều Từ Nhất', icon: BookOpen },
-    { id: 'xp', label: 'Kinh Nghiệm', icon: Zap },
+    { id: 'xp', label: 'Cấp Độ', icon: Zap },
     { id: 'luckyWheelBestStreak', label: 'Kỷ Lục Vòng Quay', icon: Star },
     { id: 'duelWins', label: 'Chiến Thần Đấu Từ', icon: Swords },
     { id: 'deckSubmissions', label: 'Nhà Xây Dựng', icon: Share2 },

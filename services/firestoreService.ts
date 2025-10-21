@@ -375,12 +375,22 @@ export const getLeaderboardData = async (statField: 'longestStreak' | 'totalWord
             allEntries.push(doc.data() as PublicLeaderboardEntry);
         });
 
-        allEntries.sort((a, b) => (b[statField] || 0) - (a[statField] || 0));
+        if (statField === 'xp') {
+            allEntries.sort((a, b) => {
+                const levelDiff = (b.level || 1) - (a.level || 1);
+                if (levelDiff !== 0) {
+                    return levelDiff;
+                }
+                return (b.xp || 0) - (a.xp || 0);
+            });
+        } else {
+            allEntries.sort((a, b) => (b[statField] || 0) - (a[statField] || 0));
+        }
         
         const leaderboard = allEntries.slice(0, 10).map(data => ({
             uid: data.uid,
             name: data.name,
-            value: data[statField] || 0,
+            value: statField === 'xp' ? (data.level || 1) : (data[statField] || 0),
             level: data.level || 1,
             photoURL: data.photoURL,
             selectedAchievement: data.selectedAchievement,
