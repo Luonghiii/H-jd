@@ -16,6 +16,7 @@ import {
     GameMode
 } from '../../types';
 import { executeWithKeyRotation } from './client';
+import { themeTranslationMap } from '../../hooks/useVocabulary';
 
 export const translateWord = async (word: string, targetLanguage: 'English' | 'Vietnamese', learningLanguage: LearningLanguage): Promise<string> => {
     return executeWithKeyRotation(async (ai) => {
@@ -29,10 +30,12 @@ export const translateWord = async (word: string, targetLanguage: 'English' | 'V
 
 export const generateWordsFromPrompt = async (prompt: string, existingWords: string[], learningLanguage: LearningLanguage, themes: string[]): Promise<GeneratedWord[]> => {
     return executeWithKeyRotation(async (ai) => {
-        const themesInstruction = themes.length > 0 ? `Try to use one of these existing themes: [${themes.join(', ')}].` : `Assign a general Vietnamese theme.`;
+        const generalThemes = Object.keys(themeTranslationMap);
+        const themesInstruction = `For the "theme" key, you MUST choose the most relevant theme from this fixed list of Vietnamese themes: [${generalThemes.join(', ')}]. If no theme is a perfect fit, choose the most general but appropriate one (e.g., "Đồ vật" for a specific tool, "Thức ăn" for a specific fruit). Do NOT create new themes.`;
+        
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
-            contents: `Generate a list of ${learningLanguage} words for "${prompt}". For each: provide "translation_vi", "translation_en", and "theme". ${themesInstruction} Do not include: ${existingWords.join(', ')}. Respond as a JSON array of objects. If none, return [].`,
+            contents: `Generate a list of ${learningLanguage} words for "${prompt}". For each word, provide its "translation_vi", "translation_en", and "theme". ${themesInstruction} Do not include any words from this list of existing words: ${existingWords.join(', ')}. Your response must be a valid JSON array of objects. If you cannot generate any new words, return an empty array [].`,
             config: { responseMimeType: "application/json" }
         });
         return JSON.parse(response.text.trim().replace(/^```json\n/, '').replace(/\n```$/, ''));
@@ -41,9 +44,8 @@ export const generateWordsFromPrompt = async (prompt: string, existingWords: str
 
 export const getWordsFromFile = async (base64: string, mimeType: string, existingWords: string[], learningLanguage: string, themes: string[]): Promise<GeneratedWord[]> => {
     return executeWithKeyRotation(async (ai) => {
-        const themesInstruction = themes.length > 0
-            ? `When assigning a theme, first try to use one from this existing list if it's a good fit: [${themes.join(', ')}]. Only create a new, general Vietnamese theme if none of the existing ones are suitable.`
-            : `Assign a relevant, general theme in Vietnamese (e.g., "Thiên nhiên", "Đồ vật", "Con người").`;
+        const generalThemes = Object.keys(themeTranslationMap);
+        const themesInstruction = `For the "theme" key, you MUST choose the most relevant theme from this fixed list of Vietnamese themes: [${generalThemes.join(', ')}]. If no theme is a perfect fit, choose the most general but appropriate one (e.g., "Đồ vật" for a specific tool, "Thức ăn" for a specific fruit). Do NOT create new themes.`;
 
         const prompt = `Analyze the provided file, which is likely a vocabulary list, possibly in a two-column table format. The left column contains the word in ${learningLanguage} and the right column contains its Vietnamese translation.
 Extract up to 100 vocabulary pairs from it.
@@ -147,9 +149,12 @@ export const generateQuizForWord = async (word: VocabularyWord, targetLanguage: 
 
 export const getQuickWordAnalysis = async (word: string, targetLanguageStr: string, learningLanguage: LearningLanguage): Promise<{ translation: string; partOfSpeech: string; theme: string } | null> => {
      return executeWithKeyRotation(async (ai) => {
+        const generalThemes = Object.keys(themeTranslationMap);
+        const themesInstruction = `For the "theme" key, you MUST choose the most relevant theme from this fixed list of Vietnamese themes: [${generalThemes.join(', ')}]. Do NOT create new themes.`;
+
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
-            contents: `Analyze the ${learningLanguage} word "${word}". Respond in JSON with its "translation" in ${targetLanguageStr}, its "partOfSpeech", and a Vietnamese "theme".`,
+            contents: `Analyze the ${learningLanguage} word "${word}". Respond in JSON with its "translation" in ${targetLanguageStr}, its "partOfSpeech", and a Vietnamese "theme". ${themesInstruction}`,
             config: { responseMimeType: "application/json" },
         });
         return JSON.parse(response.text.trim().replace(/^```json\n/, '').replace(/\n```$/, ''));
