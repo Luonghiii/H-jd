@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useSettings } from '../hooks/useSettings';
-import { useHistory } from '../hooks/useHistory';
+import { useHistory as useActivityHistory } from '../hooks/useHistory';
 import { checkGrammar, generateWritingPrompt } from '../services/geminiService';
-import { ArrowLeft, CheckCircle, RefreshCw, Sparkles, Wand2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle, RefreshCw, Sparkles, Wand2, Clock, ChevronDown, Trash2 } from 'lucide-react';
 import eventBus from '../utils/eventBus';
+import { AiGrammarHistoryEntry } from '../types';
 
 interface GrammarCheckerProps {
   onBack: () => void;
@@ -15,8 +16,8 @@ type Feedback = {
 } | null;
 
 const GrammarChecker: React.FC<GrammarCheckerProps> = ({ onBack }) => {
-    const { learningLanguage, uiLanguage, addXp } = useSettings();
-    const { addHistoryEntry } = useHistory();
+    const { learningLanguage, uiLanguage, addXp, aiGrammarHistory, saveGrammarCheck, clearGrammarHistory } = useSettings();
+    const { addHistoryEntry } = useActivityHistory();
     const [text, setText] = useState('');
     const [feedback, setFeedback] = useState<Feedback>(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -46,9 +47,14 @@ const GrammarChecker: React.FC<GrammarCheckerProps> = ({ onBack }) => {
         eventBus.dispatch('notification', { type: 'info', message: 'AI đang kiểm tra ngữ pháp...' });
         try {
             const result = await checkGrammar(text, learningLanguage, uiLanguage);
-            setFeedback(result);
-            addHistoryEntry('GRAMMAR_CHECK_COMPLETED', 'Đã sử dụng công cụ kiểm tra ngữ pháp.');
-            addXp(10); // Grant 10 XP for using the grammar checker
+            if (result) {
+                setFeedback(result);
+                await saveGrammarCheck({ originalText: text, correctedText: result.correctedText, feedback: result.feedback });
+                addHistoryEntry('GRAMMAR_CHECK_COMPLETED', 'Đã sử dụng công cụ kiểm tra ngữ pháp.');
+                addXp(10); // Grant 10 XP for using the grammar checker
+            } else {
+                 eventBus.dispatch('notification', { type: 'error', message: 'Không nhận được phản hồi hợp lệ từ AI.' });
+            }
         } catch (error) {
             console.error(error);
             alert('Đã xảy ra lỗi khi kiểm tra ngữ pháp.');
@@ -56,6 +62,12 @@ const GrammarChecker: React.FC<GrammarCheckerProps> = ({ onBack }) => {
         setIsLoading(false);
     };
     
+    const handleRestoreFromHistory = (item: AiGrammarHistoryEntry) => {
+        setText(item.originalText);
+        setFeedback({ correctedText: item.correctedText, feedback: item.feedback });
+        eventBus.dispatch('notification', { type: 'info', message: 'Đã khôi phục từ lịch sử.' });
+    };
+
     const langName = learningLanguage === 'german' ? 'tiếng Đức' : learningLanguage === 'english' ? 'tiếng Anh' : 'tiếng Trung';
 
     return (
@@ -123,7 +135,7 @@ const GrammarChecker: React.FC<GrammarCheckerProps> = ({ onBack }) => {
                             <h4 className="font-semibold text-white mb-2">Giải thích chi tiết:</h4>
                             <div className="space-y-2">
                                 {feedback.feedback.map((item, index) => (
-                                    <div key={index} className="p-3 border-l-4 border-amber-500 bg-slate-900/50">
+                                    <div key={index} className="p-3 border-l-4 border-amber-500 bg-slate-900/50 rounded-r-lg">
                                         <p><span className="text-red-400 line-through">{item.error}</span> → <span className="text-green-400 font-medium">{item.correction}</span></p>
                                         <p className="text-sm text-gray-400 mt-1">{item.explanation}</p>
                                     </div>
@@ -131,6 +143,28 @@ const GrammarChecker: React.FC<GrammarCheckerProps> = ({ onBack }) => {
                             </div>
                         </div>
                     )}
+                </div>
+            )}
+
+            {aiGrammarHistory.length > 0 && (
+                <div className="pt-6 mt-6 border-t border-slate-700">
+                    <details className="group">
+                        <summary className="cursor-pointer font-semibold text-white flex justify-between items-center list-none">
+                            <span className="flex items-center gap-2"><Clock className="w-5 h-5 text-gray-400"/> Lịch sử kiểm tra ({aiGrammarHistory.length})</span>
+                            <ChevronDown className="w-5 h-5 text-gray-400 transition-transform group-open:rotate-180" />
+                        </summary>
+                        <div className="mt-4 max-h-60 overflow-y-auto space-y-2 pr-2">
+                            {aiGrammarHistory.map(item => (
+                                <div key={item.id} onClick={() => handleRestoreFromHistory(item)} className="p-3 bg-slate-700/50 rounded-lg cursor-pointer hover:bg-slate-700">
+                                    <p className="font-semibold text-sm truncate text-gray-200">{item.originalText}</p>
+                                    <p className="text-xs text-gray-400 mt-1">{new Date(item.timestamp).toLocaleString('vi-VN')}</p>
+                                </div>
+                            ))}
+                        </div>
+                        <button onClick={clearGrammarHistory} className="flex items-center gap-1 text-xs text-red-400 hover:underline mt-2">
+                            <Trash2 className="w-3 h-3"/> Xóa lịch sử
+                        </button>
+                    </details>
                 </div>
             )}
         </div>

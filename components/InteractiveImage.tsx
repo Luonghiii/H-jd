@@ -183,14 +183,17 @@ const RealWorldExplorer: React.FC<{onBack: () => void;}> = ({ onBack }) => {
                                     for (const fc of msg.toolCall.functionCalls) {
                                         if (fc.name === 'foundObject') {
                                             const newWord: GeneratedWord = fc.args as any;
-                                            setCollectedWords(prev => {
-                                                if (!prev.some(w => w.word.toLowerCase() === newWord.word.toLowerCase())) {
-                                                    addHistoryEntry('IMAGE_OBJECT_IDENTIFIED', `Xác định đối tượng "${newWord.word}" từ camera.`, { word: newWord.word });
-                                                    addXp(5);
-                                                    return [...prev, newWord];
-                                                }
-                                                return prev;
-                                            });
+                                            if (newWord && newWord.word) { // Robustness check
+                                                setCollectedWords(prev => {
+                                                    const newWordLower = newWord.word.toLowerCase();
+                                                    if (!prev.some(w => w && w.word && w.word.toLowerCase() === newWordLower)) {
+                                                        addHistoryEntry('IMAGE_OBJECT_IDENTIFIED', `Xác định đối tượng "${newWord.word}" từ camera.`, { word: newWord.word });
+                                                        addXp(5);
+                                                        return [...prev, newWord];
+                                                    }
+                                                    return prev;
+                                                });
+                                            }
                                         }
                                     }
                                 }

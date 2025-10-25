@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
-import { TargetLanguage, LearningLanguage, ConversationSession, UserStats, HistoryEntry, AchievementProgress } from '../types';
+import { TargetLanguage, LearningLanguage, ConversationSession, UserStats, HistoryEntry, AchievementProgress, AiLessonHistoryEntry, AiStoryHistoryEntry, AiSentenceHistoryEntry, AiGrammarHistoryEntry, AiSmartReadingHistoryEntry, AiLesson, StudySet } from '../types';
 import { useAuth } from './useAuth';
 import { onUserDataSnapshot, updateUserData, updateUserLeaderboardEntry } from '../services/firestoreService';
 import { setApiKeys } from '../services/geminiService';
@@ -16,6 +16,7 @@ export type Theme = 'light' | 'dark';
 
 const MAX_API_KEYS = 10;
 const MAX_STREAK_FREEZES = 2;
+const HISTORY_LIMIT = 20;
 
 interface UserProfile {
     displayName: string | null;
@@ -63,6 +64,34 @@ interface SettingsContextType {
   achievements: { [key: string]: AchievementProgress };
   addXp: (amount: number) => Promise<void>;
   incrementDuelWins: () => Promise<void>;
+  
+  // Study Sets
+  studySets: StudySet[];
+  createStudySet: (name: string, wordIds: string[]) => Promise<void>;
+  deleteStudySet: (setId: string) => Promise<void>;
+  updateStudySet: (setId: string, updates: Partial<Omit<StudySet, 'id' | 'createdAt'>>) => Promise<void>;
+  batchCreateStudySets: (newStudySets: Omit<StudySet, 'id' | 'createdAt'>[]) => Promise<void>;
+  
+  // New history states and functions
+  aiLessonHistory: AiLessonHistoryEntry[];
+  saveLesson: (lesson: AiLesson, theme: string) => Promise<void>;
+  clearLessonHistory: () => Promise<void>;
+
+  aiStoryHistory: AiStoryHistoryEntry[];
+  saveStory: (entry: Omit<AiStoryHistoryEntry, 'id' | 'timestamp'>) => Promise<void>;
+  clearStoryHistory: () => Promise<void>;
+
+  aiSentenceHistory: AiSentenceHistoryEntry[];
+  saveSentence: (entry: Omit<AiSentenceHistoryEntry, 'id' | 'timestamp'>) => Promise<void>;
+  clearSentenceHistory: () => Promise<void>;
+
+  aiGrammarHistory: AiGrammarHistoryEntry[];
+  saveGrammarCheck: (entry: Omit<AiGrammarHistoryEntry, 'id' | 'timestamp'>) => Promise<void>;
+  clearGrammarHistory: () => Promise<void>;
+
+  aiSmartReadingHistory: AiSmartReadingHistoryEntry[];
+  saveSmartReading: (entry: Omit<AiSmartReadingHistoryEntry, 'id' | 'timestamp'>) => Promise<void>;
+  clearSmartReadingHistory: () => Promise<void>;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -103,6 +132,12 @@ const defaultState = {
     } as UserProfile,
     aiAssistantBackground: null,
     achievements: {},
+    studySets: [] as StudySet[],
+    aiLessonHistory: [] as AiLessonHistoryEntry[],
+    aiStoryHistory: [] as AiStoryHistoryEntry[],
+    aiSentenceHistory: [] as AiSentenceHistoryEntry[],
+    aiGrammarHistory: [] as AiGrammarHistoryEntry[],
+    aiSmartReadingHistory: [] as AiSmartReadingHistoryEntry[],
 };
 
 export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -142,6 +177,12 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
             },
             aiAssistantBackground: data.settings?.aiAssistantBackground || null,
             achievements: data.achievements || defaultState.achievements,
+            studySets: data.studySets || defaultState.studySets,
+            aiLessonHistory: data.aiLessonHistory || defaultState.aiLessonHistory,
+            aiStoryHistory: data.aiStoryHistory || defaultState.aiStoryHistory,
+            aiSentenceHistory: data.aiSentenceHistory || defaultState.aiSentenceHistory,
+            aiGrammarHistory: data.aiGrammarHistory || defaultState.aiGrammarHistory,
+            aiSmartReadingHistory: data.aiSmartReadingHistory || defaultState.aiSmartReadingHistory,
           };
           setAppState(combinedState);
           setApiKeys(combinedState.userApiKeys);
@@ -404,6 +445,92 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     });
     await updateUserLeaderboardEntry(currentUser.uid);
   }, [currentUser]);
+  
+  // Study Set Functions
+    const createStudySet = useCallback(async (name: string, wordIds: string[]) => {
+        if (!currentUser) return;
+        const newSet: StudySet = { id: crypto.randomUUID(), name, wordIds, createdAt: Date.now() };
+        const newSets = [...(appState.studySets || []), newSet];
+        await updateUserData(currentUser.uid, { studySets: newSets });
+    }, [currentUser, appState.studySets]);
+
+    const deleteStudySet = useCallback(async (setId: string) => {
+        if (!currentUser) return;
+        const newSets = (appState.studySets || []).filter(s => s.id !== setId);
+        await updateUserData(currentUser.uid, { studySets: newSets });
+    }, [currentUser, appState.studySets]);
+
+    const updateStudySet = useCallback(async (setId: string, updates: Partial<Omit<StudySet, 'id' | 'createdAt'>>) => {
+        if (!currentUser) return;
+        const newSets = (appState.studySets || []).map(s => 
+            s.id === setId 
+                ? { ...s, ...updates, ...updates } 
+                : s
+        );
+        await updateUserData(currentUser.uid, { studySets: newSets });
+    }, [currentUser, appState.studySets]);
+
+    const batchCreateStudySets = useCallback(async (newStudySets: Omit<StudySet, 'id' | 'createdAt'>[]) => {
+        if (!currentUser || newStudySets.length === 0) return;
+        
+        const existingNames = new Set((appState.studySets || []).map(s => s.name.toLowerCase()));
+        
+        const setsToAdd: StudySet[] = newStudySets
+            .filter(set => !existingNames.has(set.name.toLowerCase()))
+            .map(set => ({
+                ...set,
+                id: crypto.randomUUID(),
+                createdAt: Date.now(),
+            }));
+
+        if (setsToAdd.length > 0) {
+            const combinedSets = [...(appState.studySets || []), ...setsToAdd];
+            await updateUserData(currentUser.uid, { studySets: combinedSets });
+        }
+    }, [currentUser, appState.studySets]);
+
+
+  // New history functions
+    const saveLesson = useCallback(async (lesson: AiLesson, theme: string) => {
+        if (!currentUser) return;
+        const newEntry: AiLessonHistoryEntry = { ...lesson, theme, id: crypto.randomUUID(), timestamp: Date.now() };
+        const newHistory = [newEntry, ...(appState.aiLessonHistory || [])].slice(0, HISTORY_LIMIT);
+        await updateUserData(currentUser.uid, { aiLessonHistory: newHistory });
+    }, [currentUser, appState.aiLessonHistory]);
+    const clearLessonHistory = useCallback(async () => { if (currentUser) await updateUserData(currentUser.uid, { aiLessonHistory: [] }); }, [currentUser]);
+
+    const saveStory = useCallback(async (entry: Omit<AiStoryHistoryEntry, 'id' | 'timestamp'>) => {
+        if (!currentUser) return;
+        const newEntry: AiStoryHistoryEntry = { ...entry, id: crypto.randomUUID(), timestamp: Date.now() };
+        const newHistory = [newEntry, ...(appState.aiStoryHistory || [])].slice(0, HISTORY_LIMIT);
+        await updateUserData(currentUser.uid, { aiStoryHistory: newHistory });
+    }, [currentUser, appState.aiStoryHistory]);
+    const clearStoryHistory = useCallback(async () => { if (currentUser) await updateUserData(currentUser.uid, { aiStoryHistory: [] }); }, [currentUser]);
+
+    const saveSentence = useCallback(async (entry: Omit<AiSentenceHistoryEntry, 'id' | 'timestamp'>) => {
+        if (!currentUser) return;
+        const newEntry: AiSentenceHistoryEntry = { ...entry, id: crypto.randomUUID(), timestamp: Date.now() };
+        const newHistory = [newEntry, ...(appState.aiSentenceHistory || [])].slice(0, HISTORY_LIMIT);
+        await updateUserData(currentUser.uid, { aiSentenceHistory: newHistory });
+    }, [currentUser, appState.aiSentenceHistory]);
+    const clearSentenceHistory = useCallback(async () => { if (currentUser) await updateUserData(currentUser.uid, { aiSentenceHistory: [] }); }, [currentUser]);
+
+    const saveGrammarCheck = useCallback(async (entry: Omit<AiGrammarHistoryEntry, 'id' | 'timestamp'>) => {
+        if (!currentUser) return;
+        const newEntry: AiGrammarHistoryEntry = { ...entry, id: crypto.randomUUID(), timestamp: Date.now() };
+        const newHistory = [newEntry, ...(appState.aiGrammarHistory || [])].slice(0, HISTORY_LIMIT);
+        await updateUserData(currentUser.uid, { aiGrammarHistory: newHistory });
+    }, [currentUser, appState.aiGrammarHistory]);
+    const clearGrammarHistory = useCallback(async () => { if (currentUser) await updateUserData(currentUser.uid, { aiGrammarHistory: [] }); }, [currentUser]);
+
+    const saveSmartReading = useCallback(async (entry: Omit<AiSmartReadingHistoryEntry, 'id' | 'timestamp'>) => {
+        if (!currentUser) return;
+        const newEntry: AiSmartReadingHistoryEntry = { ...entry, id: crypto.randomUUID(), timestamp: Date.now() };
+        const newHistory = [newEntry, ...(appState.aiSmartReadingHistory || [])].slice(0, HISTORY_LIMIT);
+        await updateUserData(currentUser.uid, { aiSmartReadingHistory: newHistory });
+    }, [currentUser, appState.aiSmartReadingHistory]);
+    const clearSmartReadingHistory = useCallback(async () => { if (currentUser) await updateUserData(currentUser.uid, { aiSmartReadingHistory: [] }); }, [currentUser]);
+
 
   const hasApiKey = !!process.env.API_KEY || appState.userApiKeys.length > 0;
 
@@ -442,6 +569,28 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     achievements: appState.achievements,
     addXp,
     incrementDuelWins,
+    
+    studySets: appState.studySets,
+    createStudySet,
+    deleteStudySet,
+    updateStudySet,
+    batchCreateStudySets,
+    
+    aiLessonHistory: appState.aiLessonHistory,
+    saveLesson,
+    clearLessonHistory,
+    aiStoryHistory: appState.aiStoryHistory,
+    saveStory,
+    clearStoryHistory,
+    aiSentenceHistory: appState.aiSentenceHistory,
+    saveSentence,
+    clearSentenceHistory,
+    aiGrammarHistory: appState.aiGrammarHistory,
+    saveGrammarCheck,
+    clearGrammarHistory,
+    aiSmartReadingHistory: appState.aiSmartReadingHistory,
+    saveSmartReading,
+    clearSmartReadingHistory,
   };
 
   return (

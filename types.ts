@@ -16,7 +16,6 @@ export interface VocabularyWord {
   theme?: string;
   createdAt: number;
   isStarred: boolean;
-  imageUrl?: string;
   speechAudio?: string; // Base64 encoded audio string
   mnemonic?: string; // AI-generated mnemonic
   // Spaced Repetition System fields
@@ -50,6 +49,50 @@ export interface AchievementProgress {
     unlockedAt?: number;
 }
 
+export interface AiLessonHistoryEntry extends AiLesson {
+    id: string;
+    timestamp: number;
+    theme: string;
+}
+
+export interface AiStoryHistoryEntry {
+    id: string;
+    timestamp: number;
+    words: string[];
+    story: string;
+    translation: string;
+}
+
+export interface AiSentenceHistoryEntry {
+    id: string;
+    timestamp: number;
+    word: string;
+    sentence: string;
+    translation: string;
+}
+
+export interface AiGrammarHistoryEntry {
+    id: string;
+    timestamp: number;
+    originalText: string;
+    correctedText: string;
+    feedback: { error: string; correction: string; explanation: string }[];
+}
+
+export interface AiSmartReadingHistoryEntry {
+    id: string;
+    timestamp: number;
+    topic: string;
+    article: ArticleResult;
+}
+
+export interface StudySet {
+  id: string;
+  name: string;
+  wordIds: string[];
+  createdAt: number;
+}
+
 export interface UserDoc {
     uid: string;
     email: string | null;
@@ -66,6 +109,14 @@ export interface UserDoc {
     aiAssistantBackground?: string;
     achievements: { [key: string]: AchievementProgress };
     selectedAchievement?: { id: string; level: number; } | null;
+    studySets?: StudySet[];
+    
+    // New histories
+    aiLessonHistory?: AiLessonHistoryEntry[];
+    aiStoryHistory?: AiStoryHistoryEntry[];
+    aiSentenceHistory?: AiSentenceHistoryEntry[];
+    aiGrammarHistory?: AiGrammarHistoryEntry[];
+    aiSmartReadingHistory?: AiSmartReadingHistoryEntry[];
 }
 
 export interface WordInfo {

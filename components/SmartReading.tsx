@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useSettings } from '../hooks/useSettings';
-import { useHistory } from '../hooks/useHistory';
+import { useHistory as useActivityHistory } from '../hooks/useHistory';
 import { findAndSummarizeArticle } from '../services/geminiService';
-import { ArticleResult } from '../types';
-import { ArrowLeft, Search, RefreshCw, Globe } from 'lucide-react';
+import { ArticleResult, AiSmartReadingHistoryEntry } from '../types';
+import { ArrowLeft, Search, RefreshCw, Globe, Clock, ChevronDown, Trash2 } from 'lucide-react';
 import HighlightableText from './HighlightableText';
 import { useVocabulary } from '../hooks/useVocabulary';
 import eventBus from '../utils/eventBus';
@@ -13,8 +13,8 @@ interface SmartReadingProps {
 }
 
 const SmartReading: React.FC<SmartReadingProps> = ({ onBack }) => {
-    const { learningLanguage, addXp } = useSettings();
-    const { addHistoryEntry } = useHistory();
+    const { learningLanguage, addXp, aiSmartReadingHistory, saveSmartReading, clearSmartReadingHistory } = useSettings();
+    const { addHistoryEntry } = useActivityHistory();
     const { words } = useVocabulary(); // for HighlightableText
 
     const [topic, setTopic] = useState('');
@@ -34,6 +34,7 @@ const SmartReading: React.FC<SmartReadingProps> = ({ onBack }) => {
             const result = await findAndSummarizeArticle(topic, learningLanguage, mode);
             if (result && result.text) {
                 setArticle(result);
+                await saveSmartReading({ topic, article: result });
                 addHistoryEntry('SMART_READING_COMPLETED', `Đọc bài báo về chủ đề: "${topic}"`, { topic, mode });
                 addXp(15);
             } else {
@@ -45,6 +46,13 @@ const SmartReading: React.FC<SmartReadingProps> = ({ onBack }) => {
         } finally {
             setIsLoading(false);
         }
+    };
+
+    const handleRestoreFromHistory = (item: AiSmartReadingHistoryEntry) => {
+        setTopic(item.topic);
+        setArticle(item.article);
+        setMode(item.article.text.length < 500 ? 'summary' : 'full'); // Guess mode
+        eventBus.dispatch('notification', { type: 'info', message: 'Đã khôi phục bài đọc từ lịch sử.' });
     };
 
     return (
@@ -106,6 +114,28 @@ const SmartReading: React.FC<SmartReadingProps> = ({ onBack }) => {
                             </ul>
                         </div>
                     )}
+                </div>
+            )}
+
+            {aiSmartReadingHistory.length > 0 && (
+                <div className="pt-6 mt-6 border-t border-slate-700">
+                    <details className="group">
+                        <summary className="cursor-pointer font-semibold text-white flex justify-between items-center list-none">
+                            <span className="flex items-center gap-2"><Clock className="w-5 h-5 text-gray-400"/> Lịch sử đọc ({aiSmartReadingHistory.length})</span>
+                            <ChevronDown className="w-5 h-5 text-gray-400 transition-transform group-open:rotate-180" />
+                        </summary>
+                        <div className="mt-4 max-h-60 overflow-y-auto space-y-2 pr-2">
+                            {aiSmartReadingHistory.map(item => (
+                                <div key={item.id} onClick={() => handleRestoreFromHistory(item)} className="p-3 bg-slate-700/50 rounded-lg cursor-pointer hover:bg-slate-700">
+                                    <p className="font-semibold text-sm truncate text-gray-200">{item.topic}</p>
+                                    <p className="text-xs text-gray-400 mt-1">{new Date(item.timestamp).toLocaleString('vi-VN')}</p>
+                                </div>
+                            ))}
+                        </div>
+                        <button onClick={clearSmartReadingHistory} className="flex items-center gap-1 text-xs text-red-400 hover:underline mt-2">
+                            <Trash2 className="w-3 h-3"/> Xóa lịch sử
+                        </button>
+                    </details>
                 </div>
             )}
         </div>

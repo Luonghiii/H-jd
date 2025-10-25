@@ -98,7 +98,7 @@ const AddWord: React.FC<AddWordProps> = ({ onBack }) => {
         if (error.message === "All API keys failed.") {
              eventBus.dispatch('notification', { type: 'error', message: "Tất cả API key đều không hoạt động. Vui lòng kiểm tra lại trong Cài đặt." });
         } else {
-             eventBus.dispatch('notification', { type: 'error', message: "Lỗi không xác định khi tạo từ." });
+             eventBus.dispatch('notification', { type: 'error', message: `Lỗi khi tạo từ: ${error.message}` });
         }
       } finally {
         setIsAiLoading(false);
@@ -149,7 +149,7 @@ const AddWord: React.FC<AddWordProps> = ({ onBack }) => {
             if (error.message === "All API keys failed.") {
                 eventBus.dispatch('notification', { type: 'error', message: "Tất cả API key đều không hoạt động. Vui lòng kiểm tra lại trong Cài đặt." });
             } else {
-                eventBus.dispatch('notification', { type: 'error', message: "Lỗi không xác định khi phân tích file." });
+                eventBus.dispatch('notification', { type: 'error', message: `Lỗi khi phân tích file: ${error.message}` });
             }
         } finally {
             setIsUploading(false);

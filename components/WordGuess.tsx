@@ -269,7 +269,10 @@ const WordGuess: React.FC<WordGuessProps> = ({ onBack }) => {
         <div className="space-y-6 animate-fade-in">
              <div className="flex justify-between items-center">
                 <h2 className="text-lg font-bold text-white">Đoán chữ</h2>
-                <div className="text-red-400 font-semibold">Sai: {wrongGuesses} / {MAX_WRONG_GUESSES}</div>
+                <div className="flex items-center gap-4">
+                    <span className="text-red-400 font-semibold">Sai: {wrongGuesses} / {MAX_WRONG_GUESSES}</span>
+                    <button onClick={() => setGameState('setup')} className="text-sm text-indigo-400 hover:underline">Thoát</button>
+                </div>
             </div>
 
             {renderWordDisplay()}

@@ -1,11 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import { useVocabulary } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
-import { useHistory } from '../hooks/useHistory';
+import { useHistory as useActivityHistory } from '../hooks/useHistory';
 import { generateSentence } from '../services/geminiService';
-import { VocabularyWord } from '../types';
-import { RefreshCw, Wand2, ArrowLeft, Search } from 'lucide-react';
+import { VocabularyWord, AiSentenceHistoryEntry } from '../types';
+import { RefreshCw, Wand2, ArrowLeft, Search, Clock, ChevronDown, Trash2 } from 'lucide-react';
 import HighlightableText from './HighlightableText';
+import eventBus from '../utils/eventBus';
 
 interface SentenceGeneratorProps {
   onBack: () => void;
@@ -13,8 +14,8 @@ interface SentenceGeneratorProps {
 
 const SentenceGenerator: React.FC<SentenceGeneratorProps> = ({ onBack }) => {
     const { words } = useVocabulary();
-    const { uiLanguage, learningLanguage, addXp } = useSettings();
-    const { addHistoryEntry } = useHistory();
+    const { uiLanguage, learningLanguage, addXp, aiSentenceHistory, saveSentence, clearSentenceHistory } = useSettings();
+    const { addHistoryEntry } = useActivityHistory();
     const [selectedWord, setSelectedWord] = useState<VocabularyWord | null>(null);
     const [generatedSentence, setGeneratedSentence] = useState('');
     const [translation, setTranslation] = useState('');
@@ -38,15 +39,26 @@ const SentenceGenerator: React.FC<SentenceGeneratorProps> = ({ onBack }) => {
         const result = await generateSentence(word, uiLanguage, learningLanguage);
         addHistoryEntry('SENTENCE_GENERATED', `Tạo câu ví dụ cho từ "${word.word}".`, { word: word.word });
         const parts = result.split('---Translation---');
-        if (parts.length === 2) {
-            setGeneratedSentence(parts[0].trim());
-            setTranslation(parts[1].trim());
-        } else {
-            setGeneratedSentence(result.trim());
-            setTranslation('');
-        }
+        const sentenceText = parts[0].trim();
+        const translationText = parts.length > 1 ? parts[1].trim() : '';
+
+        setGeneratedSentence(sentenceText);
+        setTranslation(translationText);
+        
+        await saveSentence({ word: word.word, sentence: sentenceText, translation: translationText });
+        
         addXp(5); // Grant 5 XP for generating a sentence
         setIsLoading(false);
+    };
+    
+    const handleRestoreFromHistory = (item: AiSentenceHistoryEntry) => {
+        const wordObject = words.find(w => w.word === item.word);
+        if (wordObject) {
+            setSelectedWord(wordObject);
+            setGeneratedSentence(item.sentence);
+            setTranslation(item.translation);
+            eventBus.dispatch('notification', { type: 'info', message: 'Đã khôi phục câu từ lịch sử.' });
+        }
     };
     
     const languageNameMap = {
@@ -134,6 +146,28 @@ const SentenceGenerator: React.FC<SentenceGeneratorProps> = ({ onBack }) => {
                     )}
                 </div>
             </div>
+
+            {aiSentenceHistory.length > 0 && (
+                <div className="pt-6 mt-6 border-t border-slate-700">
+                    <details className="group">
+                        <summary className="cursor-pointer font-semibold text-white flex justify-between items-center list-none">
+                            <span className="flex items-center gap-2"><Clock className="w-5 h-5 text-gray-400"/> Lịch sử câu ({aiSentenceHistory.length})</span>
+                            <ChevronDown className="w-5 h-5 text-gray-400 transition-transform group-open:rotate-180" />
+                        </summary>
+                        <div className="mt-4 max-h-60 overflow-y-auto space-y-2 pr-2">
+                            {aiSentenceHistory.map(item => (
+                                <div key={item.id} onClick={() => handleRestoreFromHistory(item)} className="p-3 bg-slate-700/50 rounded-lg cursor-pointer hover:bg-slate-700">
+                                    <p className="font-semibold text-sm truncate text-gray-200">Câu cho từ: <span className="text-cyan-300">{item.word}</span></p>
+                                    <p className="text-xs text-gray-400 mt-1">{new Date(item.timestamp).toLocaleString('vi-VN')}</p>
+                                </div>
+                            ))}
+                        </div>
+                        <button onClick={clearSentenceHistory} className="flex items-center gap-1 text-xs text-red-400 hover:underline mt-2">
+                            <Trash2 className="w-3 h-3"/> Xóa lịch sử
+                        </button>
+                    </details>
+                </div>
+            )}
         </div>
     );
 };

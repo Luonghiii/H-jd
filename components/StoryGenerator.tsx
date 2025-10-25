@@ -1,10 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { useVocabulary } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
-import { useHistory } from '../hooks/useHistory';
+import { useHistory as useActivityHistory } from '../hooks/useHistory';
 import { generateStory, generateSpeech } from '../services/geminiService';
-import { VocabularyWord } from '../types';
-import { Sparkles, RefreshCw, CheckCircle, BookText, ArrowLeft, Search, Volume2, Loader2 } from 'lucide-react';
+import { VocabularyWord, AiStoryHistoryEntry } from '../types';
+import { Sparkles, RefreshCw, CheckCircle, BookText, ArrowLeft, Search, Volume2, Loader2, Clock, ChevronDown, Trash2 } from 'lucide-react';
 import HighlightableText from './HighlightableText';
 import eventBus from '../utils/eventBus';
 import { useAudioPlayer } from '../hooks/useAudioPlayer';
@@ -15,8 +15,8 @@ interface StoryGeneratorProps {
 
 const StoryGenerator: React.FC<StoryGeneratorProps> = ({ onBack }) => {
   const { words } = useVocabulary();
-  const { uiLanguage, learningLanguage, incrementAchievementCounter, addXp } = useSettings();
-  const { addHistoryEntry } = useHistory();
+  const { uiLanguage, learningLanguage, incrementAchievementCounter, addXp, aiStoryHistory, saveStory, clearStoryHistory } = useSettings();
+  const { addHistoryEntry } = useActivityHistory();
   const { play, isPlaying } = useAudioPlayer();
 
   const [selectedWords, setSelectedWords] = useState<VocabularyWord[]>([]);
@@ -56,18 +56,26 @@ const StoryGenerator: React.FC<StoryGeneratorProps> = ({ onBack }) => {
     const aiStory = await generateStory(wordsForStory, uiLanguage, learningLanguage);
     
     const parts = aiStory.split('---Translation---');
-    if (parts.length === 2) {
-        setGeneratedStory(parts[0].trim());
-        setTranslation(parts[1].trim());
-    } else {
-        setGeneratedStory(aiStory.trim());
-        setTranslation('');
-    }
+    const storyText = parts[0].trim();
+    const translationText = parts.length === 2 ? parts[1].trim() : '';
+    
+    setGeneratedStory(storyText);
+    setTranslation(translationText);
+    
+    await saveStory({ words: wordsForStory, story: storyText, translation: translationText });
 
     addHistoryEntry('STORY_GENERATED', `Đã tạo truyện với ${selectedWords.length} từ.`, { wordCount: selectedWords.length });
     incrementAchievementCounter('STORY_GENERATED');
     addXp(20); // Grant 20 XP for generating a story
     setIsLoading(false);
+  };
+  
+  const handleRestoreFromHistory = (item: AiStoryHistoryEntry) => {
+    setGeneratedStory(item.story);
+    setTranslation(item.translation);
+    const usedWords = words.filter(w => item.words.includes(w.word));
+    setSelectedWords(usedWords);
+    eventBus.dispatch('notification', { type: 'info', message: 'Đã khôi phục truyện từ lịch sử.' });
   };
 
   const handlePlayStory = async () => {
@@ -196,6 +204,28 @@ const StoryGenerator: React.FC<StoryGeneratorProps> = ({ onBack }) => {
             </div>
           )}
         </div>
+      )}
+      
+      {aiStoryHistory.length > 0 && (
+          <div className="pt-6 mt-6 border-t border-slate-700">
+              <details className="group">
+                  <summary className="cursor-pointer font-semibold text-white flex justify-between items-center list-none">
+                      <span className="flex items-center gap-2"><Clock className="w-5 h-5 text-gray-400"/> Lịch sử truyện ({aiStoryHistory.length})</span>
+                      <ChevronDown className="w-5 h-5 text-gray-400 transition-transform group-open:rotate-180" />
+                  </summary>
+                  <div className="mt-4 max-h-60 overflow-y-auto space-y-2 pr-2">
+                      {aiStoryHistory.map(item => (
+                          <div key={item.id} onClick={() => handleRestoreFromHistory(item)} className="p-3 bg-slate-700/50 rounded-lg cursor-pointer hover:bg-slate-700">
+                              <p className="font-semibold text-sm truncate text-gray-200">Truyện với các từ: {item.words.join(', ')}</p>
+                              <p className="text-xs text-gray-400 mt-1">{new Date(item.timestamp).toLocaleString('vi-VN')}</p>
+                          </div>
+                      ))}
+                  </div>
+                  <button onClick={clearStoryHistory} className="flex items-center gap-1 text-xs text-red-400 hover:underline mt-2">
+                      <Trash2 className="w-3 h-3"/> Xóa lịch sử
+                  </button>
+              </details>
+          </div>
       )}
     </div>
   );

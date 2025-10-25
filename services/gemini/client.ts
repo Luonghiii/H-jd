@@ -40,7 +40,6 @@ export const executeWithKeyRotation = async <T>(apiCall: (ai: GoogleGenAI) => Pr
             if (isKeyError) {
                 keyIndex = (keyIndex + 1) % totalKeys;
             } else {
-                eventBus.dispatch('notification', { type: 'error', message: 'Lỗi API không xác định. Vui lòng thử lại.' });
                 throw error;
             }
         }

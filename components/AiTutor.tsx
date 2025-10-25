@@ -404,26 +404,26 @@ const AiTutor: React.FC<AiTutorProps> = ({ onBack }) => {
             {error && <p className="text-center text-sm text-red-400">{error}</p>}
             
             {aiTutorHistory.length > 0 && (
-                <details className="flex-shrink-0 rounded-2xl border border-slate-700 bg-slate-800/50">
-                    <summary className="p-3 cursor-pointer flex justify-between items-center font-semibold">
+                <details className="group flex-shrink-0 rounded-2xl border border-slate-700 bg-slate-800/50">
+                    <summary className="p-3 cursor-pointer flex justify-between items-center font-semibold list-none">
                         Lịch sử trò chuyện ({aiTutorHistory.length})
                         <ChevronDown className="w-5 h-5 transition-transform group-open:rotate-180" />
                     </summary>
                     <div className="p-3 border-t border-slate-700 max-h-48 overflow-y-auto space-y-4">
                         {aiTutorHistory.map(session => (
-                            <div key={session.id} className="p-2 bg-slate-900/50 rounded-lg">
-                                <p className="text-xs text-gray-400 mb-2">{new Date(session.startTime).toLocaleString()}</p>
+                            <div key={session.id} className="p-3 bg-slate-900/50 rounded-lg">
+                                <p className="text-sm text-gray-400 mb-2">{new Date(session.startTime).toLocaleString('vi-VN')}</p>
                                 {session.turns.map((turn, i) => (
-                                    <div key={i} className="text-sm">
-                                        <p><strong className="text-cyan-400">B:</strong> {turn.user}</p>
-                                        <p><strong className="text-indigo-400">A:</strong> {turn.model}</p>
+                                    <div key={i} className="text-base mb-3 leading-relaxed">
+                                        <p className="text-gray-300"><strong className="text-cyan-400 font-medium">Bạn:</strong> {turn.user}</p>
+                                        <p className="text-gray-200"><strong className="text-indigo-400 font-medium">AI:</strong> {turn.model}</p>
                                     </div>
                                 ))}
                             </div>
                         ))}
                     </div>
-                     <button onClick={handleClearHistory} className="w-full text-center text-xs p-2 text-red-400 hover:bg-red-500/10 border-t border-slate-700">
-                        <Trash2 className="w-3 h-3 inline mr-1" /> Xóa lịch sử
+                     <button onClick={handleClearHistory} className="w-full text-center text-sm p-2 text-red-400 hover:bg-red-500/10 border-t border-slate-700 flex items-center justify-center gap-2">
+                        <Trash2 className="w-4 h-4" /> Xóa lịch sử
                     </button>
                 </details>
             )}

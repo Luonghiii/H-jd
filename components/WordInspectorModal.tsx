@@ -4,10 +4,11 @@ import { useSettings } from '../hooks/useSettings';
 import { getWordInfo, generateSentence, checkSentence, rewriteSentence, getChatResponseForWord, generateSpeech } from '../services/geminiService';
 import { useAudioPlayer } from '../hooks/useAudioPlayer';
 import { useHistory } from '../hooks/useHistory';
-import { X, Info, MessageSquare, BookOpen, Send, RefreshCw, Volume2, Loader2, Edit, Save, PlusCircle } from 'lucide-react';
 import { useVocabulary } from '../hooks/useVocabulary';
 import { useInspector, useQuickTranslate } from '../hooks/useInspector';
 import eventBus from '../utils/eventBus';
+// FIX: Import missing Lucide icons to resolve 'Cannot find name' errors.
+import { Loader2, X, PlusCircle, Volume2, Edit, Info, BookOpen, MessageSquare, RefreshCw, Send, Save } from 'lucide-react';
 
 export const QuickTranslateModal: React.FC = () => {
     const { data, closeQuickTranslate } = useQuickTranslate();
@@ -200,7 +201,7 @@ const WordInspectorModal: React.FC<WordInspectorModalProps> = ({ isOpen, word, o
       };
       fetchInfo();
     }
-  }, [isOpen, word]);
+  }, [isOpen, word, uiLanguage, learningLanguage]);
 
   useEffect(() => {
     if (chatContainerRef.current) {
@@ -364,7 +365,6 @@ const WordInspectorModal: React.FC<WordInspectorModalProps> = ({ isOpen, word, o
                   <div className="space-y-4 text-gray-300">
                       {isInfoLoading ? <div className="flex justify-center items-center h-48"><Loader2 className="w-8 h-8 animate-spin text-indigo-400" /></div> : hasValidInfo ? (
                           <>
-                            {word.imageUrl && <img src={word.imageUrl} alt={word.word} className="w-full h-48 object-contain rounded-xl bg-slate-700/50 p-2"/>}
                             {word.theme && <p><strong className="text-white font-semibold">Chủ đề:</strong> {word.theme}</p>}
                             <p><strong className="text-white font-semibold">Loại từ:</strong> {wordInfo.partOfSpeech}</p>
                             {wordInfo.gender && <p><strong className="text-white font-semibold">Giống:</strong> {wordInfo.gender}</p>}

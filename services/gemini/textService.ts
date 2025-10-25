@@ -1,4 +1,4 @@
-import { Type } from "@google/genai";
+import { Type, FunctionDeclaration } from "@google/genai";
 import { 
     GeneratedWord, 
     WordInfo, 
@@ -41,16 +41,76 @@ export const generateWordsFromPrompt = async (prompt: string, existingWords: str
 
 export const getWordsFromFile = async (base64: string, mimeType: string, existingWords: string[], learningLanguage: string, themes: string[]): Promise<GeneratedWord[]> => {
     return executeWithKeyRotation(async (ai) => {
-        const themesInstruction = themes.length > 0 ? `Try to use an existing theme: [${themes.join(', ')}].` : `Assign a general Vietnamese theme.`;
+        const themesInstruction = themes.length > 0
+            ? `When assigning a theme, first try to use one from this existing list if it's a good fit: [${themes.join(', ')}]. Only create a new, general Vietnamese theme if none of the existing ones are suitable.`
+            : `Assign a relevant, general theme in Vietnamese (e.g., "Thiên nhiên", "Đồ vật", "Con người").`;
+
+        const prompt = `Analyze the provided file, which is likely a vocabulary list, possibly in a two-column table format. The left column contains the word in ${learningLanguage} and the right column contains its Vietnamese translation.
+Extract up to 100 vocabulary pairs from it.
+For each pair, create a JSON object with the following keys:
+1. "word": The word in ${learningLanguage} from the left column. Clean up any extra annotations like "(adj)" or "(v)".
+2. "translation_vi": The Vietnamese translation from the right column.
+3. "translation_en": Generate the English translation for the ${learningLanguage} word.
+4. "theme": ${themesInstruction}
+
+Filter out any words that are already in this list of existing words: [${existingWords.join(', ')}].
+
+Your response MUST be a valid JSON array of these objects. If you cannot find any new words, return an empty array []. Do not output any other text or markdown formatting.`;
+
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: { parts: [
-                { inlineData: { data: base64, mimeType } },
-                { text: `Extract up to 100 key ${learningLanguage} vocabulary words. For each: provide "translation_vi", "translation_en", and "theme". ${themesInstruction} Don't include: ${existingWords.join(', ')}. Respond as a JSON array. If none, return [].` }
+                { inlineData: { data: base64, mimeType: mimeType } },
+                { text: prompt }
             ]},
             config: { responseMimeType: "application/json" }
         });
-        return JSON.parse(response.text.trim().replace(/^```json\n/, '').replace(/\n```$/, ''));
+        
+        let jsonString = response.text.trim();
+
+        // Remove markdown fences
+        jsonString = jsonString.replace(/^```json\n?/, '').replace(/\n?```$/, '').trim();
+
+        // Attempt to handle cases where the entire response is a JSON string literal
+        try {
+            const parsed = JSON.parse(jsonString);
+            if (typeof parsed === 'string') {
+                jsonString = parsed.trim();
+            }
+        } catch(e) {
+            // Not a valid JSON string literal, proceed.
+        }
+
+        const firstBracket = jsonString.indexOf('[');
+        const firstBrace = jsonString.indexOf('{');
+        let start = -1;
+
+        if (firstBracket === -1) start = firstBrace;
+        else if (firstBrace === -1) start = firstBracket;
+        else start = Math.min(firstBracket, firstBrace);
+
+        if (start === -1) {
+            console.error("No JSON object or array found in AI response:", response.text);
+            throw new Error("Invalid response format from AI.");
+        }
+
+        const lastBracket = jsonString.lastIndexOf(']');
+        const lastBrace = jsonString.lastIndexOf('}');
+        const end = Math.max(lastBracket, lastBrace);
+
+        if (end === -1) {
+            console.error("Incomplete JSON in AI response:", response.text);
+            throw new Error("Invalid response format from AI.");
+        }
+
+        const potentialJson = jsonString.substring(start, end + 1);
+
+        try {
+            return JSON.parse(potentialJson) as GeneratedWord[];
+        } catch (e) {
+            console.error("Failed to parse extracted JSON from AI file response:", potentialJson, "Original response:", response.text);
+            throw new Error("Invalid response format from AI.");
+        }
     });
 };
 
@@ -390,7 +450,59 @@ export const getAiSuggestedWords = async (prompt: string, availableWords: Vocabu
     });
 };
 
-export const getAiAssistantResponse = async (message: string, history: AiAssistantMessage[], context: any): Promise<{ responseText: string, functionCalls?: any[] }> => {
-    // This is a placeholder. The full implementation will be added in a future step.
-    return Promise.resolve({ responseText: 'Đây là câu trả lời mẫu từ Trợ lý AI.' });
+export const getAiAssistantResponse = async (
+    message: string, 
+    history: AiAssistantMessage[], 
+    context: any // { detailedActivityLog, vocabularyList, userStats }
+): Promise<{ responseText: string, functionCalls?: any[] }> => {
+    return executeWithKeyRotation(async (ai) => {
+        const navigateToGame: FunctionDeclaration = {
+            name: 'navigateToGame',
+            description: 'Navigates the user to a specific game screen within the app.',
+            parameters: {
+                type: Type.OBJECT,
+                properties: {
+                    gameName: {
+                        type: Type.STRING,
+                        description: 'The name of the game to navigate to. Valid options are: "quiz", "luckywheel", "memorymatch", "wordlink", "wordguess", "sentencescramble", "listening", "duel".'
+                    }
+                },
+                required: ['gameName']
+            },
+        };
+
+        const contextText = `
+### User Context
+- Vocabulary Size: ${context.vocabularyList?.length || 0} words
+- Current Streak: ${context.userStats?.currentStreak || 0} days
+- Recent Activities: ${context.detailedActivityLog?.slice(0, 3).map((a: HistoryEntry) => a.details).join('; ') || 'None'}
+`;
+
+        const systemInstruction = `You are Lingo, a friendly and insightful AI language learning assistant. Your purpose is to help the user practice and learn their target language.
+You can suggest activities, explain concepts, or just chat. You have access to user data to personalize your suggestions. You can use tools to help the user, like navigating them to a game.
+The user's native language is Vietnamese. Respond in Vietnamese unless the user wants to practice. Keep responses helpful and concise.
+
+${contextText}
+`;
+
+        const contents = history.map(h => ({
+            role: h.role,
+            parts: [{ text: h.text }]
+        }));
+        contents.push({ role: 'user', parts: [{ text: message }] });
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: contents,
+            config: {
+                systemInstruction: systemInstruction,
+                tools: [{ functionDeclarations: [navigateToGame] }],
+            },
+        });
+        
+        return {
+            responseText: response.text,
+            functionCalls: response.functionCalls || [],
+        };
+    });
 };

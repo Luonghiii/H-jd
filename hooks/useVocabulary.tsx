@@ -96,12 +96,11 @@ export const themeTranslationMap: Record<string, string> = {
 interface VocabularyContextType {
   words: VocabularyWord[];
   isWordsLoading: boolean;
-  addWord: (word: string, translation: string, language: TargetLanguage, theme?: string, imageUrl?: string) => Promise<boolean>;
+  addWord: (word: string, translation: string, language: TargetLanguage, theme?: string) => Promise<boolean>;
   addMultipleWords: (newWords: GeneratedWord[]) => Promise<number>;
   deleteWord: (id: string) => Promise<void>;
   deleteAllWords: () => Promise<void>;
   updateWord: (id: string, updates: Partial<VocabularyWord>) => Promise<void>;
-  updateWordImage: (wordId: string, imageUrl: string | null) => Promise<void>;
   getAvailableThemes: () => string[];
   toggleWordStar: (id: string) => Promise<void>;
   lastDeletion: VocabularyWord | VocabularyWord[] | null;
@@ -144,11 +143,11 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
     }, [words.length, currentUser, updateWordCountStat]);
 
 
-    const addWord = useCallback(async (word: string, translationStr: string, language: TargetLanguage, theme?: string, imageUrl?: string): Promise<boolean> => {
+    const addWord = useCallback(async (word: string, translationStr: string, language: TargetLanguage, theme?: string): Promise<boolean> => {
         if (!currentUser) return false;
 
         const trimmedWord = word.trim();
-        if (words.some(w => w.word.toLowerCase() === trimmedWord.toLowerCase())) {
+        if (words.some(w => w && w.word && w.word.toLowerCase() === trimmedWord.toLowerCase())) {
             eventBus.dispatch('notification', { type: 'warning', message: `Từ "${trimmedWord}" đã tồn tại.` });
             return false;
         }
@@ -171,9 +170,6 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
         if (theme) {
             finalWord.theme = theme;
         }
-        if (imageUrl) {
-            finalWord.imageUrl = imageUrl;
-        }
 
         if (language === 'vietnamese' && !finalWord.translation.english) {
             finalWord.translation.english = await translateWord(trimmedWord, 'English', learningLanguage);
@@ -188,10 +184,14 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
 
 
     const addMultipleWords = useCallback(async (newWords: GeneratedWord[]): Promise<number> => {
-        if (!currentUser || newWords.length === 0) return 0;
+        if (!currentUser || !newWords || newWords.length === 0) return 0;
 
-        const existingWordSet = new Set(words.map(w => w.word.toLowerCase()));
-        const wordsToAdd = newWords.filter(w => !existingWordSet.has(w.word.toLowerCase()));
+        const validNewWords = newWords.filter(w => w && typeof w.word === 'string' && w.word.trim() !== '');
+
+        if (validNewWords.length === 0) return 0;
+        
+        const existingWordSet = new Set(words.filter(w => w && w.word).map(w => w.word.toLowerCase()));
+        const wordsToAdd = validNewWords.filter(w => !existingWordSet.has(w.word.toLowerCase()));
 
         if (wordsToAdd.length === 0) return 0;
         
@@ -199,8 +199,8 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
             id: crypto.randomUUID(),
             word: w.word,
             translation: {
-                vietnamese: w.translation_vi,
-                english: w.translation_en,
+                vietnamese: w.translation_vi || '',
+                english: w.translation_en || '',
             },
             theme: w.theme,
             createdAt: Date.now(),
@@ -268,7 +268,6 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
         await updateWordDoc(currentUser.uid, id, updates);
     }, [currentUser]);
 
-    const updateWordImage = (wordId: string, imageUrl: string | null) => updateWord(wordId, { imageUrl: imageUrl ?? undefined });
     const updateWordSpeechAudio = (wordId: string, audioB64: string) => updateWord(wordId, { speechAudio: audioB64 });
 
     const toggleWordStar = async (id: string) => {
@@ -286,7 +285,7 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
     const getAvailableThemes = useCallback((): string[] => {
         const themes = new Set<string>();
         words.forEach(word => {
-            if (word.theme) themes.add(word.theme);
+            if (word && word.theme) themes.add(word.theme);
         });
         return Array.from(themes).sort();
     }, [words]);
@@ -316,7 +315,6 @@ export const VocabularyProvider: React.FC<{ children: ReactNode }> = ({ children
         deleteWord,
         deleteAllWords,
         updateWord,
-        updateWordImage,
         getAvailableThemes,
         toggleWordStar,
         lastDeletion,

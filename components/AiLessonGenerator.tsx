@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useSettings } from '../hooks/useSettings';
 import { useVocabulary } from '../hooks/useVocabulary';
-import { useHistory } from '../hooks/useHistory';
+import { useHistory as useActivityHistory } from '../hooks/useHistory';
 import { generateAiLesson } from '../services/geminiService';
-import { AiLesson } from '../types';
-import { ArrowLeft, RefreshCw, Sparkles, BookOpen, MessageCircle, GraduationCap, PlusCircle } from 'lucide-react';
+import { AiLesson, AiLessonHistoryEntry } from '../types';
+import { ArrowLeft, RefreshCw, Sparkles, BookOpen, MessageCircle, GraduationCap, PlusCircle, Clock, ChevronDown, Trash2 } from 'lucide-react';
 import eventBus from '../utils/eventBus';
 
 interface AiLessonGeneratorProps {
@@ -12,9 +12,9 @@ interface AiLessonGeneratorProps {
 }
 
 const AiLessonGenerator: React.FC<AiLessonGeneratorProps> = ({ onBack }) => {
-    const { learningLanguage, uiLanguage, addXp } = useSettings();
+    const { learningLanguage, uiLanguage, addXp, aiLessonHistory, saveLesson, clearLessonHistory } = useSettings();
     const { addMultipleWords } = useVocabulary();
-    const { addHistoryEntry } = useHistory();
+    const { addHistoryEntry } = useActivityHistory();
     const [theme, setTheme] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [lesson, setLesson] = useState<AiLesson | null>(null);
@@ -29,6 +29,7 @@ const AiLessonGenerator: React.FC<AiLessonGeneratorProps> = ({ onBack }) => {
             const result = await generateAiLesson(theme, learningLanguage, uiLanguage);
             if (result) {
                 setLesson(result);
+                await saveLesson(result, theme);
                 addHistoryEntry('AI_LESSON_GENERATED', `Đã tạo bài học về chủ đề: "${theme}"`, { theme });
                 addXp(25); // Grant 25 XP for generating a lesson
             } else {
@@ -52,6 +53,12 @@ const AiLessonGenerator: React.FC<AiLessonGeneratorProps> = ({ onBack }) => {
 
         const count = await addMultipleWords(wordsToAdd);
         eventBus.dispatch('notification', { type: 'success', message: `Đã thêm ${count} từ mới vào danh sách của bạn!` });
+    };
+
+    const handleRestoreFromHistory = (item: AiLessonHistoryEntry) => {
+        setTheme(item.theme);
+        setLesson(item);
+        eventBus.dispatch('notification', { type: 'info', message: 'Đã khôi phục bài học từ lịch sử.' });
     };
 
     return (
@@ -124,6 +131,28 @@ const AiLessonGenerator: React.FC<AiLessonGeneratorProps> = ({ onBack }) => {
                             <p className="text-sm text-gray-400 mt-1">{lesson.grammarTip.explanation}</p>
                         </div>
                     </div>
+                </div>
+            )}
+
+            {aiLessonHistory.length > 0 && (
+                <div className="pt-6 mt-6 border-t border-slate-700">
+                    <details className="group">
+                        <summary className="cursor-pointer font-semibold text-white flex justify-between items-center list-none">
+                            <span className="flex items-center gap-2"><Clock className="w-5 h-5 text-gray-400"/> Lịch sử bài học ({aiLessonHistory.length})</span>
+                            <ChevronDown className="w-5 h-5 text-gray-400 transition-transform group-open:rotate-180" />
+                        </summary>
+                        <div className="mt-4 max-h-60 overflow-y-auto space-y-2 pr-2">
+                            {aiLessonHistory.map(item => (
+                                <div key={item.id} onClick={() => handleRestoreFromHistory(item)} className="p-3 bg-slate-700/50 rounded-lg cursor-pointer hover:bg-slate-700">
+                                    <p className="font-semibold text-sm truncate text-gray-200">{item.theme}</p>
+                                    <p className="text-xs text-gray-400 mt-1">{new Date(item.timestamp).toLocaleString('vi-VN')}</p>
+                                </div>
+                            ))}
+                        </div>
+                        <button onClick={clearLessonHistory} className="flex items-center gap-1 text-xs text-red-400 hover:underline mt-2">
+                            <Trash2 className="w-3 h-3"/> Xóa lịch sử
+                        </button>
+                    </details>
                 </div>
             )}
         </div>

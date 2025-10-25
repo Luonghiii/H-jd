@@ -3,7 +3,7 @@ import { useVocabulary, themeTranslationMap } from '../hooks/useVocabulary';
 import { useSettings } from '../hooks/useSettings';
 import { useInspector } from '../hooks/useInspector';
 import { useHistory } from '../hooks/useHistory';
-import { VocabularyWord } from '../types';
+import { VocabularyWord, StudySet } from '../types';
 import { generateQuizForWord } from '../services/geminiService';
 import { Check, X, Loader2, RefreshCw, ArrowLeft, ChevronDown, Sparkles } from 'lucide-react';
 import AiWordSelectorModal from './AiWordSelectorModal';
@@ -23,6 +23,7 @@ type UserAnswer = {
 };
 
 type QuizView = 'setup' | 'loading' | 'playing' | 'results';
+type SelectionSource = 'theme' | 'studySet';
 
 interface QuizProps {
   onBack: () => void;
@@ -30,13 +31,12 @@ interface QuizProps {
 
 export const Quiz: React.FC<QuizProps> = ({ onBack }) => {
   const { words, getAvailableThemes } = useVocabulary();
-  const { uiLanguage, learningLanguage, addXp } = useSettings();
+  const { uiLanguage, learningLanguage, addXp, studySets } = useSettings();
   const { openInspector } = useInspector();
   const { addHistoryEntry } = useHistory();
   const { logActivity } = useActivityTracker();
 
   const [view, setView] = useState<QuizView>('setup');
-  const [selectedThemes, setSelectedThemes] = useState<Set<string>>(new Set(['all']));
   const [numQuestions, setNumQuestions] = useState(10);
   
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
@@ -46,20 +46,35 @@ export const Quiz: React.FC<QuizProps> = ({ onBack }) => {
   const [error, setError] = useState<string | null>(null);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   
+  // Setup State
+  const [selectionSource, setSelectionSource] = useState<SelectionSource>('theme');
+  const [selectedThemes, setSelectedThemes] = useState<Set<string>>(new Set(['all']));
+  const [selectedStudySetIds, setSelectedStudySetIds] = useState<Set<string>>(new Set());
   const availableThemes = getAvailableThemes();
   
-  const themeFilteredWords = useMemo(() => {
-    if (selectedThemes.has('all')) return words;
-    return words.filter(w => w.theme && selectedThemes.has(w.theme));
-  }, [words, selectedThemes]);
+  const baseWordsForSelection = useMemo(() => {
+    if (selectionSource === 'theme') {
+      if (selectedThemes.has('all')) return words;
+      return words.filter(w => w.theme && selectedThemes.has(w.theme));
+    } else { // 'studySet'
+      if (selectedStudySetIds.size === 0) return [];
+      const combinedWordIds = new Set<string>();
+      (studySets || []).forEach(set => {
+        if (selectedStudySetIds.has(set.id)) {
+          set.wordIds.forEach(id => combinedWordIds.add(id));
+        }
+      });
+      return words.filter(w => combinedWordIds.has(w.id));
+    }
+  }, [words, selectionSource, selectedThemes, selectedStudySetIds, studySets]);
   
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(themeFilteredWords.map(w => w.id)));
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(baseWordsForSelection.map(w => w.id)));
   
   useEffect(() => {
-    setSelectedIds(new Set(themeFilteredWords.map(w => w.id)));
-  }, [themeFilteredWords]);
+    setSelectedIds(new Set(baseWordsForSelection.map(w => w.id)));
+  }, [baseWordsForSelection]);
 
-  const wordsForQuiz = useMemo(() => themeFilteredWords.filter(w => selectedIds.has(w.id)), [themeFilteredWords, selectedIds]);
+  const wordsForQuiz = useMemo(() => baseWordsForSelection.filter(w => selectedIds.has(w.id)), [baseWordsForSelection, selectedIds]);
 
   const handleThemeToggle = (theme: string) => {
     setSelectedThemes(prev => {
@@ -73,6 +88,15 @@ export const Quiz: React.FC<QuizProps> = ({ onBack }) => {
     });
   };
 
+  const handleStudySetToggle = (setId: string) => {
+    setSelectedStudySetIds(prev => {
+        const newSet = new Set(prev);
+        if (newSet.has(setId)) newSet.delete(setId);
+        else newSet.add(setId);
+        return newSet;
+    });
+  };
+
   const handleToggleWord = (id: string) => {
     setSelectedIds(prev => {
       const newSet = new Set(prev);
@@ -80,7 +104,7 @@ export const Quiz: React.FC<QuizProps> = ({ onBack }) => {
       return newSet;
     });
   };
-  const handleSelectAll = () => setSelectedIds(new Set(themeFilteredWords.map(w => w.id)));
+  const handleSelectAll = () => setSelectedIds(new Set(baseWordsForSelection.map(w => w.id)));
   const handleDeselectAll = () => setSelectedIds(new Set());
   
   const handleAiSelect = (aiWords: VocabularyWord[]) => {
@@ -216,174 +240,175 @@ export const Quiz: React.FC<QuizProps> = ({ onBack }) => {
                             <div key={index} className="p-3 bg-slate-800/50 rounded-xl flex items-center justify-between">
                                 <div>
                                     <p className="font-semibold text-white cursor-pointer hover:underline" onClick={() => openInspector(question.word)}>{question.word.word}</p>
-                                    <p className="text-sm"><span className="text-red-400">Bạn chọn: {answer}</span> • <span className="text-green-400">Đáp án: {question.correctAnswer}</span></p>
+                                    <p className="text-sm text-red-400 line-through">Bạn trả lời: {answer}</p>
+                                    <p className="text-sm text-green-400">Đáp án đúng: {question.correctAnswer}</p>
                                 </div>
                             </div>
                         ))}
                     </div>
                 </div>
             )}
-            
             <div className="flex flex-col sm:flex-row gap-3 pt-4">
-                <button onClick={onBack} className="flex-1 px-4 py-3 bg-slate-600 hover:bg-slate-700 text-white font-semibold rounded-xl">Quay lại</button>
+                <button onClick={onBack} className="flex-1 px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-xl">Game mới</button>
                 <button onClick={handleRestartQuiz} className="flex-1 flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl">
-                    <RefreshCw className="w-5 h-5 mr-2" /> Làm lại
+                    <RefreshCw className="w-5 h-5 mr-2" />
+                    Chơi lại
                 </button>
             </div>
         </div>
     );
   };
 
-  const renderSetup = () => (
-    <>
-      <div className="space-y-6 animate-fade-in">
-        <div className="flex items-center justify-between">
-          <div className="text-center sm:text-left">
-            <h2 className="text-2xl font-bold text-white">Kiểm tra trắc nghiệm</h2>
-            <p className="text-gray-400 mt-1">Chọn từ và số lượng câu hỏi.</p>
-          </div>
-          <button onClick={onBack} className="flex-shrink-0 flex items-center gap-2 px-3 py-2 text-sm bg-slate-700/50 hover:bg-slate-700 text-gray-200 font-semibold rounded-xl transition-colors">
-            <ArrowLeft className="w-4 h-4" />
-            <span>Quay lại</span>
-          </button>
-        </div>
-        
-        {error && <p className="text-center text-red-400 bg-red-500/10 p-3 rounded-xl">{error}</p>}
-
-        <div>
-            <h3 className="font-semibold text-white mb-2">Lựa chọn từ</h3>
-            <button 
-                onClick={() => setIsAiModalOpen(true)}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600/20 text-indigo-300 border border-indigo-500/50 rounded-xl hover:bg-indigo-600/40"
-            >
-                <Sparkles className="w-5 h-5" />
-                Nhờ AI chọn giúp
-            </button>
-        </div>
-
-        <details className="group bg-slate-800/50 border border-slate-700 rounded-2xl">
-            <summary className="list-none p-3 cursor-pointer flex justify-between items-center">
-                <h3 className="font-semibold text-white">Hoặc, chọn thủ công...</h3>
-                <ChevronDown className="w-5 h-5 text-gray-400 transition-transform group-open:rotate-180" />
-            </summary>
-            <div className="p-3 border-t border-slate-600 space-y-4">
-                <div>
-                  <h3 className="font-semibold text-white">1. Chọn chủ đề <span className="text-gray-400 font-normal text-sm">({selectedThemes.has('all') ? 'Tất cả' : `${selectedThemes.size} đã chọn`})</span></h3>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                      <button onClick={() => handleThemeToggle('all')} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has('all') ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 text-gray-200 hover:bg-slate-600'}`}>
-                        Tất cả ({words.length})
-                      </button>
-                      {availableThemes.map(theme => (
-                        <button key={theme} onClick={() => handleThemeToggle(theme)} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has(theme) ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 text-gray-200 hover:bg-slate-600'}`}>
-                          {uiLanguage === 'english' ? (themeTranslationMap[theme] || theme) : theme} ({words.filter(w => w.theme === theme).length})
-                        </button>
-                      ))}
-                  </div>
+  if (view === 'setup') {
+    return (
+        <>
+            <div className="space-y-6 animate-fade-in">
+                <div className="flex items-center justify-between">
+                    <h2 className="text-2xl font-bold text-white">Trắc nghiệm</h2>
+                    <button onClick={onBack} className="flex-shrink-0 flex items-center gap-2 px-3 py-2 text-sm bg-slate-700/50 hover:bg-slate-700 text-gray-200 font-semibold rounded-xl transition-colors">
+                        <ArrowLeft className="w-4 h-4" />
+                        <span>Quay lại</span>
+                    </button>
                 </div>
+                <p className="text-gray-400 -mt-4 text-center sm:text-left">Kiểm tra kiến thức của bạn với các câu hỏi do AI tạo ra.</p>
+
+                <div className="flex justify-center p-1 bg-slate-800/60 rounded-full mb-4">
+                    <button onClick={() => setSelectionSource('theme')} className={`px-4 py-1.5 text-sm rounded-full font-medium transition-all ${selectionSource === 'theme' ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-slate-700'}`}>Theo Chủ đề</button>
+                    <button onClick={() => setSelectionSource('studySet')} className={`px-4 py-1.5 text-sm rounded-full font-medium transition-all ${selectionSource === 'studySet' ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-slate-700'}`}>Theo Bộ từ học</button>
+                </div>
+
                 <div>
-                  <h3 className="font-semibold text-white mb-2">2. Chọn từ ({selectedIds.size} / {themeFilteredWords.length} đã chọn)</h3>
-                  <div className="flex gap-2 mb-2">
-                    <button onClick={handleSelectAll} className="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded-lg text-gray-200">Chọn tất cả</button>
-                    <button onClick={handleDeselectAll} className="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded-lg text-gray-200">Bỏ chọn tất cả</button>
-                  </div>
-                  <div className="max-h-[20vh] overflow-y-auto pr-2 bg-slate-800/50 border border-slate-700 rounded-2xl p-3 space-y-2">
-                    {themeFilteredWords.map(word => (
-                      <div key={word.id} onClick={() => handleToggleWord(word.id)} className="flex items-center p-2 rounded-xl hover:bg-slate-700/50 cursor-pointer transition-colors">
-                        <input type="checkbox" checked={selectedIds.has(word.id)} readOnly className="w-5 h-5 mr-3 bg-slate-900 border-slate-600 text-indigo-500 focus:ring-indigo-600 rounded-md pointer-events-none" />
+                    <h3 className="font-semibold text-white mb-2">Lựa chọn từ</h3>
+                    <button onClick={() => setIsAiModalOpen(true)} className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600/20 text-indigo-300 border border-indigo-500/50 rounded-xl hover:bg-indigo-600/40">
+                        <Sparkles className="w-5 h-5" />
+                        Nhờ AI chọn giúp
+                    </button>
+                </div>
+                
+                <details className="group bg-slate-800/50 border border-slate-700 rounded-2xl">
+                    <summary className="list-none p-3 cursor-pointer flex justify-between items-center">
+                        <h3 className="font-semibold text-white">Hoặc, chọn thủ công...</h3>
+                        <ChevronDown className="w-5 h-5 text-gray-400 transition-transform group-open:rotate-180" />
+                    </summary>
+                    <div className="p-3 border-t border-slate-600 space-y-4">
+                        {selectionSource === 'theme' ? (
+                             <div>
+                                <h3 className="font-semibold text-white">1. Chọn chủ đề <span className="text-gray-400 font-normal text-sm">({selectedThemes.has('all') ? 'Tất cả' : `${selectedThemes.size} đã chọn`})</span></h3>
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                    <button onClick={() => handleThemeToggle('all')} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has('all') ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 text-gray-200 hover:bg-slate-600'}`}>
+                                        Tất cả ({words.length})
+                                    </button>
+                                    {availableThemes.map(theme => (
+                                        <button key={theme} onClick={() => handleThemeToggle(theme)} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedThemes.has(theme) ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 text-gray-200 hover:bg-slate-600'}`}>
+                                            {uiLanguage === 'english' ? (themeTranslationMap[theme] || theme) : theme} ({words.filter(w => w.theme === theme).length})
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        ) : (
+                             <div>
+                                <h3 className="font-semibold text-white">1. Chọn bộ từ học <span className="text-gray-400 font-normal text-sm">({selectedStudySetIds.size} đã chọn)</span></h3>
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                    {(studySets || []).map((set: StudySet) => (
+                                      <button key={set.id} onClick={() => handleStudySetToggle(set.id)} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedStudySetIds.has(set.id) ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-700 text-gray-200 hover:bg-slate-600'}`}>
+                                        {set.name} ({set.wordIds.length})
+                                      </button>
+                                    ))}
+                                    {(studySets || []).length === 0 && <p className="text-sm text-gray-400">Bạn chưa tạo bộ từ học nào.</p>}
+                                </div>
+                            </div>
+                        )}
+                       
                         <div>
-                          <p className="font-medium text-white hover:underline" onClick={(e) => { e.stopPropagation(); openInspector(word); }}>{word.word}</p>
-                          <p className="text-sm text-gray-400">{word.translation[uiLanguage]}</p>
+                            <h3 className="font-semibold text-white mb-2">2. Chọn từ ({selectedIds.size} / {baseWordsForSelection.length} đã chọn)</h3>
+                             <div className="flex gap-2 mb-2">
+                                <button onClick={handleSelectAll} className="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded-lg text-gray-200">Chọn tất cả</button>
+                                <button onClick={handleDeselectAll} className="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded-lg text-gray-200">Bỏ chọn tất cả</button>
+                            </div>
+                            <div className="max-h-[20vh] overflow-y-auto pr-2 bg-slate-800/50 border border-slate-700 rounded-2xl p-3 space-y-2">
+                                {baseWordsForSelection.map(word => (
+                                    <div key={word.id} onClick={() => handleToggleWord(word.id)} className="flex items-center p-2 rounded-xl hover:bg-slate-700/50 cursor-pointer transition-colors">
+                                        <input type="checkbox" checked={selectedIds.has(word.id)} readOnly className="w-5 h-5 mr-3 bg-slate-900 border-slate-600 text-indigo-500 focus:ring-indigo-600 rounded-md pointer-events-none" />
+                                        <div>
+                                            <p className="font-medium text-white hover:underline" onClick={(e) => { e.stopPropagation(); openInspector(word); }}>{word.word}</p>
+                                            <p className="text-sm text-gray-400">{word.translation[uiLanguage]}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-            </div>
-        </details>
-        
-        <div>
-          <h3 className="font-semibold text-white mb-2">3. Chọn số câu hỏi</h3>
-          <div className="flex justify-center gap-2">
-            {[5, 10, 15, 20].map(n => (
-              <button key={n} onClick={() => setNumQuestions(n)} className={`px-4 py-2 text-sm rounded-xl transition-colors ${numQuestions === n ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-gray-200 hover:bg-slate-600'}`}>{n} câu</button>
-            ))}
-          </div>
-        </div>
-        
-        <button onClick={handleStartQuiz} disabled={wordsForQuiz.length === 0} className="w-full flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98] disabled:bg-indigo-400 disabled:cursor-not-allowed">
-          Bắt đầu
-        </button>
-        {wordsForQuiz.length < 1 && <p className="text-center text-sm text-amber-400">Vui lòng chọn ít nhất 1 từ để tạo bài trắc nghiệm.</p>}
-      </div>
-      <AiWordSelectorModal 
-        isOpen={isAiModalOpen}
-        onClose={() => setIsAiModalOpen(false)}
-        availableWords={themeFilteredWords}
-        onConfirm={handleAiSelect}
-      />
-    </>
-  );
+                    </div>
+                </details>
 
+                <div>
+                    <h3 className="font-semibold text-white mb-2">3. Chọn số câu hỏi</h3>
+                    <input type="range" min="5" max={Math.max(5, wordsForQuiz.length)} value={numQuestions} onChange={e => setNumQuestions(Number(e.target.value))} className="w-full" disabled={wordsForQuiz.length === 0} />
+                    <div className="text-center font-bold text-indigo-400">{wordsForQuiz.length > 0 ? numQuestions : 0} câu</div>
+                </div>
+
+                {error && <p className="text-center text-red-400">{error}</p>}
+                
+                <button onClick={handleStartQuiz} disabled={wordsForQuiz.length === 0} className="w-full flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98] disabled:bg-indigo-400 disabled:cursor-not-allowed">
+                    Bắt đầu
+                </button>
+            </div>
+            <AiWordSelectorModal isOpen={isAiModalOpen} onClose={() => setIsAiModalOpen(false)} availableWords={baseWordsForSelection} onConfirm={handleAiSelect} />
+        </>
+    );
+  }
+  
   if (view === 'loading') {
     return (
-      <div className="text-center p-10">
-        <Loader2 className="w-10 h-10 animate-spin mx-auto text-indigo-400" />
-        <p className="mt-4 text-white">AI đang tạo câu hỏi...</p>
+      <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
+        <Loader2 className="w-12 h-12 text-indigo-400 animate-spin mb-4" />
+        <p className="text-lg text-white">AI đang tạo câu hỏi...</p>
+        <p className="text-gray-400">Việc này có thể mất một vài giây.</p>
       </div>
     );
   }
-
+  
   if (view === 'results') {
     return <ResultsScreen />;
   }
 
-  if (view === 'playing' && quizQuestions.length > 0) {
-    const currentQuestion = quizQuestions[currentQuestionIndex];
-    
-    return (
-      <div className="space-y-6 animate-fade-in">
-        <div>
-          <div className="flex justify-between items-center mb-2">
-            <h2 className="text-lg font-bold text-white">Câu hỏi {currentQuestionIndex + 1} / {quizQuestions.length}</h2>
-            <button onClick={onBack} className="text-sm text-indigo-400 hover:underline">Thoát</button>
-          </div>
-          <div className="w-full bg-slate-700 rounded-full h-2.5">
-            <div className="bg-indigo-500 h-2.5 rounded-full" style={{ width: `${((currentQuestionIndex + 1) / quizQuestions.length) * 100}%` }}></div>
-          </div>
-        </div>
-        <div className="text-center p-6 bg-slate-800/50 rounded-2xl">
-          <p className="text-3xl font-bold text-white">{currentQuestion.question}</p>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {currentQuestion.options.map((option, i) => {
-            const isCorrect = option === currentQuestion.correctAnswer;
-            const isSelected = option === selectedAnswer;
-            let buttonClass = 'bg-slate-700/80 hover:bg-slate-700 text-white';
+  const currentQuestion = quizQuestions[currentQuestionIndex];
 
-            if (selectedAnswer) {
-              if (isCorrect) {
-                buttonClass = 'bg-green-500 ring-2 ring-green-400 text-white scale-105';
-              } else if (isSelected && !isCorrect) {
-                buttonClass = 'bg-red-500 ring-2 ring-red-400 text-white';
-              } else {
-                buttonClass = 'bg-slate-700/50 opacity-60';
-              }
-            }
-            return (
-              <button key={i} onClick={() => handleAnswerSelect(option)} disabled={!!selectedAnswer} className={`w-full text-center py-3 px-4 rounded-2xl font-semibold text-lg transition-all duration-300 ${buttonClass}`}>
-                {option}
-              </button>
-            );
-          })}
-        </div>
-        {selectedAnswer && (
-          <button onClick={handleNextQuestion} className="w-full mt-4 flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98]">
-            {currentQuestionIndex >= quizQuestions.length - 1 ? 'Xem kết quả' : 'Câu tiếp theo'}
-          </button>
-        )}
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex justify-between items-center mb-2">
+        <h2 className="text-lg font-bold text-white">Câu hỏi {currentQuestionIndex + 1} / {quizQuestions.length}</h2>
+        <button onClick={onBack} className="text-sm text-indigo-400 hover:underline">Thoát</button>
       </div>
-    );
-  }
+      <div className="w-full bg-slate-700 rounded-full h-2.5">
+        <div className="bg-indigo-500 h-2.5 rounded-full transition-all duration-300" style={{ width: `${((currentQuestionIndex + 1) / quizQuestions.length) * 100}%` }}></div>
+      </div>
+      <div className="text-center p-8 bg-slate-800/50 rounded-2xl">
+        <p className="text-3xl font-bold text-white cursor-pointer hover:underline" onClick={() => openInspector(currentQuestion.word)}>{currentQuestion.question}</p>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {currentQuestion.options.map((option, i) => {
+          const isCorrect = option === currentQuestion.correctAnswer;
+          const isSelected = option === selectedAnswer;
+          let buttonClass = 'bg-slate-700/80 hover:bg-slate-700 text-white';
 
-  return null;
+          if (selectedAnswer) {
+            if (isCorrect) buttonClass = 'bg-green-500 ring-2 ring-green-400 text-white scale-105';
+            else if (isSelected) buttonClass = 'bg-red-500 ring-2 ring-red-400 text-white';
+            else buttonClass = 'bg-slate-700/50 opacity-60';
+          }
+
+          return (
+            <button key={i} onClick={() => handleAnswerSelect(option)} disabled={!!selectedAnswer} className={`w-full text-center py-3 px-4 rounded-2xl font-semibold text-lg transition-all duration-300 ${buttonClass}`}>
+              {option}
+            </button>
+          );
+        })}
+      </div>
+      {selectedAnswer && (
+        <button onClick={handleNextQuestion} className="w-full mt-4 flex items-center justify-center px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform duration-200 active:scale-[0.98]">
+          {currentQuestionIndex >= quizQuestions.length - 1 ? 'Xem kết quả' : 'Câu tiếp theo'}
+        </button>
+      )}
+    </div>
+  );
 };
